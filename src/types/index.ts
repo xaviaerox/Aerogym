@@ -1,4 +1,4 @@
-export { DailyHealthMetric } from './health';
+export type { DailyHealthMetric } from './health';
 
 export type MuscleGroup = 
   | 'Pecho' | 'Espalda' | 'Hombros' | 'Cuádriceps' | 'Isquios' | 'Glúteos' | 'Gemelos' 
@@ -73,6 +73,6 @@ export interface AppState {
   routines: Routine[];
   customExercises: Exercise[];
   onboardingComplete: boolean;
-  healthMetrics: DailyHealthMetric[];
+  healthMetrics: import('./health').DailyHealthMetric[];
   version: string;
 }

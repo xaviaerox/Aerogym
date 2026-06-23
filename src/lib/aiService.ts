@@ -1,158 +1,227 @@
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
-import { AppState, Routine, UserProfile, Exercise } from '../types';
-import { BASE_EXERCISES } from '../constants/exercises';
+import { supabase } from '../infrastructure/supabase/client';
 
-const API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || "").trim();
-const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const PROXY_URL = `${SUPABASE_URL}/functions/v1/gemini-proxy`;
 
-export const generateRoutineWithAI = async (profile: UserProfile): Promise<Routine> => {
-  if (!genAI) throw new Error("API Key no configurada");
+interface GeminiContent {
+  role: 'user' | 'model';
+  parts: { text: string }[];
+}
 
-  const model = genAI.getGenerativeModel({ 
-    model: "gemini-flash-latest",
-    safetySettings: [
-      { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-    ]
+interface GeminiRequestBody {
+  model?: string;
+  contents: GeminiContent[];
+  systemInstruction?: { parts: { text: string }[] };
+  generationConfig?: {
+    maxOutputTokens?: number;
+    temperature?: number;
+  };
+}
+
+/**
+ * Llama al proxy de Supabase que contiene la API Key de Gemini de forma segura.
+ * La API Key NUNCA sale del servidor.
+ */
+export async function callGeminiProxy(body: GeminiRequestBody): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Usuario no autenticado');
+
+  const response = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(body),
   });
 
-  const exercisesContext = BASE_EXERCISES.map(e => `- ID: ${e.id}, Nombre: ${e.name}, Tipo: ${e.type}, Músculo: ${e.muscleGroup}`).join('\n');
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Gemini proxy error ${response.status}: ${JSON.stringify(errorData)}`);
+  }
 
-  const prompt = `
-    Eres un experto en entrenamiento de fuerza y director técnico de AeroGym. 
-    Tu tarea es diseñar UNA rutina de entrenamiento óptima para este perfil de usuario:
-    
-    PERFIL DE USUARIO:
-    - Nombre: ${profile.name}
-    - Nivel: ${profile.level}
-    - Objetivo: ${profile.goal}
-    - Frecuencia Semanal: ${profile.weeklyFrequency} días
-    
-    REGLAS DE ORO:
-    1. Solo puedes usar ejercicios de esta lista exacta (usa el ID exacto):
-    ${exercisesContext}
-    
-    2. Responde EXCLUSIVAMENTE con un objeto JSON válido que siga esta estructura:
-    {
-      "name": "Nombre creativo de la rutina",
-      "description": "Breve explicación de por qué es buena para el usuario",
-      "exercises": [
-        { "exerciseId": "ID_DEL_EJERCICIO", "defaultSets": número, "defaultReps": "rango (ej: 8-12)", "defaultWeight": número_opcional }
-      ]
-    }
+  const data = await response.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Respuesta vacía de Gemini');
+  return text.trim();
+}
 
-    3. No incluyas texto antes o después del JSON. 
-    4. Selecciona de 5 a 7 ejercicios que tengan sentido para su nivel y objetivo.
-  `;
+// ================================================================
+// SERVICIOS DE IA — Reescritos para usar el proxy seguro
+// ================================================================
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const text = response.text();
-  
-  // Limpiar posibles bloques de código markdown
+export interface UserContextForAI {
+  name: string;
+  goal: string;
+  level: string;
+  weight_kg: number | null;
+  height_cm: number | null;
+  age: number | null;
+  sessionsCount: number;
+  lastSessionName?: string;
+  lastSessionDate?: string;
+  lastSessionVolume?: number;
+}
+
+/**
+ * Genera una rutina personalizada usando IA (via proxy seguro)
+ */
+export async function generateRoutineWithAI(
+  profile: UserContextForAI,
+  availableExercises: { id: string; name: string; type: string; muscle_group: string }[]
+): Promise<{ name: string; description: string; exercises: { exerciseId: string; defaultSets: number; defaultReps: string; defaultWeight: number }[] }> {
+  const exercisesContext = availableExercises
+    .map((e) => `- ID: ${e.id}, Nombre: ${e.name}, Tipo: ${e.type}, Músculo: ${e.muscle_group}`)
+    .join('\n');
+
+  const text = await callGeminiProxy({
+    model: 'gemini-2.0-flash',
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          {
+            text: `Diseña UNA rutina de entrenamiento óptima para este perfil:
+              
+PERFIL:
+- Nombre: ${profile.name}
+- Nivel: ${profile.level}  
+- Objetivo: ${profile.goal}
+
+EJERCICIOS DISPONIBLES (usa SOLO estos IDs exactos):
+${exercisesContext}
+
+Responde EXCLUSIVAMENTE con JSON válido:
+{
+  "name": "Nombre creativo",
+  "description": "Por qué es ideal para el usuario",
+  "exercises": [
+    { "exerciseId": "id-exacto", "defaultSets": 3, "defaultReps": "8-12", "defaultWeight": 0 }
+  ]
+}
+
+Selecciona 5-7 ejercicios coherentes. Sin texto antes/después del JSON.`,
+          },
+        ],
+      },
+    ],
+    generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },
+  });
+
   const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-  
-  try {
-    const generated = JSON.parse(jsonStr);
-    return {
-      id: Math.random().toString(36).substring(2, 11),
-      ...generated
-    };
-  } catch (err) {
-    console.error("Error al parsear la rutina generada por IA:", text);
-    throw new Error("La IA no devolvió un formato válido. Inténtalo de nuevo.");
-  }
-};
+  return JSON.parse(jsonStr);
+}
 
-export const analyzeProgressionWithAI = async (sessions: any[], profile: UserProfile, healthMetrics?: DailyHealthMetric[]): Promise<string> => {
-  if (!genAI) throw new Error("API Key no configurada");
+/**
+ * Analiza el progreso y genera un consejo estoico personalizado
+ */
+export async function analyzeProgressionWithAI(
+  profile: UserContextForAI,
+  recentSessions: { date: string; volume: number; exercises: { id: string; bestWeight: number }[] }[],
+  healthMetrics?: { date: string; steps: number; sleepHrs: string }[]
+): Promise<string> {
+  return callGeminiProxy({
+    model: 'gemini-2.0-flash',
+    systemInstruction: {
+      parts: [
+        {
+          text: `Eres Aero, el coach estoico de AeroGym. Inspirado en Marco Aurelio, Séneca y Epicteto. 
+Sé breve (máximo 3 frases), directo y basado en datos reales del usuario. 
+NO uses markdown. NO uses listas. Habla en primera persona refiriéndote al usuario por nombre.`,
+        },
+      ],
+    },
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          {
+            text: `Analiza el progreso de ${profile.name}:
 
-  const model = genAI.getGenerativeModel({ 
-    model: "gemini-flash-latest" 
+HISTORIAL RECIENTE:
+${JSON.stringify(recentSessions, null, 2)}
+
+SALUD (últimos días):
+${JSON.stringify(healthMetrics || 'No disponible', null, 2)}
+
+CONTEXTO: Nivel ${profile.level}, Objetivo: ${profile.goal}
+
+Da un consejo estoico breve cruzando los datos.`,
+          },
+        ],
+      },
+    ],
+    generationConfig: { maxOutputTokens: 512, temperature: 0.8 },
+  }).catch(() => 'La disciplina es el puente entre las metas y los logros. Sigue adelante.');
+}
+
+/**
+ * Chat interactivo del Coach Aero
+ */
+export async function sendChatMessage(
+  profile: UserContextForAI,
+  chatHistory: { role: 'user' | 'model'; content: string }[],
+  newMessage: string
+): Promise<string> {
+  const contents: GeminiContent[] = [
+    ...chatHistory.slice(-10).map((m) => ({
+      role: m.role,
+      parts: [{ text: m.content }],
+    })),
+    {
+      role: 'user' as const,
+      parts: [
+        {
+          text: `[CONTEXTO: ${profile.name}, ${profile.level}, objetivo: ${profile.goal}, 
+${profile.sessionsCount} entrenamientos${profile.lastSessionName ? `, último: ${profile.lastSessionName}` : ''}]
+
+Pregunta: ${newMessage}`,
+        },
+      ],
+    },
+  ];
+
+  return callGeminiProxy({
+    model: 'gemini-2.0-flash',
+    systemInstruction: {
+      parts: [
+        {
+          text: `Eres Aero, entrenador personal de élite experto en biomecánica y nutrición deportiva.
+- Sé directo, motivador y científico
+- Usa emojis fitness (💪 🏋️‍♂️ ⚡ 🎯)
+- Respuestas breves, optimizadas para móvil
+- Basa tus respuestas en evidencia (ACSM, NIH, ISSN)`,
+        },
+      ],
+    },
+    contents,
+    generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },
   });
+}
 
-  // Resumir sesiones
-  const sessionsSummary = sessions.slice(0, 5).map(s => ({
-    date: s.date,
-    volume: s.totalVolume,
-    exercises: s.exercises.map((e: any) => ({
-      id: e.exerciseId,
-      bestWeight: Math.max(...e.sets.map((set: any) => set.weight))
-    }))
-  }));
-
-  // Resumir salud (últimos 3 días)
-  const healthSummary = healthMetrics?.slice(-3).map(m => ({
-    date: m.date,
-    steps: m.steps,
-    sleepHrs: m.sleep ? (m.sleep.totalSleepMin / 60).toFixed(1) : 'N/A'
-  }));
-
-  const prompt = `
-    Eres Aero, el coach estoico de AeroGym. 
-    Tu misión es analizar el progreso de ${profile.name} y dar un consejo corto, motivador y basado en la filosofía estoica.
-    
-    HISTORIAL RECIENTE:
-    ${JSON.stringify(sessionsSummary)}
-
-    DATOS DE SALUD (SUEÑO Y PASOS):
-    ${JSON.stringify(healthSummary || 'No disponibles')}
-
-    CONTEXTO:
-    - Nivel: ${profile.level}
-    - Objetivo: ${profile.goal}
-
-    INSTRUCCIONES:
-    1. Mantente fiel a la filosofía estoica (Séneca, Marco Aurelio, Epicteto).
-    2. Sé breve (máximo 3 frases).
-    3. Cruza los datos: si el volumen baja pero el sueño ha sido malo, menciona que el descanso es parte de la disciplina.
-    4. Si los pasos son muy altos y el volumen baja, menciona la fatiga sistémica.
-    5. No uses formatos markdown exagerados.
-  `;
-
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text().trim();
-  } catch (err) {
-    console.error("Error en análisis de progresión:", err);
-    return "La disciplina es el puente entre las metas y los logros. Sigue adelante.";
-  }
-};
-
-export const getNutritionalAdviceWithAI = async (profile: UserProfile, macros: any): Promise<string> => {
-  if (!genAI) throw new Error("API Key no configurada");
-
-  const model = genAI.getGenerativeModel({ 
-    model: "gemini-flash-latest" 
-  });
-
-  const prompt = `
-    Eres Aero, el coach estoico y experto en nutrición de AeroGym. 
-    Tu misión es dar un consejo nutricional breve y motivador para ${profile.name}.
-    
-    DATOS NUTRICIONALES:
-    - Calorías Objetivo: ${macros.targetCalories} kcal
-    - Proteínas: ${macros.macros.protein}g
-    - Grasas: ${macros.macros.fat}g
-    - Carbohidratos: ${macros.macros.carbs}g
-    - Objetivo: ${profile.goal}
-
-    INSTRUCCIONES:
-    1. Mantente fiel a la filosofía estoica. Habla sobre la nutrición como combustible para la virtud y el templo del cuerpo.
-    2. Sé extremadamente breve (máximo 2-3 frases).
-    3. Sugiere un tipo de alimento o hábito que ayude a cumplir esas macros hoy.
-    4. No uses listas ni markdown complejo.
-  `;
-
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text().trim();
-  } catch (err) {
-    console.error("Error en asesoramiento nutricional:", err);
-    return "Come para vivir, no vivas para comer. La moderación es la clave de la virtud.";
-  }
-};
+/**
+ * Genera consejo nutricional personalizado
+ */
+export async function getNutritionalAdvice(
+  profile: UserContextForAI,
+  nutrition: { targetCalories: number; macros: { protein: number; fat: number; carbs: number } }
+): Promise<string> {
+  return callGeminiProxy({
+    model: 'gemini-2.0-flash',
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          {
+            text: `Consejo nutricional breve (2-3 frases) para ${profile.name}:
+- Calorías: ${nutrition.targetCalories} kcal
+- Proteínas: ${nutrition.macros.protein}g, Grasas: ${nutrition.macros.fat}g, Carbos: ${nutrition.macros.carbs}g
+- Objetivo: ${profile.goal}
+Sugiere un alimento o hábito concreto. Sin listas ni markdown.`,
+          },
+        ],
+      },
+    ],
+    generationConfig: { maxOutputTokens: 256, temperature: 0.8 },
+  }).catch(() => 'Trata tu nutrición como entrenas: con consistencia y propósito.');
+}

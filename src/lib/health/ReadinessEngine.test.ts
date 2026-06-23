@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calculateE1RM, getBestE1RM, suggestWeight, calculateNutrition } from './engine';
-import { Session, UserProfile } from '../types';
+import { calculateE1RM, getBestE1RM, suggestWeight, calculateNutrition } from '../engine';
+import type { Session, UserProfile } from '../../types';
 
 describe('Engine Logic', () => {
   it('should calculate E1RM correctly using Brzycki formula', () => {

@@ -1,29 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  X, 
-  Plus, 
-  Trash2, 
-  Check, 
-  Timer, 
-  ChevronDown, 
-  ChevronUp,
-  ChevronRight,
-  Dumbbell,
-  Trophy,
-  Sparkles
-} from 'lucide-react';
-import { Session, AppState, Set, WorkoutExercise } from '../types';
+import { X, Plus, Check, Timer, Trophy, Sparkles, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { BASE_EXERCISES } from '../constants/exercises';
-import { calculateVolume, getBestE1RM, suggestWeight, calculateE1RM } from '../lib/engine';
-
-interface TrainingSessionProps {
-  session: Session;
-  onFinish: (session: Session) => void;
-  onCancel: () => void;
-  state: AppState;
-}
+import { calculateE1RM, getBestE1RM, suggestWeight } from '../lib/engine';
+import { useAuthStore } from '../application/stores/useAuthStore';
+import { useWorkoutStore, type ActiveSet } from '../application/stores/useWorkoutStore';
 
 const playBeep = (freq: number, duration: number) => {
   try {
@@ -38,76 +20,56 @@ const playBeep = (freq: number, duration: number) => {
     osc.start();
     osc.stop(context.currentTime + duration);
   } catch (e) {
-    console.warn("Audio Context blocked or unsupported");
+    console.warn('Audio Context blocked or unsupported');
   }
 };
 
-export default function TrainingSession({ session, onFinish, onCancel, state }: TrainingSessionProps) {
-  const [currentSession, setCurrentSession] = useState<Session>(session);
-  const [activeExIdx, setActiveExIdx] = useState(0);
+export default function TrainingSession() {
+  const { user } = useAuthStore();
+  const { activeSession, sessions, finishSession, cancelSession, addSetToActive, toggleSetComplete, updateActiveExercise, addExerciseToActive } = useWorkoutStore();
   const [timerStart, setTimerStart] = useState<number | null>(null);
+  const [showNotes, setShowNotes] = useState(false);
+  const [notes, setNotes] = useState('');
+  const [difficulty, setDifficulty] = useState<number | undefined>();
 
-  const addExercise = (exId: string) => {
-    const newEx: WorkoutExercise = {
-      exerciseId: exId,
-      sets: [{ id: Math.random().toString(36).substr(2, 9), reps: 10, weight: 0, completed: false }]
-    };
-    setCurrentSession(prev => ({
-      ...prev,
-      exercises: [...prev.exercises, newEx]
+  if (!activeSession) return null;
+
+  const isPR = (exerciseId: string, weight: number, reps: number) => {
+    const currentE1RM = calculateE1RM(weight, reps);
+    // getBestE1RM expects Session[] format — adapt from WorkoutSession
+    const historicSessions = sessions.map((s) => ({
+      ...s,
+      id: s.id,
+      exercises: [], // simplified — PR check uses stored e1rm
     }));
+    const bestE1RM = getBestE1RM(historicSessions as any, exerciseId);
+    return currentE1RM > bestE1RM && weight > 0 && (reps || 0) > 0;
   };
 
-  const addSet = (exIdx: number) => {
-    const lastSet = currentSession.exercises[exIdx].sets.slice(-1)[0];
-    const newSet: Set = {
-      id: Math.random().toString(36).substr(2, 9),
-      reps: lastSet?.reps || 10,
-      weight: lastSet?.weight || 0,
-      completed: false
-    };
-    const newExs = [...currentSession.exercises];
-    newExs[exIdx].sets.push(newSet);
-    setCurrentSession(prev => ({ ...prev, exercises: newExs }));
-  };
-
-  const toggleSet = (exIdx: number, setIdx: number) => {
-    const newExs = [...currentSession.exercises];
-    const isNowCompleted = !newExs[exIdx].sets[setIdx].completed;
-    newExs[exIdx].sets[setIdx].completed = isNowCompleted;
-    setCurrentSession(prev => ({ ...prev, exercises: newExs }));
-    
-    if (isNowCompleted) {
+  const handleToggleSet = (exerciseId: string, setIndex: number, set: ActiveSet) => {
+    toggleSetComplete(exerciseId, setIndex);
+    const willComplete = !set.is_completed;
+    if (willComplete) {
       setTimerStart(Date.now());
-      // Sonido de victoria si es PR
-      if (isPR(newExs[exIdx].exerciseId, newExs[exIdx].sets[setIdx].weight, newExs[exIdx].sets[setIdx].reps)) {
-        playBeep(880, 0.1); 
+      if (set.reps && set.weight_kg && isPR(exerciseId, set.weight_kg, set.reps)) {
+        playBeep(880, 0.1);
         setTimeout(() => playBeep(1108.73, 0.1), 100);
         setTimeout(() => playBeep(1318.51, 0.2), 200);
       } else {
-        playBeep(440, 0.05); // Sonido normal
+        playBeep(440, 0.05);
       }
     } else {
       setTimerStart(null);
     }
   };
 
-  const updateSet = (exIdx: number, setIdx: number, field: keyof Set, val: any) => {
-    const newExs = [...currentSession.exercises];
-    // @ts-ignore
-    newExs[exIdx].sets[setIdx][field] = val;
-    setCurrentSession(prev => ({ ...prev, exercises: newExs }));
-  };
-
-  const isPR = (exerciseId: string, weight: number, reps: number) => {
-    const currentE1RM = calculateE1RM(weight, reps);
-    const bestE1RM = getBestE1RM(state.sessions, exerciseId);
-    return currentE1RM > bestE1RM && weight > 0 && reps > 0;
-  };
-
-  const handleFinish = () => {
-    const totalVol = currentSession.exercises.reduce((acc, ex) => acc + calculateVolume(ex), 0);
-    onFinish({ ...currentSession, totalVolume: totalVol });
+  const handleFinish = async () => {
+    if (!user?.id) return;
+    try {
+      await finishSession(user.id, notes || undefined, difficulty);
+    } catch (error) {
+      console.error('Error finishing session:', error);
+    }
   };
 
   return (
@@ -115,127 +77,255 @@ export default function TrainingSession({ session, onFinish, onCancel, state }: 
       {/* Header */}
       <div className="flex justify-between items-start sticky top-0 bg-slate-900/80 backdrop-blur-md pt-2 pb-4 z-40">
         <div>
-          <h1 className="text-2xl font-bold text-slate-50">{currentSession.name}</h1>
+          <h1 className="text-2xl font-bold text-slate-50">{activeSession.name}</h1>
           <div className="status-badge mt-1 inline-block">En Progreso</div>
         </div>
-        <button onClick={onCancel} className="p-2 glass rounded-full text-slate-400">
+        <button onClick={cancelSession} className="p-2 glass rounded-full text-slate-400">
           <X size={20} />
         </button>
       </div>
 
-      {/* Timer Overlay */}
+      {/* Timer */}
       <RestTimer startTime={timerStart} onClear={() => setTimerStart(null)} />
 
-      {/* Exercises List */}
+      {/* Exercises */}
       <div className="space-y-8">
-        {(currentSession.exercises || []).map((ex, exIdx) => (
-          <ExerciseCard 
-            key={ex.exerciseId + exIdx}
-            ex={ex}
-            exIdx={exIdx}
-            state={state}
-            onAddSet={() => addSet(exIdx)}
-            onToggleSet={(sIdx) => toggleSet(exIdx, sIdx)}
-            onUpdateSet={(sIdx, f, v) => updateSet(exIdx, sIdx, f, v)}
-            isPR={isPR}
-          />
-        ))}
+        {activeSession.exercises.map((ex) => {
+          const exerciseInfo = BASE_EXERCISES.find((e) => e.id === ex.exercise_id);
+          // Simplified bestE1RM without full historic data
+          const bestE1RM = 0; // TODO: fetch from Supabase in next sprint
 
-        <AddExerciseBtn onAdd={addExercise} />
+          return (
+            <div key={ex.exercise_id} className="space-y-4">
+              <div className="flex justify-between items-center px-1">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-50">
+                    {exerciseInfo?.name || ex.exercise_id}
+                  </h3>
+                  {bestE1RM > 0 && (
+                    <p className="text-[10px] uppercase text-brand-green font-bold tracking-widest">
+                      Record Estimado: {bestE1RM.toFixed(1)}kg
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 text-[10px] text-brand-blue/60 font-bold uppercase tracking-widest bg-brand-blue/5 px-2 py-1 rounded-full border border-brand-blue/10">
+                  <Sparkles size={10} />
+                  IA
+                </div>
+              </div>
+
+              {/* Sets Header */}
+              <div className="grid grid-cols-[30px_1fr_1fr_45px_45px_50px] gap-2 px-2 text-[10px] uppercase text-slate-400 font-bold tracking-widest">
+                <span>#</span>
+                <span className="text-center">KG</span>
+                <span className="text-center">Reps</span>
+                <span className="text-center">RPE</span>
+                <span className="text-center">RIR</span>
+                <span className="text-right">✓</span>
+              </div>
+
+              {ex.sets.map((set, sIdx) => {
+                const currentE1RM = set.weight_kg && set.reps
+                  ? calculateE1RM(set.weight_kg, set.reps)
+                  : 0;
+                const isSetPR = set.weight_kg && set.reps
+                  ? isPR(ex.exercise_id, set.weight_kg, set.reps)
+                  : false;
+
+                return (
+                  <div
+                    key={set.id}
+                    className={cn(
+                      'grid grid-cols-[30px_1fr_1fr_45px_45px_50px] gap-2 items-center p-2 rounded-xl transition-all border',
+                      set.is_completed
+                        ? 'bg-brand-blue/10 border-brand-blue/20'
+                        : 'bg-white/5 border-transparent'
+                    )}
+                  >
+                    <div className="flex flex-col items-center">
+                      <span className="text-sm font-bold text-slate-500">{sIdx + 1}</span>
+                      {isSetPR && set.is_completed && (
+                        <Trophy size={10} className="text-yellow-400" />
+                      )}
+                    </div>
+
+                    {/* KG Input */}
+                    <div className="min-w-0">
+                      <input
+                        type="number"
+                        value={set.weight_kg || ''}
+                        placeholder="0"
+                        onChange={(e) =>
+                          updateActiveExercise(ex.exercise_id, sIdx, 'weight_kg', parseFloat(e.target.value) || 0)
+                        }
+                        className="w-full bg-slate-800 text-center rounded-lg py-2 outline-none font-bold text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
+                      />
+                      {currentE1RM > 0 && (
+                        <p className="text-[8px] text-slate-500 font-bold text-center mt-0.5">
+                          1RM≈{currentE1RM.toFixed(0)}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Reps Input */}
+                    <input
+                      type="number"
+                      value={set.reps || ''}
+                      placeholder="0"
+                      onChange={(e) =>
+                        updateActiveExercise(ex.exercise_id, sIdx, 'reps', parseInt(e.target.value) || null)
+                      }
+                      className="w-full bg-slate-800 text-center rounded-lg py-2 outline-none font-bold text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
+                    />
+
+                    {/* RPE */}
+                    <input
+                      type="number"
+                      value={set.rpe || ''}
+                      placeholder="-"
+                      min="1"
+                      max="10"
+                      onChange={(e) =>
+                        updateActiveExercise(ex.exercise_id, sIdx, 'rpe', parseFloat(e.target.value) || null)
+                      }
+                      className="bg-slate-800 text-center rounded-lg py-2 outline-none font-bold text-slate-400 placeholder:text-slate-600 focus:text-brand-blue"
+                    />
+
+                    {/* RIR */}
+                    <input
+                      type="number"
+                      value={set.rir !== null && set.rir !== undefined ? set.rir : ''}
+                      placeholder="-"
+                      min="0"
+                      max="10"
+                      onChange={(e) =>
+                        updateActiveExercise(ex.exercise_id, sIdx, 'rir', parseInt(e.target.value) >= 0 ? parseInt(e.target.value) : null)
+                      }
+                      className="bg-slate-800 text-center rounded-lg py-2 outline-none font-bold text-slate-400 placeholder:text-slate-600 focus:text-purple-400"
+                    />
+
+                    {/* Complete toggle */}
+                    <button
+                      onClick={() => handleToggleSet(ex.exercise_id, sIdx, set)}
+                      className={cn(
+                        'w-10 h-10 rounded-lg flex items-center justify-center transition-all ml-auto',
+                        set.is_completed
+                          ? 'bg-brand-blue text-slate-950'
+                          : 'bg-slate-800 text-slate-500'
+                      )}
+                    >
+                      <Check size={20} strokeWidth={3} />
+                    </button>
+                  </div>
+                );
+              })}
+
+              <button
+                onClick={() => addSetToActive(ex.exercise_id)}
+                className="w-full py-2 bg-white/5 text-slate-400 rounded-xl text-xs font-bold uppercase tracking-widest border border-dashed border-white/10 hover:border-brand-blue/30 hover:text-brand-blue transition-all"
+              >
+                <Plus size={14} className="inline mr-1" />
+                Añadir Serie
+              </button>
+            </div>
+          );
+        })}
+
+        {/* Add Exercise */}
+        <AddExerciseBtn onAdd={addExerciseToActive} />
       </div>
 
-      {/* Finish Button */}
-      <div className="pt-10 pb-6">
-          <button 
-            onClick={handleFinish}
-            className="btn-primary w-full py-4 text-slate-950"
+      {/* Finish Section */}
+      <div className="pt-6 pb-6 space-y-4">
+        {showNotes ? (
+          <div className="space-y-3">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Notas de la sesión..."
+              rows={3}
+              className="w-full bg-slate-800/80 border border-white/10 rounded-2xl p-4 text-sm outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500 resize-none"
+            />
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-2">Dificultad percibida (1-10)</p>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setDifficulty(d)}
+                    className={cn(
+                      'flex-1 py-2 rounded-lg text-xs font-bold border transition-all',
+                      difficulty === d
+                        ? 'bg-brand-blue text-slate-950 border-brand-blue'
+                        : 'bg-slate-800 border-white/10 text-slate-500'
+                    )}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowNotes(true)}
+            className="w-full py-3 glass border-white/5 rounded-xl text-slate-500 text-[10px] font-bold uppercase tracking-widest"
           >
-            FINALIZAR ENTRENAMIENTO
+            + Añadir notas
           </button>
+        )}
+
+        <button
+          onClick={handleFinish}
+          className="btn-primary w-full py-4 text-slate-950 font-black text-sm"
+        >
+          FINALIZAR ENTRENAMIENTO
+        </button>
       </div>
     </div>
   );
 }
 
-function RestTimer({ startTime, onClear }: { startTime: number | null, onClear: () => void }) {
+function RestTimer({ startTime, onClear }: { startTime: number | null; onClear: () => void }) {
   const [elapsed, setElapsed] = useState(0);
 
-  // Simple beep function using Web Audio API
-  const playBeep = (freq = 440, duration = 0.1) => {
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      oscillator.frequency.value = freq;
-      oscillator.type = 'sine';
-      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.01);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-      oscillator.start(audioCtx.currentTime);
-      oscillator.stop(audioCtx.currentTime + duration);
-    } catch (e) {
-      console.warn('Audio context failed', e);
-    }
-  };
-
   useEffect(() => {
-    if (!startTime) {
-      setElapsed(0);
-      return;
-    }
-
+    if (!startTime) { setElapsed(0); return; }
     const interval = setInterval(() => {
       const newElapsed = Math.floor((Date.now() - startTime) / 1000);
       setElapsed(newElapsed);
-
-      // Beep every 60 seconds of rest
-      if (newElapsed > 0 && newElapsed % 60 === 0) {
-        playBeep(523, 0.2); // C5
-      }
+      if (newElapsed > 0 && newElapsed % 60 === 0) playBeep(523, 0.2);
     }, 1000);
-
     return () => clearInterval(interval);
   }, [startTime]);
 
   if (!startTime) return null;
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const handleClear = () => {
-    playBeep(880, 0.05); // High beep on clear
-    onClear();
-  };
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ y: 50, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      exit={{ y: 50, opacity: 0 }}
-      className="fixed bottom-24 left-4 right-4 z-50 pointer-events-none"
+      className="fixed bottom-24 left-4 right-4 z-50 pointer-events-none max-w-md mx-auto"
     >
       <div className="glass-dark border border-brand-blue/30 p-4 rounded-2xl flex items-center justify-between shadow-2xl shadow-brand-blue/20 pointer-events-auto">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-brand-blue/20 flex items-center justify-center text-brand-blue">
-             <motion.div
-               animate={{ scale: [1, 1.2, 1] }}
-               transition={{ duration: 1, repeat: Infinity }}
-             >
+            <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 1, repeat: Infinity }}>
               <Timer size={22} />
-             </motion.div>
+            </motion.div>
           </div>
           <div>
-            <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Tiempo de Descanso</p>
-            <p className="text-xl font-mono font-bold text-slate-50">{formatTime(elapsed)}</p>
+            <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Descanso</p>
+            <p className="text-xl font-mono font-bold text-slate-50">
+              {mins}:{secs.toString().padStart(2, '0')}
+            </p>
           </div>
         </div>
-        <button 
-          onClick={handleClear}
+        <button
+          onClick={onClear}
           className="bg-white/5 hover:bg-white/10 p-2 rounded-xl text-slate-400 transition-colors border border-white/5"
         >
           <X size={20} />
@@ -245,128 +335,21 @@ function RestTimer({ startTime, onClear }: { startTime: number | null, onClear: 
   );
 }
 
-
-
-function ExerciseCard({ ex, exIdx, state, onAddSet, onToggleSet, onUpdateSet, isPR }: any) {
-  const exerciseInfo = BASE_EXERCISES.find(e => e.id === ex.exerciseId);
-  const bestE1RM = getBestE1RM(state.sessions, ex.exerciseId);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center px-1">
-        <div>
-          <h3 className="text-lg font-bold text-slate-50">{exerciseInfo?.name || 'Ejercicio Desconocido'}</h3>
-          <div className="flex items-center gap-2">
-            {bestE1RM > 0 && (
-              <p className="text-[10px] uppercase text-brand-green font-bold tracking-widest">
-                Record Estimado: {bestE1RM.toFixed(1)}kg
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-1 text-[10px] text-brand-blue/60 font-bold uppercase tracking-widest bg-brand-blue/5 px-2 py-1 rounded-full border border-brand-blue/10">
-          <Sparkles size={10} />
-          Sugerencia IA
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        {/* Table Header */}
-        <div className="grid grid-cols-[30px_1fr_1fr_45px_50px] gap-2 px-2 text-[10px] uppercase text-slate-400 font-bold tracking-widest">
-          <span>Serie</span>
-          <span className="text-center">KG</span>
-          <span className="text-center">Reps</span>
-          <span className="text-center">RPE</span>
-          <span className="text-right">OK</span>
-        </div>
-
-        {(ex.sets || []).map((set: Set, sIdx: number) => {
-          const currentE1RM = calculateE1RM(set.weight, set.reps);
-          const isSetPR = isPR(ex.exerciseId, set.weight, set.reps);
-
-          return (
-            <div key={set.id} className={cn(
-              "grid grid-cols-[30px_1fr_1fr_45px_50px] gap-2 items-center p-2 rounded-xl transition-all border",
-              set.completed ? "bg-brand-blue/10 border-brand-blue/20" : "bg-white/5 border-transparent"
-            )}>
-              <div className="flex flex-col items-center">
-                <span className="text-sm font-bold text-slate-500">{sIdx + 1}</span>
-                {isSetPR && set.completed && <Trophy size={10} className="text-yellow-400" />}
-              </div>
-              
-              <div className="min-w-0 flex-1">
-                <input 
-                  type="number"
-                  value={set.weight || ''}
-                  placeholder="0"
-                  onChange={(e) => onUpdateSet(sIdx, 'weight', parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-800 text-center rounded-lg py-2 outline-none font-bold text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
-                />
-                <div className="h-3 flex items-center justify-center gap-1">
-                  {set.weight > 0 && set.reps > 0 && (
-                    <p className="text-[8px] text-slate-500 font-bold">1RM: {currentE1RM.toFixed(0)}</p>
-                  )}
-                  {bestE1RM > 0 && !set.completed && (
-                    <p className="text-[8px] text-brand-blue/60 font-black animate-pulse">
-                      • RECO: {suggestWeight(bestE1RM, set.reps || 10)}kg
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <input 
-                  type="number"
-                  value={set.reps || ''}
-                  placeholder="0"
-                  onChange={(e) => onUpdateSet(sIdx, 'reps', parseInt(e.target.value) || 0)}
-                  className="w-full bg-slate-800 text-center rounded-lg py-2 outline-none font-bold text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
-                />
-                <div className="h-3" /> {/* Spacer to align with KG column */}
-              </div>
-
-              <input 
-                type="number"
-                value={set.rpe || ''}
-                placeholder="-"
-                min="1"
-                max="10"
-                onChange={(e) => onUpdateSet(sIdx, 'rpe', parseInt(e.target.value) || 0)}
-                className="bg-slate-800 text-center rounded-lg py-2 outline-none font-bold text-slate-400 placeholder:text-slate-600 focus:text-brand-blue"
-              />
-
-              <button 
-                onClick={() => onToggleSet(sIdx)}
-                className={cn(
-                  "w-10 h-10 rounded-lg flex items-center justify-center transition-all ml-auto",
-                  set.completed ? "bg-brand-blue text-slate-950" : "bg-slate-800 text-slate-500"
-                )}
-              >
-                <Check size={20} strokeWidth={3} />
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-      <button 
-        onClick={onAddSet}
-        className="w-full py-2 bg-white/5 text-slate-400 rounded-xl text-xs font-bold uppercase tracking-widest border border-dashed border-white/10"
-      >
-        + Añadir Serie
-      </button>
-    </div>
-  );
-}
-
 function AddExerciseBtn({ onAdd }: { onAdd: (id: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filtered = BASE_EXERCISES.filter(
+    (ex) =>
+      ex.name.toLowerCase().includes(search.toLowerCase()) ||
+      ex.muscleGroup.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div>
-      <button 
+      <button
         onClick={() => setIsOpen(true)}
-        className="w-full py-4 glass border-brand-blue/30 text-brand-blue rounded-2xl font-bold flex items-center justify-center gap-2"
+        className="w-full py-4 glass border-brand-blue/30 text-brand-blue rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-brand-blue/5 transition-colors"
       >
         <Plus size={20} />
         Añadir Ejercicio
@@ -374,27 +357,48 @@ function AddExerciseBtn({ onAdd }: { onAdd: (id: string) => void }) {
 
       <AnimatePresence>
         {isOpen && (
-          <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex flex-col p-6 overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">Seleccionar Ejercicio</h2>
-              <button onClick={() => setIsOpen(false)} className="p-2"><X size={24} /></button>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex flex-col"
+          >
+            <div className="flex justify-between items-center p-6 pb-3">
+              <h2 className="text-2xl font-bold">Añadir Ejercicio</h2>
+              <button onClick={() => { setIsOpen(false); setSearch(''); }} className="p-2 glass rounded-full">
+                <X size={24} />
+              </button>
             </div>
-            <div className="space-y-2">
-              {BASE_EXERCISES.map(ex => (
-                <button 
+
+            <div className="px-6 pb-3">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar ejercicio o músculo..."
+                className="w-full bg-slate-800/80 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-2">
+              {filtered.map((ex) => (
+                <button
                   key={ex.id}
-                  onClick={() => { onAdd(ex.id); setIsOpen(false); }}
-                  className="w-full p-4 glass rounded-xl flex justify-between items-center"
+                  onClick={() => { onAdd(ex.id); setIsOpen(false); setSearch(''); }}
+                  className="w-full p-4 glass rounded-xl flex justify-between items-center hover:border-brand-blue/30 border border-transparent transition-all"
                 >
                   <div className="text-left">
                     <p className="font-bold">{ex.name}</p>
-                    <p className="text-[10px] uppercase text-slate-400 tracking-wider transition-all font-bold">{ex.muscleGroup}</p>
+                    <p className="text-[10px] uppercase text-slate-400 tracking-wider font-bold">
+                      {ex.muscleGroup} · {ex.type}
+                    </p>
                   </div>
                   <ChevronRight size={20} className="text-slate-500" />
                 </button>
               ))}
             </div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

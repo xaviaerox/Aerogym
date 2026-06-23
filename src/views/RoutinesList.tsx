@@ -1,186 +1,189 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { Play, Plus, Trash2, List, ShieldCheck, Sparkles, Loader2 } from 'lucide-react';
-import { AppState, Routine } from '../types';
-import { cn } from '../lib/utils';
+import { motion, AnimatePresence } from 'motion/react';
+import { Plus, Play, Trash2, Sparkles, ChevronRight, Loader2, X, Dumbbell } from 'lucide-react';
+import { useAuthStore } from '../application/stores/useAuthStore';
+import { useWorkoutStore } from '../application/stores/useWorkoutStore';
 import { BASE_EXERCISES } from '../constants/exercises';
-import { PREDEFINED_ROUTINES } from '../constants/routines';
+import { generateRoutineWithAI } from '../lib/aiService';
+import type { Routine, RoutineExercise } from '../infrastructure/supabase/types';
+import { cn } from '../lib/utils';
 
-interface RoutinesListProps {
-  state: AppState;
-  updateState: (updater: (prev: AppState) => AppState) => void;
-  onStartRoutine: (routine: Routine) => void;
-  onGenerateAI: () => Promise<Routine>;
-}
-
-export default function RoutinesList({ state, updateState, onStartRoutine, onGenerateAI }: RoutinesListProps) {
-  const [isAdding, setIsAdding] = useState(false);
+export default function RoutinesList() {
+  const { profile, user } = useAuthStore();
+  const { routines, startSession, deleteRoutine, createRoutine } = useWorkoutStore();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newRoutineName, setNewRoutineName] = useState('');
 
   const handleGenerateAI = async () => {
+    if (!profile || !user?.id) return;
     setIsGenerating(true);
     try {
-      await onGenerateAI();
+      const exercisesForAI = BASE_EXERCISES.map((ex) => ({
+        id: ex.id,
+        name: ex.name,
+        type: ex.type === 'Compuesto' ? 'compound' : 'isolation',
+        muscle_group: ex.muscleGroup,
+      }));
+
+      const generated = await generateRoutineWithAI(
+        {
+          name: profile.name,
+          goal: profile.goal,
+          level: profile.level,
+          weight_kg: profile.weight_kg,
+          height_cm: profile.height_cm,
+          age: profile.age,
+          sessionsCount: 0,
+        },
+        exercisesForAI
+      );
+
+      // Create the routine in Supabase
+      const routine = await createRoutine(user.id, generated.name, generated.description);
+      // TODO: Add exercises to routine (Sprint 2)
+      alert(`✅ Rutina "${routine.name}" creada por IA`);
     } catch (err) {
-      alert("Error al generar la rutina. Verifica tu conexión e IA Key.");
+      console.error(err);
+      alert('Error generando rutina. Verifica que el coach IA esté configurado.');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const deleteRoutine = (id: string) => {
-    updateState(prev => ({
-      ...prev,
-      routines: prev.routines.filter(r => r.id !== id)
-    }));
+  const handleCreateManual = async () => {
+    if (!user?.id || !newRoutineName.trim()) return;
+    await createRoutine(user.id, newRoutineName.trim());
+    setNewRoutineName('');
+    setIsCreating(false);
+  };
+
+  const handleDelete = async (routineId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('¿Eliminar esta rutina?')) return;
+    await deleteRoutine(routineId);
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 pb-32">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Rutinas</h1>
         <div className="flex gap-2">
-          <button 
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsCreating(true)}
+            className="p-3 glass rounded-2xl text-brand-blue border border-brand-blue/20"
+          >
+            <Plus size={20} />
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
             onClick={handleGenerateAI}
             disabled={isGenerating}
-            className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center transition-all",
-              isGenerating ? "bg-slate-800 text-slate-500" : "bg-brand-blue/20 text-brand-blue border border-brand-blue/30 hover:bg-brand-blue hover:text-slate-950"
+            className="flex items-center gap-2 px-4 py-2.5 bg-brand-blue/20 border border-brand-blue/30 rounded-2xl text-brand-blue text-sm font-bold disabled:opacity-60"
+          >
+            {isGenerating ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Sparkles size={16} />
             )}
-            title="Generar con IA"
-          >
-            {isGenerating ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
-          </button>
-          <button 
-            onClick={() => setIsAdding(true)}
-            className="w-10 h-10 bg-brand-blue rounded-full flex items-center justify-center text-slate-950 hover:bg-brand-blue/80 transition-colors"
-          >
-            <Plus size={24} />
-          </button>
+            IA
+          </motion.button>
         </div>
       </div>
 
-      <div className="space-y-4">
-        {/* User Routines */}
-        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest px-2">Mis Rutinas</h2>
-        {state.routines.length === 0 && !isAdding && (
-          <div className="text-center py-10 text-slate-400">
-            <List size={40} className="mx-auto mb-4 opacity-20" />
-            <p>Aún no has creado rutinas.</p>
-          </div>
-        )}
-
-        {(state.routines || []).map(routine => (
-          <div key={routine.id} className="glass p-4 rounded-2xl flex justify-between items-center group">
-            <div onClick={() => onStartRoutine(routine)} className="flex-1 cursor-pointer">
-              <h3 className="font-bold text-lg text-slate-50">{routine.name}</h3>
-              <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">{routine.exercises.length} Ejercicios</p>
-            </div>
-            <div className="flex items-center gap-2">
-               <button 
-                onClick={() => onStartRoutine(routine)}
-                className="w-10 h-10 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center"
+      {/* Create dialog */}
+      <AnimatePresence>
+        {isCreating && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="glass p-4 rounded-2xl space-y-3"
+          >
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={newRoutineName}
+                onChange={(e) => setNewRoutineName(e.target.value)}
+                placeholder="Nombre de la rutina..."
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateManual()}
+                className="flex-1 bg-slate-800/80 border border-white/10 rounded-xl px-3 py-3 text-sm outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500"
+                autoFocus
+              />
+              <button
+                onClick={handleCreateManual}
+                disabled={!newRoutineName.trim()}
+                className="px-4 py-3 bg-brand-blue text-slate-950 rounded-xl font-bold text-sm disabled:opacity-50"
               >
-                <Play size={20} fill="currentColor" />
+                Crear
               </button>
-              <button 
-                onClick={() => deleteRoutine(routine.id)}
-                className="w-10 h-10 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center"
+              <button
+                onClick={() => { setIsCreating(false); setNewRoutineName(''); }}
+                className="p-3 glass rounded-xl text-slate-400"
               >
-                <Trash2 size={18} />
+                <X size={18} />
               </button>
             </div>
-          </div>
-        ))}
-
-        {isAdding && (
-          <AddRoutineModal 
-            onClose={() => setIsAdding(false)} 
-            onAdd={(r) => {
-              updateState(prev => ({ ...prev, routines: [...prev.routines, r] }));
-              setIsAdding(false);
-            }} 
-          />
+          </motion.div>
         )}
+      </AnimatePresence>
 
-        {/* System Templates */}
-        <div className="pt-6 space-y-4">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest px-2 flex items-center gap-2">
-            <ShieldCheck size={14} className="text-brand-blue" />
-            Plantillas del Sistema
-          </h2>
-          {PREDEFINED_ROUTINES.map(routine => (
-            <div key={routine.id} className="glass p-4 rounded-2xl flex justify-between items-center group relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-1">
-                <div className="text-[8px] bg-brand-blue/20 text-brand-blue px-2 py-0.5 rounded-bl-lg font-bold uppercase tracking-tighter">Oficial</div>
-              </div>
-              <div onClick={() => onStartRoutine(routine)} className="flex-1 cursor-pointer">
-                <h3 className="font-bold text-lg text-slate-50">{routine.name}</h3>
-                <p className="text-[10px] text-slate-400 font-medium line-clamp-1">{routine.description}</p>
-                <p className="text-[10px] text-brand-blue uppercase tracking-widest font-bold mt-1">
-                  {routine.exercises.length} Ejercicios
+      {/* Routines list */}
+      {routines.length === 0 ? (
+        <div className="glass p-10 rounded-3xl text-center space-y-4">
+          <Dumbbell size={40} className="text-slate-600 mx-auto" />
+          <div>
+            <p className="text-slate-400 font-medium">Sin rutinas todavía</p>
+            <p className="text-slate-600 text-sm mt-1">
+              Crea una manualmente o déjasela a la IA
+            </p>
+          </div>
+          <button
+            onClick={handleGenerateAI}
+            disabled={isGenerating}
+            className="w-full py-3 bg-brand-blue/20 border border-brand-blue/30 text-brand-blue rounded-2xl font-bold text-sm flex items-center justify-center gap-2"
+          >
+            {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+            Generar con IA
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {routines.map((routine) => (
+            <motion.div
+              key={routine.id}
+              whileTap={{ scale: 0.98 }}
+              className="glass p-5 rounded-2xl border border-white/5 flex items-center gap-4"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-slate-50 truncate">{routine.name}</p>
+                {routine.description && (
+                  <p className="text-xs text-slate-500 mt-0.5 truncate">{routine.description}</p>
+                )}
+                <p className="text-[10px] text-slate-600 uppercase tracking-widest font-bold mt-1">
+                  {routine.exercises?.length || 0} ejercicios
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => {
-                    const exists = state.routines.some(r => r.id === routine.id);
-                    if (exists) {
-                      alert('Esta rutina ya está en tu lista');
-                      return;
-                    }
-                    updateState(prev => ({ ...prev, routines: [...prev.routines, routine] }));
-                  }}
-                  className="px-3 py-2 bg-brand-blue/10 text-brand-blue rounded-xl flex items-center gap-2 transition-all hover:bg-brand-blue hover:text-slate-950 font-bold text-xs"
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={(e) => handleDelete(routine.id, e)}
+                  className="p-2 text-slate-600 hover:text-red-400 transition-colors"
                 >
-                  <Plus size={16} />
-                  Elegir
+                  <Trash2 size={16} />
                 </button>
-                <button 
-                  onClick={() => onStartRoutine(routine)}
-                  className="w-10 h-10 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center transition-all hover:bg-green-500 hover:text-slate-950"
-                  title="Entrenamiento Rápido"
+                <button
+                  onClick={() => startSession(routine as Routine & { exercises: RoutineExercise[] })}
+                  className="flex items-center gap-1.5 bg-brand-blue text-slate-950 px-4 py-2.5 rounded-xl font-black text-xs"
                 >
-                  <Play size={20} fill="currentColor" />
+                  <Play size={14} fill="currentColor" />
+                  INICIAR
                 </button>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function AddRoutineModal({ onClose, onAdd }: { onClose: () => void, onAdd: (r: Routine) => void }) {
-  const [name, setName] = useState('');
-  
-  const handleAdd = () => {
-    if (!name) return;
-    const newRoutine: Routine = {
-      id: Math.random().toString(36).substr(2, 9),
-      name,
-      exercises: [] // Start empty, user adds during workout
-    };
-    onAdd(newRoutine);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-      <div className="glass-dark w-full max-w-sm p-6 rounded-3xl space-y-4 border border-white/10 shadow-2xl">
-        <h2 className="text-xl font-bold text-slate-50">Nueva Rutina</h2>
-        <input 
-          autoFocus
-          value={name}
-          onChange={e => setName(e.target.value)}
-          placeholder="ej. Pecho y Espalda"
-          className="w-full bg-slate-800 border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 ring-brand-blue text-slate-100"
-        />
-        <div className="flex gap-3 pt-2">
-          <button onClick={onClose} className="flex-1 py-3 text-slate-400 font-medium tracking-wide">Cancelar</button>
-          <button onClick={handleAdd} className="btn-primary flex-1 py-3 text-slate-950">Crear</button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

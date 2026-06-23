@@ -1,92 +1,129 @@
 import React from 'react';
-import { AppState, Goal, Level, Experience, ActivityLevel, Gender } from '../types';
-import { User, Scale, Target, Trophy, Download, Upload, RotateCcw, Calendar, Utensils, Zap, Activity, Sparkles, Loader2, X, ChefHat } from 'lucide-react';
+import { User, Scale, Target, Trophy, Download, RotateCcw, Calendar, Utensils, Activity, LogOut, ChefHat, Loader2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { analyzeProgressionWithAI, getNutritionalAdviceWithAI } from '../lib/aiService';
-import { cn } from '../lib/utils';
+import { useAuthStore } from '../application/stores/useAuthStore';
+import { useWorkoutStore } from '../application/stores/useWorkoutStore';
+import { useHealthStore } from '../application/stores/useHealthStore';
+import { getNutritionalAdvice } from '../lib/aiService';
 import { calculateNutrition } from '../lib/engine';
-import { DEFAULT_STATE } from '../lib/storage';
-import { HealthImport } from '../components/health/HealthImport';
-import { DailyHealthMetric } from '../types/health';
+import { cn } from '../lib/utils';
+import type { Profile } from '../infrastructure/supabase/types';
 
-interface ProfileSettingsProps {
-  state: AppState;
-  updateState: (updater: (prev: AppState) => AppState) => void;
-  onImportHealth: (newMetrics: DailyHealthMetric[]) => void;
-}
+const GOALS_LABELS: Record<string, string> = {
+  hypertrophy: 'Hipertrofia',
+  strength: 'Fuerza',
+  fat_loss: 'Definición',
+  maintenance: 'Mantenimiento',
+  recomposition: 'Recomposición',
+};
 
-export default function ProfileSettings({ state, updateState, onImportHealth }: ProfileSettingsProps) {
-  const [isImportOpen, setIsImportOpen] = React.useState(false);
-  
-  const updateProfile = (field: keyof typeof state.profile, val: any) => {
-    updateState(prev => ({
-      ...prev,
-      profile: { ...prev.profile, [field]: val }
-    }));
-  };
+const LEVELS_LABELS: Record<string, string> = {
+  beginner: 'Principiante',
+  intermediate: 'Intermedio',
+  advanced: 'Avanzado',
+};
 
-  const exportData = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href",     dataStr);
-    downloadAnchorNode.setAttribute("download", "aerogym_backup.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-  };
+const ACTIVITY_LABELS: Record<string, string> = {
+  sedentary: 'Sedentario',
+  light: 'Ligero',
+  moderate: 'Moderado',
+  active: 'Activo',
+  very_active: 'Muy Activo',
+};
 
-  const importData = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const json = JSON.parse(event.target?.result as string);
-        updateState(() => json);
-        alert('Datos importados correctamente');
-      } catch (e) {
-        alert('Archivo de backup no válido');
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const resetData = () => {
-    if (confirm('¿Quieres borrar todos tus datos y empezar de cero?')) {
-      localStorage.removeItem('aerogym_data');
-      window.location.reload();
-    }
-  };
-
-  const nutrition = calculateNutrition(state.profile);
-
+export default function ProfileSettings() {
+  const { profile, user, updateProfile, signOut } = useAuthStore();
+  const { sessions } = useWorkoutStore();
+  const { measurements } = useHealthStore();
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [mealIdea, setMealIdea] = React.useState<string | null>(null);
 
-  const generateMealIdea = async () => {
+  if (!profile) return null;
+
+  // Calcular nutrición con el motor existente (adaptado a nuevo tipo)
+  const profileForEngine = {
+    weight: profile.weight_kg || 75,
+    height: profile.height_cm || 175,
+    age: profile.age || 25,
+    gender: profile.gender === 'female' ? 'Mujer' : 'Hombre',
+    activityLevel: ACTIVITY_LABELS[profile.activity_level] || 'Moderado',
+    goal: GOALS_LABELS[profile.goal] || 'Hipertrofia',
+  };
+  const nutrition = calculateNutrition(profileForEngine);
+
+  const handleUpdateProfile = async (field: keyof Profile, value: unknown) => {
+    await updateProfile({ [field]: value });
+  };
+
+  const handleGenerateMealIdea = async () => {
     setIsGenerating(true);
     try {
-      const advice = await getNutritionalAdviceWithAI(state.profile, nutrition);
+      const context = {
+        name: profile.name,
+        goal: profile.goal,
+        level: profile.level,
+        weight_kg: profile.weight_kg,
+        height_cm: profile.height_cm,
+        age: profile.age,
+        sessionsCount: sessions.length,
+      };
+      const advice = await getNutritionalAdvice(context, nutrition);
       setMealIdea(advice);
-    } catch (err) {
-      alert("Aero está meditando. Inténtalo más tarde.");
+    } catch {
+      setMealIdea('Trata tu nutrición como entrenas: con consistencia y propósito.');
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleExport = () => {
+    const exportData = {
+      profile,
+      sessions,
+      measurements,
+      exportedAt: new Date().toISOString(),
+      version: '2.0.0',
+    };
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(exportData, null, 2));
+    const a = document.createElement('a');
+    a.setAttribute('href', dataStr);
+    a.setAttribute('download', `aerogym_backup_${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   return (
     <div className="space-y-8 pb-32">
       <h1 className="text-3xl font-bold">Perfil</h1>
 
-      {/* Stats Summary */}
+      {/* User card */}
       <div className="flex items-center gap-4 glass p-6 rounded-3xl">
         <div className="w-16 h-16 bg-brand-blue/20 rounded-full flex items-center justify-center text-brand-blue">
           <User size={32} />
         </div>
-        <div>
-          <h2 className="text-xl font-bold text-slate-50">{state.profile.name}</h2>
-          <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">{state.profile.level} • {state.profile.goal}</p>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl font-bold text-slate-50">{profile.name}</h2>
+          <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">
+            {LEVELS_LABELS[profile.level]} · {GOALS_LABELS[profile.goal]}
+          </p>
+          <p className="text-[10px] text-slate-600 mt-0.5">{user?.email}</p>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="glass p-4 rounded-2xl text-center">
+          <p className="text-xl font-black text-brand-blue">{sessions.length}</p>
+          <p className="text-[10px] text-slate-500 uppercase font-bold">Entrenos</p>
+        </div>
+        <div className="glass p-4 rounded-2xl text-center">
+          <p className="text-xl font-black text-slate-50">{profile.weight_kg || '--'}kg</p>
+          <p className="text-[10px] text-slate-500 uppercase font-bold">Peso</p>
+        </div>
+        <div className="glass p-4 rounded-2xl text-center">
+          <p className="text-xl font-black text-brand-green">{measurements.length}</p>
+          <p className="text-[10px] text-slate-500 uppercase font-bold">Medidas</p>
         </div>
       </div>
 
@@ -97,25 +134,17 @@ export default function ProfileSettings({ state, updateState, onImportHealth }: 
         </h3>
         <div className="glass p-6 rounded-3xl space-y-6">
           <div className="text-center space-y-1">
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-tighter">Calorías Diarias Recomendadas</p>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-tighter">Calorías Diarias</p>
             <p className="text-5xl font-black text-brand-blue">{nutrition.targetCalories}</p>
-            <p className="text-[10px] text-slate-500 font-medium">Basado en tu TDEE ({nutrition.tdee} kcal) y objetivo</p>
+            <p className="text-[10px] text-slate-500">TDEE {nutrition.tdee} kcal · objetivo {GOALS_LABELS[profile.goal]}</p>
           </div>
-          
           <div className="grid grid-cols-3 gap-3">
             <MacroCard label="Proteína" value={`${nutrition.macros.protein}g`} color="blue" />
             <MacroCard label="Grasas" value={`${nutrition.macros.fat}g`} color="yellow" />
-            <MacroCard label="Carbs" value={`${nutrition.macros.carbs}g`} color="green" />
+            <MacroCard label="Carbos" value={`${nutrition.macros.carbs}g`} color="green" />
           </div>
-
-          <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5">
-            <p className="text-[10px] text-slate-400 leading-relaxed italic text-center">
-              "Distribución de 2g de proteína por kg de peso para maximizar {state.profile.goal.toLowerCase()} y preservar masa muscular, siguiendo evidencia científica."
-            </p>
-          </div>
-
-          <button 
-            onClick={generateMealIdea}
+          <button
+            onClick={handleGenerateMealIdea}
             disabled={isGenerating}
             className="w-full py-4 bg-brand-blue/10 border border-brand-blue/30 rounded-2xl flex items-center justify-center gap-2 text-brand-blue font-bold text-sm hover:bg-brand-blue hover:text-slate-950 transition-all"
           >
@@ -127,181 +156,150 @@ export default function ProfileSettings({ state, updateState, onImportHealth }: 
 
       <AnimatePresence>
         {mealIdea && (
-          <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-6">
-            <motion.div 
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-6"
+          >
+            <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="glass p-8 rounded-3xl max-w-md w-full relative space-y-4"
+              className="glass p-8 rounded-3xl max-w-md w-full space-y-4"
             >
-              <button 
-                onClick={() => setMealIdea(null)}
-                className="absolute top-4 right-4 text-slate-500"
-              >
-                <X size={24} />
-              </button>
-              
-              <div className="w-12 h-12 bg-brand-blue/20 rounded-full flex items-center justify-center text-brand-blue mb-2">
-                <Sparkles size={24} />
-              </div>
-              
               <h2 className="text-2xl font-bold">Combustible para la Virtud</h2>
-              <p className="text-slate-300 italic font-serif text-lg leading-relaxed">
-                "{mealIdea}"
-              </p>
-              
-              <button 
+              <p className="text-slate-300 italic font-serif text-lg leading-relaxed">"{mealIdea}"</p>
+              <button
                 onClick={() => setMealIdea(null)}
-                className="w-full py-4 bg-brand-blue text-slate-950 rounded-xl font-black mt-4"
+                className="w-full py-4 bg-brand-blue text-slate-950 rounded-xl font-black"
               >
                 ENTENDIDO
               </button>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Settings Sections */}
+      {/* Personal Info */}
       <section className="space-y-4">
         <h3 className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
           <Scale size={14} /> Información Personal
         </h3>
         <div className="glass rounded-2xl overflow-hidden divide-y divide-white/5 text-sm">
-          <SettingsItem 
-            label="Nombre" 
-            value={state.profile.name} 
-            onChange={v => updateProfile('name', v)} 
+          <EditableField
+            label="Nombre"
+            value={profile.name}
+            onSave={(v) => handleUpdateProfile('name', v)}
           />
-          <SettingsItem 
-            label="Peso (kg)" 
+          <EditableField
+            label="Peso (kg)"
             type="number"
-            value={state.profile.weight} 
-            onChange={v => updateProfile('weight', parseFloat(v))} 
+            value={String(profile.weight_kg || '')}
+            onSave={(v) => handleUpdateProfile('weight_kg', parseFloat(v))}
           />
-          <SettingsItem 
-            label="Altura (cm)" 
+          <EditableField
+            label="Altura (cm)"
             type="number"
-            value={state.profile.height} 
-            onChange={v => updateProfile('height', parseFloat(v))} 
+            value={String(profile.height_cm || '')}
+            onSave={(v) => handleUpdateProfile('height_cm', parseFloat(v))}
           />
-          <SettingsItem 
-            label="Edad" 
+          <EditableField
+            label="Edad"
             type="number"
-            value={state.profile.age} 
-            onChange={v => updateProfile('age', parseInt(v))} 
+            value={String(profile.age || '')}
+            onSave={(v) => handleUpdateProfile('age', parseInt(v))}
           />
-          <div className="flex items-center justify-between p-4">
-            <span className="text-slate-400 font-medium">Género</span>
-            <div className="flex gap-2">
-              {['Hombre', 'Mujer'].map(g => (
-                <button 
-                  key={g} 
-                  onClick={() => updateProfile('gender', g as Gender)}
-                  className={cn("px-3 py-1 rounded-lg text-xs font-bold", state.profile.gender === g ? "bg-brand-blue text-slate-950" : "bg-slate-800 text-slate-400")}
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </section>
 
+      {/* Goal */}
+      <section className="space-y-4">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
+          <Target size={14} /> Objetivo
+        </h3>
+        <div className="grid grid-cols-2 gap-2">
+          {Object.entries(GOALS_LABELS).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => handleUpdateProfile('goal', key)}
+              className={cn(
+                'py-3 rounded-xl font-medium transition-all border text-sm',
+                profile.goal === key
+                  ? 'bg-brand-blue border-brand-blue text-slate-950 font-bold'
+                  : 'glass border-transparent text-slate-400'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Level */}
+      <section className="space-y-4">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
+          <Trophy size={14} /> Nivel
+        </h3>
+        <div className="grid grid-cols-3 gap-2">
+          {Object.entries(LEVELS_LABELS).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => handleUpdateProfile('level', key)}
+              className={cn(
+                'py-3 rounded-xl font-medium transition-all border text-sm',
+                profile.level === key
+                  ? 'bg-brand-blue border-brand-blue text-slate-950 font-bold'
+                  : 'glass border-transparent text-slate-400'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Activity */}
       <section className="space-y-4">
         <h3 className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
           <Activity size={14} /> Nivel de Actividad
         </h3>
         <div className="grid grid-cols-2 gap-2">
-          {['Sedentario', 'Ligero', 'Moderado', 'Activo', 'Muy Activo'].map(level => (
-            <button 
-              key={level}
-              onClick={() => updateProfile('activityLevel', level as ActivityLevel)}
+          {Object.entries(ACTIVITY_LABELS).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => handleUpdateProfile('activity_level', key)}
               className={cn(
-                "py-3 rounded-xl font-medium transition-all border text-[10px]",
-                state.profile.activityLevel === level ? "bg-brand-blue border-brand-blue text-slate-950 font-bold" : "glass border-transparent text-slate-400"
+                'py-3 rounded-xl font-medium transition-all border text-[11px]',
+                profile.activity_level === key
+                  ? 'bg-brand-blue border-brand-blue text-slate-950 font-bold'
+                  : 'glass border-transparent text-slate-400'
               )}
             >
-              {level}
+              {label}
             </button>
           ))}
         </div>
       </section>
 
+      {/* Frequency */}
       <section className="space-y-4">
         <h3 className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
-          <Target size={14} /> Objetivo de Entrenamiento
-        </h3>
-        <div className="grid grid-cols-2 gap-2">
-          {['Hipertrofia', 'Fuerza', 'Definición', 'Mantenimiento'].map(goal => (
-            <button 
-              key={goal}
-              onClick={() => updateProfile('goal', goal as Goal)}
-              className={cn(
-                "py-3 rounded-xl font-medium transition-all border",
-                state.profile.goal === goal ? "bg-brand-blue border-brand-blue text-slate-950 font-bold" : "glass border-transparent text-slate-400"
-              )}
-            >
-              {goal}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-4">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
-          <Trophy size={14} /> Nivel de Entrenamiento
-        </h3>
-        <div className="grid grid-cols-3 gap-2">
-          {['Principiante', 'Intermedio', 'Avanzado'].map(level => (
-            <button 
-              key={level}
-              onClick={() => updateProfile('level', level as Level)}
-              className={cn(
-                "py-3 rounded-xl font-medium transition-all border text-sm",
-                state.profile.level === level ? "bg-brand-blue border-brand-blue text-slate-950 font-bold" : "glass border-transparent text-slate-400"
-              )}
-            >
-              {level}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-4">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
-          <Calendar size={14} /> Experiencia de Entrenamiento
-        </h3>
-        <div className="grid grid-cols-2 gap-2">
-          {['PPL', 'Torso Pierna', 'Cuerpo Completo', 'Weider'].map(exp => (
-            <button 
-              key={exp}
-              onClick={() => updateProfile('experience', exp as Experience)}
-              className={cn(
-                "py-3 rounded-xl font-medium transition-all border text-sm",
-                state.profile.experience === exp ? "bg-brand-blue border-brand-blue text-slate-950 font-bold" : "glass border-transparent text-slate-400"
-              )}
-            >
-              {exp}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-4">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
-          <RotateCcw size={14} /> Frecuencia Semanal
+          <Calendar size={14} /> Frecuencia Semanal
         </h3>
         <div className="glass p-4 rounded-2xl flex items-center justify-between">
           <span className="text-slate-400 font-medium">Sesiones / Semana</span>
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => updateProfile('weeklyFrequency', Math.max(1, state.profile.weeklyFrequency - 1))}
+            <button
+              onClick={() => handleUpdateProfile('weekly_frequency', Math.max(1, (profile.weekly_frequency || 3) - 1))}
               className="w-8 h-8 glass rounded-lg flex items-center justify-center text-brand-blue"
             >
               -
             </button>
-            <span className="font-bold text-xl text-slate-50 w-6 text-center">{state.profile.weeklyFrequency}</span>
-            <button 
-              onClick={() => updateProfile('weeklyFrequency', Math.min(7, state.profile.weeklyFrequency + 1))}
+            <span className="font-bold text-xl text-slate-50 w-6 text-center">
+              {profile.weekly_frequency || 3}
+            </span>
+            <button
+              onClick={() => handleUpdateProfile('weekly_frequency', Math.min(7, (profile.weekly_frequency || 3) + 1))}
               className="w-8 h-8 glass rounded-lg flex items-center justify-center text-brand-blue"
             >
               +
@@ -310,45 +308,23 @@ export default function ProfileSettings({ state, updateState, onImportHealth }: 
         </div>
       </section>
 
-      {/* Health Import Section */}
-      <section className="space-y-4">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
-          <Activity size={14} /> Sincronización de Salud
-        </h3>
-        <div className="glass p-6 rounded-3xl space-y-4">
-          <p className="text-xs text-slate-400 leading-relaxed italic">
-            Conecta tus datos de Xiaomi o Google Fit. Los nuevos datos se fusionarán automáticamente con tu historial.
-          </p>
-          <button 
-            onClick={() => setIsImportOpen(true)}
-            className="w-full py-4 bg-brand-blue text-slate-950 rounded-2xl flex items-center justify-center gap-2 font-black text-sm hover:scale-[1.02] transition-transform"
-          >
-            <Upload size={18} /> Importar Datos de Salud
-          </button>
-        </div>
-      </section>
-
-      <HealthImport 
-        isOpen={isImportOpen} 
-        onClose={() => setIsImportOpen(false)} 
-        onImport={onImportHealth} 
-      />
-
-      {/* Backup & Safety */}
+      {/* Data Management */}
       <section className="space-y-4">
         <h3 className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
           <RotateCcw size={14} /> Gestión de Datos
         </h3>
         <div className="space-y-2">
-          <button onClick={exportData} className="w-full py-4 glass rounded-xl flex items-center justify-center gap-2 text-sm font-bold">
+          <button
+            onClick={handleExport}
+            className="w-full py-4 glass rounded-xl flex items-center justify-center gap-2 text-sm font-bold"
+          >
             <Download size={18} /> Exportar Backup JSON
           </button>
-          <label className="w-full py-4 glass rounded-xl flex items-center justify-center gap-2 text-sm font-bold cursor-pointer transition-all hover:bg-white/5">
-            <Upload size={18} /> Importar Backup JSON
-            <input type="file" className="hidden" onChange={importData} accept=".json" />
-          </label>
-          <button onClick={resetData} className="w-full py-4 glass border-red-500/20 text-red-500 rounded-xl flex items-center justify-center gap-2 text-sm font-bold">
-            Borrar Todos los Datos
+          <button
+            onClick={() => confirm('¿Cerrar sesión?') && signOut()}
+            className="w-full py-4 glass border-red-500/20 text-red-400 rounded-xl flex items-center justify-center gap-2 text-sm font-bold"
+          >
+            <LogOut size={18} /> Cerrar Sesión
           </button>
         </div>
       </section>
@@ -356,29 +332,50 @@ export default function ProfileSettings({ state, updateState, onImportHealth }: 
   );
 }
 
-function SettingsItem({ label, value, type = 'text', onChange }: any) {
+function EditableField({ label, value, type = 'text', onSave }: {
+  label: string;
+  value: string;
+  type?: string;
+  onSave: (v: string) => void;
+}) {
+  const [editing, setEditing] = React.useState(false);
+  const [val, setVal] = React.useState(value);
+
   return (
     <div className="flex items-center justify-between p-4">
       <span className="text-slate-400 font-medium">{label}</span>
-      <input 
-        type={type}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="bg-transparent text-right outline-none font-bold text-brand-blue w-24"
-      />
+      {editing ? (
+        <div className="flex items-center gap-2">
+          <input
+            type={type}
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onBlur={() => { onSave(val); setEditing(false); }}
+            onKeyDown={(e) => e.key === 'Enter' && (onSave(val), setEditing(false))}
+            className="bg-slate-800 text-right outline-none font-bold text-brand-blue w-24 rounded-lg px-2 py-1 focus:ring-1 ring-brand-blue/30"
+            autoFocus
+          />
+        </div>
+      ) : (
+        <button
+          onClick={() => { setVal(value); setEditing(true); }}
+          className="font-bold text-brand-blue"
+        >
+          {value || 'Añadir'}
+        </button>
+      )}
     </div>
   );
 }
 
-function MacroCard({ label, value, color }: { label: string, value: string, color: 'blue' | 'yellow' | 'green' }) {
+function MacroCard({ label, value, color }: { label: string; value: string; color: 'blue' | 'yellow' | 'green' }) {
   const colors = {
-    blue: "text-brand-blue bg-brand-blue/10 border-brand-blue/20",
-    yellow: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
-    green: "text-brand-green bg-brand-green/10 border-brand-green/20"
+    blue: 'text-brand-blue bg-brand-blue/10 border-brand-blue/20',
+    yellow: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
+    green: 'text-brand-green bg-brand-green/10 border-brand-green/20',
   };
-
   return (
-    <div className={cn("p-3 rounded-2xl border text-center space-y-1", colors[color])}>
+    <div className={cn('p-3 rounded-2xl border text-center space-y-1', colors[color])}>
       <p className="text-[10px] font-bold uppercase">{label}</p>
       <p className="text-lg font-black">{value}</p>
     </div>

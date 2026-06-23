@@ -1,4 +1,4 @@
-import { DailyHealthMetric, HealthSleepEntry, HealthActivityEntry } from '../../types/health';
+import { DailyHealthMetric, HealthSleepEntry, HealthActivityEntry } from '../../../types/health';
 import { BaseHealthImporter } from '../BaseHealthImporter';
 
 export class ZeppImporter extends BaseHealthImporter {

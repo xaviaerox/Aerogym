@@ -1,230 +1,296 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  ChevronRight, 
-  ChevronLeft, 
-  CheckCircle2, 
-  Target, 
-  Trophy, 
-  Dumbbell,
-  Scale
-} from 'lucide-react';
-import { AppState, Goal, Level, Experience } from '../types';
+import { ChevronRight, Dumbbell, Target, Zap, User, Check } from 'lucide-react';
+import { useAuthStore } from '../application/stores/useAuthStore';
 import { cn } from '../lib/utils';
-import { PREDEFINED_ROUTINES } from '../constants/routines';
+import type { Profile } from '../infrastructure/supabase/types';
 
 interface OnboardingViewProps {
-  state: AppState;
-  updateState: (updater: (prev: AppState) => AppState) => void;
-  onComplete: () => void;
+  profile: Profile;
 }
 
-export default function OnboardingView({ state, updateState, onComplete }: OnboardingViewProps) {
-  const [step, setStep] = useState(0);
+const GOALS = [
+  { key: 'hypertrophy', label: 'Ganar Músculo', emoji: '💪', desc: 'Hipertrofia y volumen' },
+  { key: 'strength', label: 'Ganar Fuerza', emoji: '🏋️', desc: 'Levantar más peso' },
+  { key: 'fat_loss', label: 'Perder Grasa', emoji: '🔥', desc: 'Definición y composición' },
+  { key: 'recomposition', label: 'Recomposición', emoji: '⚡', desc: 'Músculo y pérdida de grasa' },
+  { key: 'maintenance', label: 'Mantenimiento', emoji: '🎯', desc: 'Mantener mi forma' },
+] as const;
 
-  const steps = [
-    { title: 'Bienvenido a AeroGym', description: 'Tu compañero inteligente para el gimnasio.', icon: <Dumbbell className="text-brand-blue" size={48} /> },
-    { title: '¿Cuál es tu objetivo?', description: 'Personalizaremos tu volumen de entrenamiento.', icon: <Target className="text-brand-blue" size={48} /> },
-    { title: 'Tu nivel actual', description: 'Adaptaremos la complejidad de los ejercicios.', icon: <Trophy className="text-brand-blue" size={48} /> },
-    { title: 'Preferencia de Rutina', description: 'Seleccionaremos tu plan de trabajo inicial.', icon: <Dumbbell className="text-brand-blue" size={48} /> },
-    { title: 'Casi listo', description: 'Introduce tus datos básicos.', icon: <Scale className="text-brand-blue" size={48} /> },
+const LEVELS = [
+  { key: 'beginner', label: 'Principiante', desc: 'Menos de 1 año entrenando' },
+  { key: 'intermediate', label: 'Intermedio', desc: '1-3 años de experiencia' },
+  { key: 'advanced', label: 'Avanzado', desc: 'Más de 3 años serio' },
+] as const;
+
+const FREQUENCIES = [2, 3, 4, 5, 6];
+
+export default function OnboardingView({ profile }: OnboardingViewProps) {
+  const { updateProfile } = useAuthStore();
+  const [step, setStep] = useState(0);
+  const [data, setData] = useState({
+    name: profile.name || '',
+    age: profile.age || '',
+    weight_kg: profile.weight_kg || '',
+    height_cm: profile.height_cm || '',
+    gender: profile.gender || 'male',
+    goal: profile.goal || 'hypertrophy',
+    level: profile.level || 'beginner',
+    weekly_frequency: profile.weekly_frequency || 3,
+  });
+  const [isLoading, setIsLoading] = useState(false);
+
+  const STEPS = [
+    { title: '¡Bienvenido!', subtitle: 'Cuéntanos sobre ti', icon: User },
+    { title: 'Tu objetivo', subtitle: '¿Qué quieres conseguir?', icon: Target },
+    { title: 'Tu nivel', subtitle: '¿Cuánta experiencia tienes?', icon: Dumbbell },
+    { title: 'Frecuencia', subtitle: '¿Cuántos días a la semana?', icon: Zap },
   ];
 
-  const updateProfile = (field: string, val: any) => {
-    updateState(prev => ({
-      ...prev,
-      profile: { ...prev.profile, [field]: val }
-    }));
+  const canContinue = () => {
+    if (step === 0) return data.name.trim().length > 0;
+    return true;
   };
 
-  const handleFinish = () => {
-    // Auto-setup routines based on choice
-    const selectedExp = state.profile.experience;
-    let routinesToAdd = [];
-    
-    if (selectedExp === 'PPL') {
-      if (state.profile.weeklyFrequency >= 6) {
-        routinesToAdd = PREDEFINED_ROUTINES.filter(r => ['push-a', 'pull-a', 'legs-a', 'push-b', 'pull-b', 'legs-b'].includes(r.id));
-      } else {
-        routinesToAdd = PREDEFINED_ROUTINES.filter(r => ['push-a', 'pull-a', 'legs-a'].includes(r.id));
-      }
-    } else if (selectedExp === 'Torso Pierna') {
-      routinesToAdd = PREDEFINED_ROUTINES.filter(r => ['upper-b', 'legs-a'].includes(r.id));
-    } else {
-      routinesToAdd = [PREDEFINED_ROUTINES.find(r => r.id === 'full-body-metabolic')!].filter(Boolean);
+  const handleComplete = async () => {
+    setIsLoading(true);
+    try {
+      await updateProfile({
+        name: data.name,
+        age: Number(data.age) || null,
+        weight_kg: Number(data.weight_kg) || null,
+        height_cm: Number(data.height_cm) || null,
+        gender: data.gender as Profile['gender'],
+        goal: data.goal as Profile['goal'],
+        level: data.level as Profile['level'],
+        weekly_frequency: data.weekly_frequency,
+        onboarding_complete: true,
+      });
+    } finally {
+      setIsLoading(false);
     }
-
-    updateState(prev => ({
-      ...prev,
-      routines: routinesToAdd,
-      onboardingComplete: true
-    }));
-    onComplete();
   };
 
-  const next = () => setStep(s => Math.min(steps.length - 1, s + 1));
-  const prev = () => setStep(s => Math.max(0, s - 1));
+  const progressPct = ((step + 1) / STEPS.length) * 100;
 
   return (
-    <div className="fixed inset-0 bg-slate-950 z-[200] flex flex-col p-8 safe-bottom">
-      <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
-        <motion.div
-          key={step}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          className="space-y-6 w-full"
-        >
-          <div className="w-24 h-24 bg-brand-blue/10 rounded-full flex items-center justify-center mx-auto mb-8">
-            {steps[step].icon}
+    <div className="min-h-screen flex flex-col justify-between py-8">
+      {/* Progress */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-brand-blue/20 rounded-2xl flex items-center justify-center">
+            <Dumbbell size={20} className="text-brand-blue" />
           </div>
-          <h2 className="text-3xl font-bold text-slate-50">{steps[step].title}</h2>
-          <p className="text-slate-400 font-medium">{steps[step].description}</p>
+          <div>
+            <p className="font-black text-slate-50">AeroGym</p>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest">
+              Paso {step + 1} de {STEPS.length}
+            </p>
+          </div>
+        </div>
 
-          {/* Dynamic Step Content */}
-          <div className="pt-8">
-            {step === 1 && (
-              <div className="grid grid-cols-1 gap-3">
-                {['Hipertrofia', 'Fuerza', 'Definición', 'Mantenimiento'].map(goal => (
-                  <button 
-                    key={goal}
-                    onClick={() => { updateProfile('goal', goal); next(); }}
-                    className={cn(
-                      "py-4 rounded-2xl font-bold transition-all border",
-                      state.profile.goal === goal ? "bg-brand-blue border-brand-blue text-slate-950" : "glass border-transparent text-slate-400"
-                    )}
-                  >
-                    {goal}
-                  </button>
-                ))}
-              </div>
-            )}
+        <div className="w-full bg-slate-800 rounded-full h-1.5">
+          <motion.div
+            className="h-1.5 bg-brand-blue rounded-full"
+            animate={{ width: `${progressPct}%` }}
+            transition={{ duration: 0.3 }}
+          />
+        </div>
 
-            {step === 2 && (
-              <div className="grid grid-cols-1 gap-3">
-                {['Principiante', 'Intermedio', 'Avanzado'].map(level => (
-                  <button 
-                    key={level}
-                    onClick={() => { updateProfile('level', level); next(); }}
-                    className={cn(
-                      "py-4 rounded-2xl font-bold transition-all border",
-                      state.profile.level === level ? "bg-brand-blue border-brand-blue text-slate-950" : "glass border-transparent text-slate-400"
-                    )}
-                  >
-                    {level}
-                  </button>
-                ))}
-              </div>
-            )}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -30 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
+          >
+            <div>
+              <h1 className="text-3xl font-black text-slate-50">{STEPS[step].title}</h1>
+              <p className="text-slate-400 mt-1">{STEPS[step].subtitle}</p>
+            </div>
 
-            {step === 3 && (
-              <div className="grid grid-cols-1 gap-3">
-                {['PPL', 'Torso Pierna', 'Cuerpo Completo', 'Weider'].map(exp => (
-                  <button 
-                    key={exp}
-                    onClick={() => { updateProfile('experience', exp); next(); }}
-                    className={cn(
-                      "py-4 rounded-2xl font-bold transition-all border",
-                      state.profile.experience === exp ? "bg-brand-blue border-brand-blue text-slate-950" : "glass border-transparent text-slate-400"
-                    )}
-                  >
-                    {exp}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {step === 4 && (
-              <div className="space-y-6">
-                <div className="glass p-6 rounded-3xl space-y-4">
-                  <div className="flex gap-2">
-                    {['Hombre', 'Mujer'].map(g => (
-                      <button 
-                        key={g}
-                        onClick={() => updateProfile('gender', g)}
-                        className={cn("flex-1 py-3 rounded-xl font-bold text-sm border", state.profile.gender === g ? "bg-brand-blue text-slate-950" : "glass border-transparent text-slate-400")}
-                      >
-                        {g}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex flex-col items-start gap-1">
-                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest pl-1">Altura (cm)</label>
-                      <input 
-                        type="number"
-                        className="w-full bg-slate-900 border-none rounded-xl px-4 py-2 text-sm font-bold text-brand-blue outline-none focus:ring-1 ring-brand-blue/50"
-                        value={state.profile.height}
-                        onChange={e => updateProfile('height', parseFloat(e.target.value) || 0)}
-                        placeholder="175"
-                      />
-                    </div>
-                    <div className="flex flex-col items-start gap-1">
-                      <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest pl-1">Edad</label>
-                      <input 
-                        type="number"
-                        className="w-full bg-slate-900 border-none rounded-xl px-4 py-2 text-sm font-bold text-brand-blue outline-none focus:ring-1 ring-brand-blue/50"
-                        value={state.profile.age}
-                        onChange={e => updateProfile('age', parseInt(e.target.value) || 0)}
-                        placeholder="25"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-start gap-2 pt-2 border-t border-white/5">
-                    <label className="text-xs uppercase font-bold text-slate-500 tracking-widest pl-1">Nombre</label>
-                    <input 
-                      className="w-full bg-slate-900 border-none rounded-xl px-4 py-3 text-lg font-bold text-brand-blue outline-none focus:ring-2 ring-brand-blue/50"
-                      value={state.profile.name}
-                      onChange={e => updateProfile('name', e.target.value)}
-                      placeholder="Tu nombre"
-                    />
-                  </div>
-                  <div className="flex flex-col items-start gap-2">
-                    <label className="text-xs uppercase font-bold text-slate-500 tracking-widest pl-1">Peso Actual (kg)</label>
-                    <input 
+            {/* Step 0: Datos personales */}
+            {step === 0 && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nombre</label>
+                  <input
+                    type="text"
+                    value={data.name}
+                    onChange={(e) => setData((d) => ({ ...d, name: e.target.value }))}
+                    placeholder="¿Cómo te llamamos?"
+                    className="w-full bg-slate-800/80 border border-white/10 rounded-2xl px-4 py-4 text-sm outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Peso (kg)</label>
+                    <input
                       type="number"
-                      className="w-full bg-slate-900 border-none rounded-xl px-4 py-3 text-lg font-bold text-brand-blue outline-none focus:ring-2 ring-brand-blue/50"
-                      value={state.profile.weight}
-                      onChange={e => updateProfile('weight', parseFloat(e.target.value) || 0)}
-                      placeholder="70"
+                      value={data.weight_kg}
+                      onChange={(e) => setData((d) => ({ ...d, weight_kg: e.target.value }))}
+                      placeholder="75"
+                      className="w-full bg-slate-800/80 border border-white/10 rounded-2xl px-4 py-4 text-sm outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Altura (cm)</label>
+                    <input
+                      type="number"
+                      value={data.height_cm}
+                      onChange={(e) => setData((d) => ({ ...d, height_cm: e.target.value }))}
+                      placeholder="175"
+                      className="w-full bg-slate-800/80 border border-white/10 rounded-2xl px-4 py-4 text-sm outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Edad</label>
+                    <input
+                      type="number"
+                      value={data.age}
+                      onChange={(e) => setData((d) => ({ ...d, age: e.target.value }))}
+                      placeholder="25"
+                      className="w-full bg-slate-800/80 border border-white/10 rounded-2xl px-4 py-4 text-sm outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Género</label>
+                    <div className="flex gap-2">
+                      {[{ key: 'male', label: '♂' }, { key: 'female', label: '♀' }].map((g) => (
+                        <button
+                          key={g.key}
+                          onClick={() => setData((d) => ({ ...d, gender: g.key }))}
+                          className={cn(
+                            'flex-1 py-4 rounded-2xl text-lg font-bold border transition-all',
+                            data.gender === g.key
+                              ? 'bg-brand-blue text-slate-950 border-brand-blue'
+                              : 'bg-slate-800/80 border-white/10 text-slate-400'
+                          )}
+                        >
+                          {g.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-                <button 
-                  onClick={handleFinish}
-                  className="w-full py-5 btn-primary rounded-3xl font-black text-lg text-slate-950 flex items-center justify-center gap-2"
-                >
-                  <CheckCircle2 size={24} />
-                  COMENZAR A ENTRENAR
-                </button>
               </div>
             )}
-          </div>
-        </motion.div>
+
+            {/* Step 1: Objetivo */}
+            {step === 1 && (
+              <div className="space-y-3">
+                {GOALS.map((goal) => (
+                  <button
+                    key={goal.key}
+                    onClick={() => setData((d) => ({ ...d, goal: goal.key }))}
+                    className={cn(
+                      'w-full p-4 rounded-2xl flex items-center gap-4 border transition-all text-left',
+                      data.goal === goal.key
+                        ? 'bg-brand-blue/20 border-brand-blue/50'
+                        : 'glass border-white/5 hover:border-white/20'
+                    )}
+                  >
+                    <span className="text-3xl">{goal.emoji}</span>
+                    <div className="flex-1">
+                      <p className="font-bold text-slate-50">{goal.label}</p>
+                      <p className="text-xs text-slate-400">{goal.desc}</p>
+                    </div>
+                    {data.goal === goal.key && (
+                      <Check size={20} className="text-brand-blue flex-shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Step 2: Nivel */}
+            {step === 2 && (
+              <div className="space-y-3">
+                {LEVELS.map((level) => (
+                  <button
+                    key={level.key}
+                    onClick={() => setData((d) => ({ ...d, level: level.key }))}
+                    className={cn(
+                      'w-full p-5 rounded-2xl border transition-all text-left',
+                      data.level === level.key
+                        ? 'bg-brand-blue/20 border-brand-blue/50'
+                        : 'glass border-white/5 hover:border-white/20'
+                    )}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-slate-50">{level.label}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{level.desc}</p>
+                      </div>
+                      {data.level === level.key && <Check size={20} className="text-brand-blue" />}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Step 3: Frecuencia */}
+            {step === 3 && (
+              <div className="space-y-6">
+                <div className="flex justify-center">
+                  <div className="text-center">
+                    <p className="text-7xl font-black text-brand-blue">{data.weekly_frequency}</p>
+                    <p className="text-slate-400 font-medium mt-2">días por semana</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-center">
+                  {FREQUENCIES.map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setData((d) => ({ ...d, weekly_frequency: f }))}
+                      className={cn(
+                        'w-12 h-12 rounded-2xl font-bold text-sm border transition-all',
+                        data.weekly_frequency === f
+                          ? 'bg-brand-blue text-slate-950 border-brand-blue'
+                          : 'glass border-white/10 text-slate-400'
+                      )}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-center text-slate-500 text-sm">
+                  {data.weekly_frequency <= 3 ? 'Ideal para principiantes' :
+                   data.weekly_frequency <= 4 ? 'Perfecto para progresión constante' :
+                   'Para atletas con recuperación optimizada'}
+                </p>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
-      {/* Navigation Footer */}
-      <div className="flex justify-between items-center pt-8">
-        {step > 0 && step < 4 ? (
-          <button onClick={prev} className="p-4 text-slate-500 font-bold flex items-center gap-2">
-            <ChevronLeft size={20} /> Atrás
-          </button>
-        ) : <div />}
-        
-        {step === 0 && (
-          <button onClick={next} className="w-full py-5 btn-primary rounded-3xl font-black text-lg text-slate-950 flex items-center justify-center gap-2">
-            SIGUIENTE <ChevronRight size={24} />
+      {/* Navigation */}
+      <div className="flex gap-3 mt-8">
+        {step > 0 && (
+          <button
+            onClick={() => setStep((s) => s - 1)}
+            className="px-6 py-4 glass rounded-2xl font-bold text-slate-400"
+          >
+            Atrás
           </button>
         )}
-      </div>
-
-      {/* Progress Dots */}
-      <div className="flex justify-center gap-2 py-6">
-        {steps.map((_, i) => (
-          <div key={i} className={cn("w-2 h-2 rounded-full transition-all", i === step ? "bg-brand-blue w-6" : "bg-slate-800")} />
-        ))}
+        <button
+          onClick={() => {
+            if (step < STEPS.length - 1) {
+              setStep((s) => s + 1);
+            } else {
+              handleComplete();
+            }
+          }}
+          disabled={!canContinue() || isLoading}
+          className="flex-1 py-4 bg-brand-blue text-slate-950 rounded-2xl font-black flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]"
+        >
+          {isLoading ? 'Guardando...' : step === STEPS.length - 1 ? '¡Empezar AeroGym!' : 'Continuar'}
+          {!isLoading && <ChevronRight size={20} />}
+        </button>
       </div>
     </div>
   );

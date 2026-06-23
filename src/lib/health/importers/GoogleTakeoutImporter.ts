@@ -1,4 +1,4 @@
-import { HealthSleepEntry, DailyHealthMetric } from '../../types/health';
+import { HealthSleepEntry, DailyHealthMetric } from '../../../types/health';
 import { BaseHealthImporter } from '../BaseHealthImporter';
 
 export class GoogleTakeoutImporter extends BaseHealthImporter {

@@ -1,4 +1,4 @@
-import { DailyHealthMetric } from '../../types/health';
+import { DailyHealthMetric } from '../../../types/health';
 import { BaseHealthImporter } from '../BaseHealthImporter';
 
 export class MiFitnessImporter extends BaseHealthImporter {
