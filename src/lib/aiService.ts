@@ -156,12 +156,16 @@ Da un consejo estoico breve cruzando los datos.`,
 }
 
 /**
- * Chat interactivo del Coach Aero
+ * Chat interactivo del Coach Aero con contexto RAG dinámico
  */
 export async function sendChatMessage(
   profile: UserContextForAI,
   chatHistory: { role: 'user' | 'model'; content: string }[],
-  newMessage: string
+  newMessage: string,
+  extraContext?: {
+    recentSessionsSummary?: string;
+    recentHealthSummary?: string;
+  }
 ): Promise<string> {
   const contents: GeminiContent[] = [
     ...chatHistory.slice(-10).map((m) => ({
@@ -172,8 +176,10 @@ export async function sendChatMessage(
       role: 'user' as const,
       parts: [
         {
-          text: `[CONTEXTO: ${profile.name}, ${profile.level}, objetivo: ${profile.goal}, 
-${profile.sessionsCount} entrenamientos${profile.lastSessionName ? `, último: ${profile.lastSessionName}` : ''}]
+          text: `[CONTEXTO DE ${profile.name}: Nivel ${profile.level}, objetivo ${profile.goal}.
+Historial total: ${profile.sessionsCount} entrenamientos.
+${extraContext?.recentSessionsSummary ? `Entrenamientos recientes:\n${extraContext.recentSessionsSummary}\n` : ''}
+${extraContext?.recentHealthSummary ? `Métricas de salud y descanso recientes:\n${extraContext.recentHealthSummary}\n` : ''}]
 
 Pregunta: ${newMessage}`,
         },
@@ -187,14 +193,67 @@ Pregunta: ${newMessage}`,
       parts: [
         {
           text: `Eres Aero, entrenador personal de élite experto en biomecánica y nutrición deportiva.
-- Sé directo, motivador y científico
-- Usa emojis fitness (💪 🏋️‍♂️ ⚡ 🎯)
-- Respuestas breves, optimizadas para móvil
-- Basa tus respuestas en evidencia (ACSM, NIH, ISSN)`,
+- Sé directo, motivador y científico.
+- Usa emojis fitness (💪 🏋️‍♂️ ⚡ 🎯).
+- Ofrece respuestas breves optimizadas para móvil.
+- Utiliza la información del contexto RAG del usuario para dar respuestas personalizadas y precisas sobre su progreso.
+- Basa tus respuestas en evidencia científica (ACSM, NIH, ISSN).`,
         },
       ],
     },
     contents,
+    generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },
+  });
+}
+
+/**
+ * Genera un reporte de progreso semanal estoico e impulsado por datos reales
+ */
+export async function generateWeeklyReport(
+  profile: UserContextForAI,
+  weeklyStats: {
+    totalSessions: number;
+    totalVolumeKg: number;
+    avgDurationMin: number;
+    totalSteps: number;
+    avgSleepHours: number;
+    avgSleepQuality: number;
+    weightTrend?: string;
+  }
+): Promise<string> {
+  return callGeminiProxy({
+    model: 'gemini-2.0-flash',
+    systemInstruction: {
+      parts: [
+        {
+          text: `Eres Aero, el coach estoico y analítico de AeroGym. Genera un reporte de auditoría semanal estructurado, directo y sabio.
+- Organiza el reporte en 3 secciones marcadas con emojis:
+  1. 📊 AUDITORÍA SEMANAL: (análisis riguroso de su consistencia, volumen de entrenamiento y métricas de salud/sueño).
+  2. ⚖️ PERSPECTIVA ESTOICA: (un recordatorio filosófico estoico de Epicteto, Marco Aurelio o Séneca aplicable a sus logros o deslices de la semana).
+  3. 🎯 PLAN DE ACCIÓN: (2 directrices súper claras y accionables para la próxima semana).
+- Mantén las frases concisas y optimizadas para leer en móvil.
+- Habla en primera persona refiriéndote al usuario por su nombre.`,
+        },
+      ],
+    },
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          {
+            text: `Genera mi reporte semanal con estas métricas:
+- Nombre: ${profile.name}
+- Nivel: ${profile.level}, Objetivo: ${profile.goal}
+- Sesiones entrenadas esta semana: ${weeklyStats.totalSessions} sesiones
+- Volumen total acumulado: ${weeklyStats.totalVolumeKg} kg
+- Duración media por sesión: ${weeklyStats.avgDurationMin} minutos
+- Pasos acumulados esta semana: ${weeklyStats.totalSteps.toLocaleString()} pasos
+- Horas de sueño promedio: ${weeklyStats.avgSleepHours.toFixed(1)}h (Calidad media: ${weeklyStats.avgSleepQuality.toFixed(1)}/5)
+- Tendencia de peso corporal: ${weeklyStats.weightTrend || 'Estable'}`,
+          },
+        ],
+      },
+    ],
     generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },
   });
 }

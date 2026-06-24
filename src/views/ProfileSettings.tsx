@@ -4,10 +4,38 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useAuthStore } from '../application/stores/useAuthStore';
 import { useWorkoutStore } from '../application/stores/useWorkoutStore';
 import { useHealthStore } from '../application/stores/useHealthStore';
+import { useGamificationStore } from '../application/stores/useGamificationStore';
 import { getNutritionalAdvice } from '../lib/aiService';
 import { calculateNutrition } from '../lib/engine';
 import { cn } from '../lib/utils';
 import type { Profile } from '../infrastructure/supabase/types';
+
+const ALL_ACHIEVEMENTS = [
+  {
+    type: 'first_workout',
+    title: 'Primer Paso 🏋️‍♂️',
+    description: 'Completaste tu primer entrenamiento en AeroGym.',
+    icon: 'dumbbell',
+  },
+  {
+    type: 'iron_consistency',
+    title: 'Consistencia de Hierro 🛡️',
+    description: 'Entrenaste al menos 3 días consecutivos.',
+    icon: 'shield',
+  },
+  {
+    type: 'steel_titan',
+    title: 'Titán de Acero ⚡',
+    description: 'Moviste más de 5,000 kg de volumen total en una sola sesión.',
+    icon: 'zap',
+  },
+  {
+    type: 'limit_breaker',
+    title: 'Superador de Límites 🏆',
+    description: 'Superaste tu récord personal estimado (PR) en algún ejercicio.',
+    icon: 'trophy',
+  },
+];
 
 const GOALS_LABELS: Record<string, string> = {
   hypertrophy: 'Hipertrofia',
@@ -35,8 +63,15 @@ export default function ProfileSettings() {
   const { profile, user, updateProfile, signOut } = useAuthStore();
   const { sessions } = useWorkoutStore();
   const { measurements } = useHealthStore();
+  const { achievements, fetchAchievements } = useGamificationStore();
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [mealIdea, setMealIdea] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (user?.id) {
+      fetchAchievements(user.id);
+    }
+  }, [user?.id, fetchAchievements]);
 
   if (!profile) return null;
 
@@ -126,6 +161,50 @@ export default function ProfileSettings() {
           <p className="text-[10px] text-slate-500 uppercase font-bold">Medidas</p>
         </div>
       </div>
+
+      {/* Logros / Insignias */}
+      <section className="space-y-4">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
+          <Trophy size={14} className="text-amber-400" /> Logros Desbloqueados
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          {ALL_ACHIEVEMENTS.map((ach) => {
+            const earned = achievements.find((a) => a.type === ach.type);
+            return (
+              <div
+                key={ach.type}
+                className={cn(
+                  'glass p-4 rounded-3xl border text-left flex gap-3 transition-all relative overflow-hidden',
+                  earned
+                    ? 'border-brand-blue/30 bg-brand-blue/[0.03]'
+                    : 'border-white/5 opacity-40'
+                )}
+              >
+                <div className={cn(
+                  'w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 border',
+                  earned 
+                    ? 'bg-brand-blue/10 border-brand-blue/20 text-brand-blue'
+                    : 'bg-white/5 border-white/5 text-slate-500'
+                )}>
+                  {ach.icon === 'dumbbell' && '🏋️‍♂️'}
+                  {ach.icon === 'shield' && '🛡️'}
+                  {ach.icon === 'zap' && '⚡'}
+                  {ach.icon === 'trophy' && '🏆'}
+                </div>
+                <div className="space-y-0.5">
+                  <h4 className="font-bold text-slate-50 text-xs leading-normal">{ach.title}</h4>
+                  <p className="text-[10px] text-slate-400 leading-snug">{ach.description}</p>
+                  {earned && (
+                    <span className="text-[8px] bg-brand-blue/10 text-brand-blue px-1.5 py-0.5 rounded font-black uppercase tracking-wider inline-block mt-1">
+                      Desbloqueado
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* Nutrition Plan */}
       <section className="space-y-4">

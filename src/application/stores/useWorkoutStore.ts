@@ -24,10 +24,12 @@ interface WorkoutState {
   sessions: WorkoutSession[];
   routines: (Routine & { exercises: RoutineExercise[] })[];
   activeSession: ActiveSession | null;
+  workoutSetsHistory: WorkoutSet[];
   isLoading: boolean;
 
   // Actions — Sessions
   fetchSessions: (userId: string) => Promise<void>;
+  fetchWorkoutHistory: (userId: string) => Promise<void>;
   startSession: (routine?: Routine & { exercises: RoutineExercise[] }) => void;
   finishSession: (userId: string, notes?: string, difficulty?: number) => Promise<WorkoutSession>;
   cancelSession: () => void;
@@ -47,6 +49,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   sessions: [],
   routines: [],
   activeSession: null,
+  workoutSetsHistory: [],
   isLoading: false,
 
   fetchSessions: async (userId) => {
@@ -62,28 +65,52 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     set({ isLoading: false });
   },
 
+  fetchWorkoutHistory: async (userId) => {
+    const { data, error } = await supabase
+      .from('workout_sets')
+      .select('*, workout_sessions!inner(user_id)')
+      .eq('workout_sessions.user_id', userId);
+
+    if (!error && data) {
+      // Map out the joined session data to fit the WorkoutSet type
+      const sets = data.map(({ workout_sessions, ...set }) => set) as WorkoutSet[];
+      set({ workoutSetsHistory: sets });
+    }
+  },
+
   startSession: (routine) => {
-    const exercises: ActiveExercise[] = (routine?.exercises || []).map((re) => ({
-      exercise_id: re.exercise_id,
-      sets: Array.from({ length: re.default_sets || 3 }, (_, i) => ({
-        id: `temp-${Date.now()}-${i}`,
-        session_id: '',
+    const { workoutSetsHistory } = get();
+    const exercises: ActiveExercise[] = (routine?.exercises || []).map((re) => {
+      // Buscar última serie realizada de este ejercicio en el historial
+      const history = workoutSetsHistory
+        .filter((s) => s.exercise_id === re.exercise_id && s.is_completed)
+        .sort((a, b) => new Date(b.logged_at).getTime() - new Date(a.logged_at).getTime());
+      
+      const lastWeight = history[0]?.weight_kg ? Number(history[0].weight_kg) : (re.default_weight_kg || 0);
+      const lastReps = history[0]?.reps || (re.default_reps ? parseInt(re.default_reps) : null);
+
+      return {
         exercise_id: re.exercise_id,
-        set_number: i + 1,
-        reps: null,
-        weight_kg: re.default_weight_kg || 0,
-        rpe: null,
-        rir: null,
-        duration_seconds: null,
-        distance_meters: null,
-        is_completed: false,
-        is_warmup: false,
-        is_pr: false,
-        e1rm_kg: null,
-        logged_at: new Date().toISOString(),
-        isNew: true,
-      })),
-    }));
+        sets: Array.from({ length: re.default_sets || 3 }, (_, i) => ({
+          id: `temp-${Date.now()}-${i}`,
+          session_id: '',
+          exercise_id: re.exercise_id,
+          set_number: i + 1,
+          reps: lastReps,
+          weight_kg: lastWeight,
+          rpe: null,
+          rir: null,
+          duration_seconds: null,
+          distance_meters: null,
+          is_completed: false,
+          is_warmup: false,
+          is_pr: false,
+          e1rm_kg: null,
+          logged_at: new Date().toISOString(),
+          isNew: true,
+        })),
+      };
+    });
 
     set({
       activeSession: {
@@ -97,7 +124,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   finishSession: async (userId, notes, difficulty) => {
-    const { activeSession } = get();
+    const { activeSession, workoutSetsHistory } = get();
     if (!activeSession) throw new Error('No active session');
 
     const startedAt = new Date(activeSession.started_at);
@@ -133,11 +160,35 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
     if (sessionError) throw sessionError;
 
-    // Insertar todas las series completadas
-    const setsToInsert = activeSession.exercises.flatMap((ex) =>
-      ex.sets
-        .filter((s) => s.is_completed)
-        .map((set, idx) => ({
+    // Calcular PRs y preparar sets para insertar
+    const setsToInsert = activeSession.exercises.flatMap((ex) => {
+      // Buscar el mejor e1rm histórico para este ejercicio
+      const historicBest = workoutSetsHistory
+        .filter((s) => s.exercise_id === ex.exercise_id && s.is_completed)
+        .reduce((max, s) => Math.max(max, Number(s.e1rm_kg) || 0), 0);
+
+      const completedSets = ex.sets.filter((s) => s.is_completed);
+
+      // Encontrar la mejor serie en esta sesión actual para este ejercicio
+      let bestSetIdx = -1;
+      let bestSessionE1RM = 0;
+      completedSets.forEach((s, idx) => {
+        if (s.reps && s.weight_kg) {
+          const e1rm = s.weight_kg * (1 + s.reps / 30);
+          if (e1rm > bestSessionE1RM) {
+            bestSessionE1RM = e1rm;
+            bestSetIdx = idx;
+          }
+        }
+      });
+
+      return completedSets.map((set, idx) => {
+        const reps = set.reps || 0;
+        const weight = set.weight_kg || 0;
+        const e1rm = reps && weight ? weight * (1 + reps / 30) : null;
+        const isPR = idx === bestSetIdx && e1rm !== null && e1rm > historicBest;
+
+        return {
           session_id: session.id,
           exercise_id: ex.exercise_id,
           set_number: idx + 1,
@@ -147,13 +198,23 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
           rir: set.rir,
           is_completed: true,
           is_warmup: set.is_warmup,
-          is_pr: set.is_pr,
-          e1rm_kg: set.reps && set.weight_kg ? set.weight_kg * (1 + set.reps / 30) : null,
-        }))
-    );
+          is_pr: isPR,
+          e1rm_kg: e1rm,
+        };
+      });
+    });
 
     if (setsToInsert.length > 0) {
-      await supabase.from('workout_sets').insert(setsToInsert);
+      const { data: insertedSets, error: setsError } = await supabase
+        .from('workout_sets')
+        .insert(setsToInsert)
+        .select();
+
+      if (!setsError && insertedSets) {
+        set((state) => ({
+          workoutSetsHistory: [...state.workoutSetsHistory, ...insertedSets],
+        }));
+      }
     }
 
     set((state) => ({
@@ -232,6 +293,15 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   addExerciseToActive: (exerciseId) => {
     set((state) => {
       if (!state.activeSession) return state;
+
+      // Buscar última serie realizada de este ejercicio en el historial
+      const history = state.workoutSetsHistory
+        .filter((s) => s.exercise_id === exerciseId && s.is_completed)
+        .sort((a, b) => new Date(b.logged_at).getTime() - new Date(a.logged_at).getTime());
+      
+      const lastWeight = history[0]?.weight_kg ? Number(history[0].weight_kg) : 0;
+      const lastReps = history[0]?.reps || null;
+
       const newExercise: ActiveExercise = {
         exercise_id: exerciseId,
         sets: [
@@ -240,8 +310,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
             session_id: '',
             exercise_id: exerciseId,
             set_number: 1,
-            reps: null,
-            weight_kg: 0,
+            reps: lastReps,
+            weight_kg: lastWeight,
             rpe: null,
             rir: null,
             duration_seconds: null,

@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Play, Trash2, Sparkles, ChevronRight, Loader2, X, Dumbbell } from 'lucide-react';
+import { Plus, Play, Trash2, Sparkles, ChevronRight, Loader2, X, Dumbbell, Edit2 } from 'lucide-react';
 import { useAuthStore } from '../application/stores/useAuthStore';
 import { useWorkoutStore } from '../application/stores/useWorkoutStore';
 import { BASE_EXERCISES } from '../constants/exercises';
 import { generateRoutineWithAI } from '../lib/aiService';
 import type { Routine, RoutineExercise } from '../infrastructure/supabase/types';
+import RoutineEditor from './RoutineEditor';
 import { cn } from '../lib/utils';
 
 export default function RoutinesList() {
   const { profile, user } = useAuthStore();
-  const { routines, startSession, deleteRoutine, createRoutine } = useWorkoutStore();
+  const { routines, startSession, deleteRoutine, createRoutine, updateRoutineExercises } = useWorkoutStore();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newRoutineName, setNewRoutineName] = useState('');
+  const [editingRoutine, setEditingRoutine] = useState<(Routine & { exercises: RoutineExercise[] }) | null>(null);
 
   const handleGenerateAI = async () => {
     if (!profile || !user?.id) return;
@@ -41,8 +43,21 @@ export default function RoutinesList() {
 
       // Create the routine in Supabase
       const routine = await createRoutine(user.id, generated.name, generated.description);
-      // TODO: Add exercises to routine (Sprint 2)
-      alert(`✅ Rutina "${routine.name}" creada por IA`);
+      
+      // Add exercises to routine (Sprint 3)
+      if (generated.exercises && generated.exercises.length > 0) {
+        const exercisesToInsert = generated.exercises.map((ex, idx) => ({
+          exercise_id: ex.exerciseId,
+          default_sets: ex.defaultSets || 3,
+          default_reps: ex.defaultReps || '8-12',
+          default_weight_kg: ex.defaultWeight || 0,
+          rest_seconds: 90,
+          order_index: idx
+        }));
+        await updateRoutineExercises(routine.id, exercisesToInsert as any);
+      }
+
+      alert(`✅ Rutina "${routine.name}" creada por IA con ${generated.exercises?.length || 0} ejercicios.`);
     } catch (err) {
       console.error(err);
       alert('Error generando rutina. Verifica que el coach IA esté configurado.');
@@ -63,6 +78,17 @@ export default function RoutinesList() {
     if (!confirm('¿Eliminar esta rutina?')) return;
     await deleteRoutine(routineId);
   };
+
+  if (editingRoutine) {
+    // Buscar la rutina actualizada del store (por si el usuario guardó cambios)
+    const freshRoutine = routines.find(r => r.id === editingRoutine.id) || editingRoutine;
+    return (
+      <RoutineEditor
+        routine={freshRoutine}
+        onBack={() => setEditingRoutine(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-8 pb-32">
@@ -154,7 +180,8 @@ export default function RoutinesList() {
             <motion.div
               key={routine.id}
               whileTap={{ scale: 0.98 }}
-              className="glass p-5 rounded-2xl border border-white/5 flex items-center gap-4"
+              className="glass p-5 rounded-2xl border border-white/5 flex items-center gap-4 cursor-pointer"
+              onClick={() => setEditingRoutine(routine)}
             >
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-slate-50 truncate">{routine.name}</p>
@@ -165,10 +192,16 @@ export default function RoutinesList() {
                   {routine.exercises?.length || 0} ejercicios
                 </p>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => setEditingRoutine(routine)}
+                  className="p-2 text-slate-400 hover:text-brand-blue transition-colors"
+                >
+                  <Edit2 size={16} />
+                </button>
                 <button
                   onClick={(e) => handleDelete(routine.id, e)}
-                  className="p-2 text-slate-600 hover:text-red-400 transition-colors"
+                  className="p-2 text-slate-500 hover:text-red-400 transition-colors"
                 >
                   <Trash2 size={16} />
                 </button>

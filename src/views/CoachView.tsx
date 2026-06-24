@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, Loader2, Zap, Brain, Target, Dumbbell } from 'lucide-react';
+import { Send, Loader2, Zap, Brain, Target, Dumbbell, Calendar, FileText } from 'lucide-react';
 import { useAuthStore } from '../application/stores/useAuthStore';
 import { useWorkoutStore } from '../application/stores/useWorkoutStore';
 import { useHealthStore } from '../application/stores/useHealthStore';
-import { sendChatMessage, type UserContextForAI } from '../lib/aiService';
+import { sendChatMessage, generateWeeklyReport, type UserContextForAI } from '../lib/aiService';
+import { subDays } from 'date-fns';
 import { cn } from '../lib/utils';
 
 interface Message {
@@ -21,12 +22,12 @@ const SUGGESTED_PROMPTS = [
 export default function CoachView() {
   const { profile } = useAuthStore();
   const { sessions } = useWorkoutStore();
-  const { dailyHealth } = useHealthStore();
+  const { dailyHealth, measurements } = useHealthStore();
 
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'model',
-      content: `¡Hola ${profile?.name || 'atleta'}! 💪 Soy Aero, tu coach personal. He revisado tu historial: ${sessions.length} entrenamientos registrados. ¿En qué puedo ayudarte hoy?`,
+      content: `¡Hola ${profile?.name || 'atleta'}! 💪 Soy Aero, tu coach personal. He revisado tu historial: ${sessions.length} entrenamientos registrados. ¿En qué puedo ayudarte hoy?\n\nPuedes pulsar en el botón de la cabecera para generar tu auditoría estoica semanal instantánea.`,
     },
   ]);
   const [input, setInput] = useState('');
@@ -38,6 +39,26 @@ export default function CoachView() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isTyping]);
+
+  // Generar contexto de historial (RAG) para alimentar a la IA
+  const buildRAGContext = () => {
+    // 1. Resumen de las últimas 5 sesiones
+    const last5 = sessions.slice(0, 5);
+    const recentSessionsSummary = last5.map(s => {
+      return `- Fecha: ${s.started_at.split('T')[0]}, Rutina: ${s.name}, Volumen: ${Math.round(Number(s.total_volume_kg) || 0)}kg, Dificultad: ${s.perceived_difficulty || 'N/A'}/10`;
+    }).join('\n');
+
+    // 2. Resumen de salud de la última semana
+    const last7DaysHealth = dailyHealth.slice(0, 7);
+    const recentHealthSummary = last7DaysHealth.map(h => {
+      return `- Fecha: ${h.date}, Pasos: ${h.steps || 0}, Sueño: ${h.sleep_hours || 'N/A'}h (Calidad: ${h.sleep_quality || 'N/A'}/5), Energía: ${h.energy_level || 'N/A'}/10`;
+    }).join('\n');
+
+    return {
+      recentSessionsSummary: recentSessionsSummary || 'Ningún entrenamiento registrado recientemente.',
+      recentHealthSummary: recentHealthSummary || 'Ningún log de salud registrado en la última semana.',
+    };
+  };
 
   const buildUserContext = (): UserContextForAI => {
     const lastSession = sessions[0];
@@ -55,6 +76,49 @@ export default function CoachView() {
     };
   };
 
+  // Cálculo de estadísticas de la semana para el reporte
+  const weeklyStats = useMemo(() => {
+    const weekAgo = subDays(new Date(), 7);
+    const weeklySessions = sessions.filter(s => new Date(s.started_at) >= weekAgo);
+    const weeklyHealth = dailyHealth.filter(h => new Date(h.date) >= weekAgo);
+
+    const totalSessions = weeklySessions.length;
+    const totalVolumeKg = Math.round(weeklySessions.reduce((acc, s) => acc + (Number(s.total_volume_kg) || 0), 0));
+    const avgDurationMin = weeklySessions.length > 0 
+      ? Math.round(weeklySessions.reduce((acc, s) => acc + (s.duration_minutes || 0), 0) / weeklySessions.length) 
+      : 0;
+
+    const totalSteps = weeklyHealth.reduce((acc, h) => acc + (h.steps || 0), 0);
+    
+    const sleepWithData = weeklyHealth.filter(h => h.sleep_hours);
+    const avgSleepHours = sleepWithData.length > 0 
+      ? sleepWithData.reduce((acc, h) => acc + Number(h.sleep_hours), 0) / sleepWithData.length 
+      : 7.0;
+    const avgSleepQuality = sleepWithData.filter(h => h.sleep_quality).length > 0 
+      ? sleepWithData.reduce((acc, h) => acc + (h.sleep_quality || 0), 0) / sleepWithData.filter(h => h.sleep_quality).length 
+      : 3.0;
+
+    // Obtener tendencia de peso (comparación con el peso de la semana pasada)
+    let weightTrend = 'Estable';
+    if (measurements.length >= 2) {
+      const currentW = Number(measurements[0].weight_kg);
+      const prevW = Number(measurements[measurements.length - 1].weight_kg);
+      const diff = currentW - prevW;
+      if (diff > 0.3) weightTrend = `Aumento de +${diff.toFixed(1)}kg (Evolución)`;
+      else if (diff < -0.3) weightTrend = `Reducción de ${diff.toFixed(1)}kg (Evolución)`;
+    }
+
+    return {
+      totalSessions,
+      totalVolumeKg,
+      avgDurationMin,
+      totalSteps,
+      avgSleepHours,
+      avgSleepQuality,
+      weightTrend
+    };
+  }, [sessions, dailyHealth, measurements]);
+
   const handleSend = async (messageText?: string) => {
     const msg = (messageText || input).trim();
     if (!msg || isTyping) return;
@@ -66,8 +130,10 @@ export default function CoachView() {
 
     try {
       const context = buildUserContext();
-      const history = messages.slice(1); // Excluye el mensaje inicial del sistema
-      const response = await sendChatMessage(context, history, msg);
+      const ragContext = buildRAGContext();
+      const history = messages.slice(1); // Excluye el mensaje inicial
+      
+      const response = await sendChatMessage(context, history, msg, ragContext);
       setMessages((prev) => [...prev, { role: 'model', content: response }]);
     } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
@@ -87,22 +153,54 @@ export default function CoachView() {
     }
   };
 
+  const handleGenerateReport = async () => {
+    if (isTyping) return;
+    
+    // Inyectar mensaje ficticio del usuario en el chat
+    const userMsg: Message = { role: 'user', content: 'Genera mi reporte de progreso semanal, Aero.' };
+    setMessages((prev) => [...prev, userMsg]);
+    setIsTyping(true);
+
+    try {
+      const context = buildUserContext();
+      const report = await generateWeeklyReport(context, weeklyStats);
+      setMessages((prev) => [...prev, { role: 'model', content: report }]);
+    } catch (err) {
+      console.error(err);
+      setMessages((prev) => [...prev, { role: 'model', content: 'No he podido compilar tu reporte de esta semana. Sigamos entrenando, atleta. La disciplina no necesita papeles.' }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
   return (
     <div className="h-[78vh] flex flex-col -mx-4 relative overflow-hidden">
       {/* Background Glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-brand-blue/10 blur-[100px] pointer-events-none" />
 
       {/* Header */}
-      <div className="px-4 pb-3 pt-1 flex items-center gap-3 border-b border-white/5">
-        <div className="w-10 h-10 bg-brand-blue/20 rounded-2xl flex items-center justify-center">
-          <Zap size={20} className="text-brand-blue" />
+      <div className="px-4 pb-3 pt-1 flex justify-between items-center border-b border-white/5 bg-slate-900/50 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-brand-blue/20 rounded-2xl flex items-center justify-center">
+            <Zap size={20} className="text-brand-blue animate-pulse" />
+          </div>
+          <div>
+            <p className="font-black text-slate-50 text-sm">Aero Coach</p>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+              Gemini RAG Context
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="font-black text-slate-50 text-sm">Aero Coach</p>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-            Powered by Gemini • Proxy Seguro
-          </p>
-        </div>
+
+        {/* Botón de Reporte Semanal */}
+        <button
+          onClick={handleGenerateReport}
+          disabled={isTyping}
+          className="flex items-center gap-1.5 px-3.5 py-2.5 bg-brand-blue/20 border border-brand-blue/30 rounded-xl text-brand-blue text-[10px] font-black uppercase tracking-wider hover:bg-brand-blue/30 disabled:opacity-50 transition-all"
+        >
+          <FileText size={12} />
+          Reporte Semanal
+        </button>
       </div>
 
       {/* Messages */}
@@ -121,11 +219,11 @@ export default function CoachView() {
               className={cn(
                 'max-w-[85%] p-4 rounded-2xl shadow-lg',
                 msg.role === 'user'
-                  ? 'bg-brand-blue text-slate-950 rounded-tr-none font-medium'
-                  : 'glass-dark border border-white/10 rounded-tl-none text-slate-100'
+                  ? 'bg-brand-blue text-slate-950 rounded-tr-none font-black text-sm'
+                  : 'glass-dark border border-white/10 rounded-tl-none text-slate-100 text-sm leading-relaxed'
               )}
             >
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+              <p className="whitespace-pre-wrap">{msg.content}</p>
             </div>
           </motion.div>
         ))}
@@ -149,44 +247,37 @@ export default function CoachView() {
             exit={{ opacity: 0 }}
             className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar"
           >
-            {SUGGESTED_PROMPTS.map(({ icon: Icon, text }) => (
+            {SUGGESTED_PROMPTS.map((prompt, i) => (
               <button
-                key={text}
-                onClick={() => handleSend(text)}
-                className="whitespace-nowrap px-3 py-2 glass-dark border border-white/5 rounded-full text-[10px] uppercase tracking-wider font-bold text-slate-400 hover:text-brand-blue hover:border-brand-blue/30 transition-all flex items-center gap-1.5"
+                key={i}
+                onClick={() => handleSend(prompt.text)}
+                className="flex items-center gap-1.5 px-4 py-2.5 glass border-white/5 hover:border-brand-blue/20 rounded-xl text-xs font-bold text-slate-300 hover:text-brand-blue transition-all whitespace-nowrap"
               >
-                <Icon size={12} />
-                {text}
+                <prompt.icon size={14} className="text-brand-blue" />
+                {prompt.text}
               </button>
             ))}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Input */}
-      <div className="p-4 bg-slate-900/50 backdrop-blur-xl border-t border-white/5">
-        <div className="relative flex items-center">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="Pregúntame lo que quieras..."
-            className="w-full bg-slate-800/80 border border-white/10 rounded-2xl pl-4 pr-14 py-4 text-sm outline-none focus:ring-2 ring-brand-blue/30 transition-all placeholder:text-slate-500"
-          />
-          <button
-            onClick={() => handleSend()}
-            disabled={!input.trim() || isTyping}
-            className={cn(
-              'absolute right-2 p-2.5 rounded-xl transition-all',
-              input.trim() && !isTyping
-                ? 'bg-brand-blue text-slate-950 shadow-lg shadow-brand-blue/20'
-                : 'bg-slate-700 text-slate-500'
-            )}
-          >
-            <Send size={18} />
-          </button>
-        </div>
+      {/* Input bar */}
+      <div className="p-4 bg-slate-950/80 backdrop-blur-md border-t border-white/5 flex gap-2">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+          placeholder="Pregúntale a Aero sobre tu progreso o dudas..."
+          className="flex-1 bg-slate-800/80 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500"
+        />
+        <button
+          onClick={() => handleSend()}
+          disabled={!input.trim() || isTyping}
+          className="p-3 bg-brand-blue text-slate-950 rounded-2xl font-bold hover:bg-brand-blue/90 transition-colors disabled:opacity-50"
+        >
+          <Send size={18} />
+        </button>
       </div>
     </div>
   );

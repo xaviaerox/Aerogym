@@ -28,8 +28,8 @@ type Tab = 'home' | 'workouts' | 'coach' | 'analytics' | 'profile';
 export default function App() {
   const [activeTab, setActiveTab] = React.useState<Tab>('home');
   const { user, profile, isLoading, isAuthenticated, initialize } = useAuthStore();
-  const { activeSession, fetchSessions, fetchRoutines, routines, sessions } = useWorkoutStore();
-  const { fetchHealth } = useHealthStore();
+  const { activeSession, fetchSessions, fetchRoutines, fetchWorkoutHistory, routines, sessions } = useWorkoutStore();
+  const { fetchHealth, fetchMeasurements } = useHealthStore();
 
   // Inicializar Supabase Auth
   useEffect(() => {
@@ -41,9 +41,11 @@ export default function App() {
     if (user?.id) {
       fetchSessions(user.id);
       fetchRoutines(user.id);
+      fetchWorkoutHistory(user.id);
       fetchHealth(user.id);
+      fetchMeasurements(user.id);
     }
-  }, [user?.id, fetchSessions, fetchRoutines, fetchHealth]);
+  }, [user?.id, fetchSessions, fetchRoutines, fetchWorkoutHistory, fetchHealth, fetchMeasurements]);
 
   // Siguiente rutina sugerida (rotación automática)
   const nextSuggestedRoutine = useMemo(() => {

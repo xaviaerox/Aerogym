@@ -6,6 +6,7 @@ import { BASE_EXERCISES } from '../constants/exercises';
 import { calculateE1RM, getBestE1RM, suggestWeight } from '../lib/engine';
 import { useAuthStore } from '../application/stores/useAuthStore';
 import { useWorkoutStore, type ActiveSet } from '../application/stores/useWorkoutStore';
+import { useGamificationStore } from '../application/stores/useGamificationStore';
 
 const playBeep = (freq: number, duration: number) => {
   try {
@@ -26,7 +27,7 @@ const playBeep = (freq: number, duration: number) => {
 
 export default function TrainingSession() {
   const { user } = useAuthStore();
-  const { activeSession, sessions, finishSession, cancelSession, addSetToActive, toggleSetComplete, updateActiveExercise, addExerciseToActive } = useWorkoutStore();
+  const { activeSession, sessions, finishSession, cancelSession, addSetToActive, toggleSetComplete, updateActiveExercise, addExerciseToActive, workoutSetsHistory } = useWorkoutStore();
   const [timerStart, setTimerStart] = useState<number | null>(null);
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState('');
@@ -36,13 +37,9 @@ export default function TrainingSession() {
 
   const isPR = (exerciseId: string, weight: number, reps: number) => {
     const currentE1RM = calculateE1RM(weight, reps);
-    // getBestE1RM expects Session[] format — adapt from WorkoutSession
-    const historicSessions = sessions.map((s) => ({
-      ...s,
-      id: s.id,
-      exercises: [], // simplified — PR check uses stored e1rm
-    }));
-    const bestE1RM = getBestE1RM(historicSessions as any, exerciseId);
+    const bestE1RM = workoutSetsHistory
+      .filter((s) => s.exercise_id === exerciseId && s.is_completed)
+      .reduce((max, s) => Math.max(max, Number(s.e1rm_kg) || 0), 0);
     return currentE1RM > bestE1RM && weight > 0 && (reps || 0) > 0;
   };
 
@@ -66,7 +63,44 @@ export default function TrainingSession() {
   const handleFinish = async () => {
     if (!user?.id) return;
     try {
-      await finishSession(user.id, notes || undefined, difficulty);
+      const finishedSession = await finishSession(user.id, notes || undefined, difficulty);
+
+      // Calcular racha y validar logros
+      const updatedSessions = useWorkoutStore.getState().sessions;
+      const updatedHistory = useWorkoutStore.getState().workoutSetsHistory;
+
+      const sessionsCount = updatedSessions.length;
+      
+      const currentStreak = (() => {
+        if (!updatedSessions.length) return 0;
+        let count = 0;
+        const today = new Date();
+        const uniqueDays = [...new Set(updatedSessions.map((s) => s.started_at.split('T')[0]))];
+        
+        for (let i = 0; i < uniqueDays.length; i++) {
+          const expectedDate = new Date(today);
+          expectedDate.setDate(today.getDate() - i);
+          const expectedStr = expectedDate.toISOString().split('T')[0];
+          if (uniqueDays.includes(expectedStr)) {
+            count++;
+          } else {
+            if (i > 1) break;
+          }
+        }
+        return count;
+      })();
+
+      const sessionVolume = finishedSession.total_volume_kg || 0;
+      const hasAnyPR = updatedHistory.filter(s => s.session_id === finishedSession.id).some(s => s.is_pr);
+
+      // Chequear nuevos logros
+      await useGamificationStore.getState().checkForNewAchievements(
+        user.id,
+        sessionsCount,
+        currentStreak,
+        sessionVolume,
+        hasAnyPR
+      );
     } catch (error) {
       console.error('Error finishing session:', error);
     }
@@ -92,8 +126,9 @@ export default function TrainingSession() {
       <div className="space-y-8">
         {activeSession.exercises.map((ex) => {
           const exerciseInfo = BASE_EXERCISES.find((e) => e.id === ex.exercise_id);
-          // Simplified bestE1RM without full historic data
-          const bestE1RM = 0; // TODO: fetch from Supabase in next sprint
+          const bestE1RM = workoutSetsHistory
+            .filter((s) => s.exercise_id === ex.exercise_id && s.is_completed)
+            .reduce((max, s) => Math.max(max, Number(s.e1rm_kg) || 0), 0);
 
           return (
             <div key={ex.exercise_id} className="space-y-4">
@@ -338,12 +373,17 @@ function RestTimer({ startTime, onClear }: { startTime: number | null; onClear: 
 function AddExerciseBtn({ onAdd }: { onAdd: (id: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
 
-  const filtered = BASE_EXERCISES.filter(
-    (ex) =>
+  const muscleGroups = Array.from(new Set(BASE_EXERCISES.map((ex) => ex.muscleGroup)));
+
+  const filtered = BASE_EXERCISES.filter((ex) => {
+    const matchesSearch =
       ex.name.toLowerCase().includes(search.toLowerCase()) ||
-      ex.muscleGroup.toLowerCase().includes(search.toLowerCase())
-  );
+      ex.muscleGroup.toLowerCase().includes(search.toLowerCase());
+    const matchesMuscle = selectedMuscle ? ex.muscleGroup === selectedMuscle : true;
+    return matchesSearch && matchesMuscle;
+  });
 
   return (
     <div>
@@ -365,7 +405,7 @@ function AddExerciseBtn({ onAdd }: { onAdd: (id: string) => void }) {
           >
             <div className="flex justify-between items-center p-6 pb-3">
               <h2 className="text-2xl font-bold">Añadir Ejercicio</h2>
-              <button onClick={() => { setIsOpen(false); setSearch(''); }} className="p-2 glass rounded-full">
+              <button onClick={() => { setIsOpen(false); setSearch(''); setSelectedMuscle(null); }} className="p-2 glass rounded-full">
                 <X size={24} />
               </button>
             </div>
@@ -381,11 +421,40 @@ function AddExerciseBtn({ onAdd }: { onAdd: (id: string) => void }) {
               />
             </div>
 
+            {/* Muscle Group Filters */}
+            <div className="px-6 pb-4 overflow-x-auto flex gap-2 no-scrollbar scrollbar-none">
+              <button
+                onClick={() => setSelectedMuscle(null)}
+                className={cn(
+                  'px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap',
+                  selectedMuscle === null
+                    ? 'bg-brand-blue text-slate-950 border-brand-blue'
+                    : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
+                )}
+              >
+                Todos
+              </button>
+              {muscleGroups.map((mg) => (
+                <button
+                  key={mg}
+                  onClick={() => setSelectedMuscle(mg === selectedMuscle ? null : mg)}
+                  className={cn(
+                    'px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap',
+                    selectedMuscle === mg
+                      ? 'bg-brand-blue text-slate-950 border-brand-blue'
+                      : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
+                  )}
+                >
+                  {mg}
+                </button>
+              ))}
+            </div>
+
             <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-2">
               {filtered.map((ex) => (
                 <button
                   key={ex.id}
-                  onClick={() => { onAdd(ex.id); setIsOpen(false); setSearch(''); }}
+                  onClick={() => { onAdd(ex.id); setIsOpen(false); setSearch(''); setSelectedMuscle(null); }}
                   className="w-full p-4 glass rounded-xl flex justify-between items-center hover:border-brand-blue/30 border border-transparent transition-all"
                 >
                   <div className="text-left">
