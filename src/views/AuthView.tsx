@@ -35,7 +35,16 @@ export default function AuthView() {
         setSuccess('¡Cuenta creada! Revisa tu email para confirmar.');
       }
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      console.error('Authentication error:', err);
+      let errorMessage = 'Error desconocido';
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (typeof err === 'object' && err !== null) {
+        errorMessage = (err as any).message || (err as any).error_description || JSON.stringify(err);
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+
       if (errorMessage.includes('Invalid login credentials')) {
         setError('Email o contraseña incorrectos');
       } else if (errorMessage.includes('Email not confirmed')) {
@@ -44,6 +53,8 @@ export default function AuthView() {
         setError('Este email ya tiene una cuenta. Inicia sesión.');
       } else if (errorMessage.includes('Password should be at least')) {
         setError('La contraseña debe tener al menos 6 caracteres');
+      } else if (errorMessage === '{}' || errorMessage === '{"is_completed":true}') {
+        setError('Error de registro: Comprueba tu conexión o si el registro está temporalmente deshabilitado.');
       } else {
         setError(errorMessage);
       }

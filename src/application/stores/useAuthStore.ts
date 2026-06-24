@@ -65,7 +65,10 @@ export const useAuthStore = create<AuthState>()(
 
       signInWithEmail: async (email, password) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        if (error) {
+          console.error("Supabase signIn error:", error);
+          throw new Error(error.message || JSON.stringify(error));
+        }
       },
 
       signUpWithEmail: async (email, password, name) => {
@@ -74,7 +77,10 @@ export const useAuthStore = create<AuthState>()(
           password,
           options: { data: { full_name: name } },
         });
-        if (error) throw error;
+        if (error) {
+          console.error("Supabase signUp error:", error);
+          throw new Error(error.message || JSON.stringify(error));
+        }
       },
 
       signInWithGoogle: async () => {
@@ -84,7 +90,10 @@ export const useAuthStore = create<AuthState>()(
             redirectTo: `${window.location.origin}/Aerogym/`,
           },
         });
-        if (error) throw error;
+        if (error) {
+          console.error("Supabase Google Auth error:", error);
+          throw new Error(error.message || JSON.stringify(error));
+        }
       },
 
       signOut: async () => {
