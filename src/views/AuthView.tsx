@@ -45,18 +45,29 @@ export default function AuthView() {
         errorMessage = err;
       }
 
-      if (errorMessage.includes('Invalid login credentials')) {
+      let displayMessage = errorMessage;
+      if (errorMessage.startsWith('{') && errorMessage.endsWith('}')) {
+        try {
+          const parsed = JSON.parse(errorMessage);
+          displayMessage = parsed.message || parsed.error_description || parsed.msg || parsed.error || errorMessage;
+          if (typeof displayMessage === 'object') {
+            displayMessage = JSON.stringify(displayMessage);
+          }
+        } catch (e) {}
+      }
+
+      if (displayMessage.includes('Invalid login credentials')) {
         setError('Email o contraseña incorrectos');
-      } else if (errorMessage.includes('Email not confirmed')) {
+      } else if (displayMessage.includes('Email not confirmed')) {
         setError('Confirma tu email antes de entrar');
-      } else if (errorMessage.includes('already registered')) {
+      } else if (displayMessage.includes('already registered')) {
         setError('Este email ya tiene una cuenta. Inicia sesión.');
-      } else if (errorMessage.includes('Password should be at least')) {
+      } else if (displayMessage.includes('Password should be at least')) {
         setError('La contraseña debe tener al menos 6 caracteres');
-      } else if (errorMessage === '{}' || errorMessage === '{"is_completed":true}') {
+      } else if (displayMessage === '{}' || displayMessage === '{"is_completed":true}') {
         setError('Error de registro: Comprueba tu conexión o si el registro está temporalmente deshabilitado.');
       } else {
-        setError(errorMessage);
+        setError(displayMessage);
       }
     } finally {
       setIsLoading(false);

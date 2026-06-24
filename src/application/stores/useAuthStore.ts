@@ -142,25 +142,24 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
 function extractErrorMessage(err: any): string {
   if (!err) return 'Error desconocido';
   if (typeof err === 'string') return err;
-  if (err.message) return err.message;
-  if (err.error_description) return err.error_description;
-  if (err.msg) return err.msg;
   
   try {
-    const serialized = JSON.stringify(err);
-    if (serialized !== '{}') return serialized;
-  } catch (e) {}
-
-  const keys = ['message', 'name', 'code', 'status', 'description', 'error'];
-  const extracted: Record<string, any> = {};
-  for (const key of keys) {
-    if (err[key] !== undefined) {
+    const extracted: Record<string, any> = {};
+    const allKeys = Object.getOwnPropertyNames(err);
+    for (const key of allKeys) {
       extracted[key] = err[key];
     }
-  }
-  if (Object.keys(extracted).length > 0) {
-    return JSON.stringify(extracted);
-  }
+    if (allKeys.length > 0) {
+      return JSON.stringify(extracted);
+    }
+  } catch (e) {}
+
+  try {
+    const keys = Object.keys(err);
+    if (keys.length > 0) {
+      return JSON.stringify(err);
+    }
+  } catch (e) {}
   
   return String(err);
 }
