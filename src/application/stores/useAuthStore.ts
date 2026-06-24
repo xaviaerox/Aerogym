@@ -67,7 +67,7 @@ export const useAuthStore = create<AuthState>()(
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           console.error("Supabase signIn error:", error);
-          throw new Error(error.message || JSON.stringify(error));
+          throw new Error(extractErrorMessage(error));
         }
       },
 
@@ -79,7 +79,7 @@ export const useAuthStore = create<AuthState>()(
         });
         if (error) {
           console.error("Supabase signUp error:", error);
-          throw new Error(error.message || JSON.stringify(error));
+          throw new Error(extractErrorMessage(error));
         }
       },
 
@@ -92,7 +92,7 @@ export const useAuthStore = create<AuthState>()(
         });
         if (error) {
           console.error("Supabase Google Auth error:", error);
-          throw new Error(error.message || JSON.stringify(error));
+          throw new Error(extractErrorMessage(error));
         }
       },
 
@@ -137,4 +137,30 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
     return null;
   }
   return data;
+}
+
+function extractErrorMessage(err: any): string {
+  if (!err) return 'Error desconocido';
+  if (typeof err === 'string') return err;
+  if (err.message) return err.message;
+  if (err.error_description) return err.error_description;
+  if (err.msg) return err.msg;
+  
+  try {
+    const serialized = JSON.stringify(err);
+    if (serialized !== '{}') return serialized;
+  } catch (e) {}
+
+  const keys = ['message', 'name', 'code', 'status', 'description', 'error'];
+  const extracted: Record<string, any> = {};
+  for (const key of keys) {
+    if (err[key] !== undefined) {
+      extracted[key] = err[key];
+    }
+  }
+  if (Object.keys(extracted).length > 0) {
+    return JSON.stringify(extracted);
+  }
+  
+  return String(err);
 }
