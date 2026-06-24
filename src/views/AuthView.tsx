@@ -65,7 +65,7 @@ export default function AuthView() {
       } else if (displayMessage.includes('Password should be at least')) {
         setError('La contraseña debe tener al menos 6 caracteres');
       } else if (displayMessage === '{}' || displayMessage === '{"is_completed":true}') {
-        setError('Error de registro: Comprueba tu conexión o si el registro está temporalmente deshabilitado.');
+        setError('Error de registro (v2): Comprueba tu conexión o si el registro está temporalmente deshabilitado en Supabase.');
       } else {
         setError(displayMessage);
       }
