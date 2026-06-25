@@ -15,7 +15,8 @@ import {
   BookOpen,
   Calendar,
   X,
-  Check
+  Check,
+  ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -35,7 +36,7 @@ interface DashboardProps {
 
 export default function Dashboard({ nextRoutine }: DashboardProps) {
   const { profile, user } = useAuthStore();
-  const { sessions, startSession, workoutSetsHistory } = useWorkoutStore();
+  const { sessions, startSession, workoutSetsHistory, routines } = useWorkoutStore();
   const { todayHealth, dailyHealth } = useHealthStore();
   const { visibleWidgets, toggleWidgetVisibility } = useUIStore();
   const { achievements, fetchAchievements, newUnlockedAchievement, clearNewAchievement } = useGamificationStore();
@@ -43,6 +44,7 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
   const [isLoggerOpen, setIsLoggerOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
+  const [isRoutineSelectorOpen, setIsRoutineSelectorOpen] = useState(false);
 
   const lastSession = sessions[0];
 
@@ -305,9 +307,17 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
       {/* Siguiente Sesión */}
       {visibleWidgets.nextRoutine && (
         <section className="space-y-4">
-          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] px-1">
-            Siguiente Sesión
-          </h2>
+          <div className="flex justify-between items-center px-1">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em]">
+              Siguiente Sesión
+            </h2>
+            <button
+              onClick={() => setIsRoutineSelectorOpen(true)}
+              className="text-[10px] text-brand-blue font-bold uppercase tracking-wider hover:underline transition-all"
+            >
+              Elegir otra ⇄
+            </button>
+          </div>
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => startSession(nextRoutine)}
@@ -613,6 +623,98 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
                 className="btn-primary w-full py-3 text-slate-950 font-black text-xs uppercase tracking-widest"
               >
                 Guardar Configuración
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ROUTINE SELECTOR MODAL */}
+      <AnimatePresence>
+        {isRoutineSelectorOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 backdrop-blur-md z-[110] flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="glass max-w-md w-full p-6 rounded-3xl border border-white/10 space-y-6"
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <Dumbbell size={20} className="text-brand-blue" />
+                    Seleccionar Rutina
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Elige con qué rutina deseas entrenar hoy</p>
+                </div>
+                <button
+                  onClick={() => setIsRoutineSelectorOpen(false)}
+                  className="p-2 glass rounded-full text-slate-400 hover:text-slate-100"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Routines list */}
+              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                {/* Opción entrenamiento libre */}
+                <button
+                  onClick={() => {
+                    startSession(undefined);
+                    setIsRoutineSelectorOpen(false);
+                  }}
+                  className="w-full flex justify-between items-center p-4 bg-brand-blue/10 border border-brand-blue/20 rounded-2xl hover:bg-brand-blue/20 transition-all text-left"
+                >
+                  <div className="pr-2">
+                    <span className="text-xs font-black text-brand-blue uppercase tracking-wider block">
+                      Entrenamiento Libre 🏋️‍♂️
+                    </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                      Registra una sesión en blanco añadiendo tus ejercicios en el momento.
+                    </span>
+                  </div>
+                  <ChevronRight size={16} className="text-brand-blue flex-shrink-0" />
+                </button>
+
+                {/* Rutinas guardadas */}
+                {routines.map((routine) => (
+                  <button
+                    key={routine.id}
+                    onClick={() => {
+                      startSession(routine);
+                      setIsRoutineSelectorOpen(false);
+                    }}
+                    className="w-full flex justify-between items-center p-4 bg-white/5 border border-white/5 rounded-2xl hover:border-brand-blue/30 transition-all text-left"
+                  >
+                    <div className="pr-2">
+                      <span className="text-xs font-bold text-slate-200 block">
+                        {routine.name}
+                      </span>
+                      <span className="text-[10px] text-slate-500 mt-0.5 block line-clamp-1">
+                        {routine.description || 'Sin descripción'} · {routine.exercises?.length || 0} Ejercicios
+                      </span>
+                    </div>
+                    <ChevronRight size={16} className="text-slate-400 flex-shrink-0" />
+                  </button>
+                ))}
+
+                {routines.length === 0 && (
+                  <p className="text-xs text-slate-500 italic text-center py-4">
+                    No tienes rutinas guardadas. ¡Pídele una al Coach Aero o créala en la pestaña Log!
+                  </p>
+                )}
+              </div>
+
+              <button
+                onClick={() => setIsRoutineSelectorOpen(false)}
+                className="btn-primary w-full py-3 text-slate-950 font-black text-xs uppercase tracking-widest"
+              >
+                Cancelar
               </button>
             </motion.div>
           </motion.div>
