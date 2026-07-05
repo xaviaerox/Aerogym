@@ -22,6 +22,8 @@ export interface Set {
   weight: number;
   rpe?: number; // Rate of Perceived Exertion (1-10)
   completed: boolean;
+  duration_seconds?: number | null;
+  distance_meters?: number | null;
 }
 
 export interface WorkoutExercise {

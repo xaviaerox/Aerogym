@@ -8,10 +8,10 @@ interface HealthState {
   todayHealth: DailyHealth | null;
   isLoading: boolean;
 
-  // Actions
   fetchHealth: (userId: string, days?: number) => Promise<void>;
   fetchMeasurements: (userId: string) => Promise<void>;
   upsertTodayHealth: (userId: string, updates: Partial<DailyHealth>) => Promise<void>;
+  upsertDailyHealth: (userId: string, date: string, updates: Partial<DailyHealth>) => Promise<void>;
   addMeasurement: (userId: string, data: Partial<BodyMeasurement>) => Promise<void>;
 }
 
@@ -53,13 +53,13 @@ export const useHealthStore = create<HealthState>((set, get) => ({
     if (!error && data) set({ measurements: data });
   },
 
-  upsertTodayHealth: async (userId, updates) => {
+  upsertDailyHealth: async (userId, date, updates) => {
+    const { dailyHealth } = get();
     const today = new Date().toISOString().split('T')[0];
-    const { todayHealth } = get();
 
     const payload = {
       user_id: userId,
-      date: today,
+      date: date,
       ...updates,
       updated_at: new Date().toISOString(),
     };
@@ -71,13 +71,23 @@ export const useHealthStore = create<HealthState>((set, get) => ({
       .single();
 
     if (!error && data) {
-      set((state) => ({
-        todayHealth: data,
-        dailyHealth: todayHealth
-          ? state.dailyHealth.map((h) => (h.date === today ? data : h))
-          : [data, ...state.dailyHealth],
-      }));
+      set((state) => {
+        const exists = state.dailyHealth.some((h) => h.date === date);
+        const newDailyHealth = exists
+          ? state.dailyHealth.map((h) => (h.date === date ? data : h))
+          : [data, ...state.dailyHealth].sort((a, b) => b.date.localeCompare(a.date));
+
+        return {
+          dailyHealth: newDailyHealth,
+          todayHealth: date === today ? data : state.todayHealth,
+        };
+      });
     }
+  },
+
+  upsertTodayHealth: async (userId, updates) => {
+    const today = new Date().toISOString().split('T')[0];
+    await get().upsertDailyHealth(userId, today, updates);
   },
 
   addMeasurement: async (userId, measurementData) => {

@@ -11,25 +11,43 @@ interface HealthLoggerModalProps {
 }
 
 export default function HealthLoggerModal({ userId, isOpen, onClose }: HealthLoggerModalProps) {
-  const { todayHealth, upsertTodayHealth, addMeasurement, measurements } = useHealthStore();
+  const { dailyHealth, upsertDailyHealth, addMeasurement, measurements } = useHealthStore();
 
-  // Estados locales inicializados con el valor de hoy en la base de datos
-  const [water, setWater] = useState(todayHealth?.water_ml || 0);
-  const [steps, setSteps] = useState(todayHealth?.steps || 0);
-  const [sleepHours, setSleepHours] = useState(Number(todayHealth?.sleep_hours) || 7.0);
-  const [sleepQuality, setSleepQuality] = useState(todayHealth?.sleep_quality || 3);
-  const [energy, setEnergy] = useState(todayHealth?.energy_level || 7);
-  const [stress, setStress] = useState(todayHealth?.stress_level || 4);
-  const [motivation, setMotivation] = useState(todayHealth?.motivation_level || 7);
-  
-  // Buscar el último peso registrado para proponerlo por defecto
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+
+  // Estados locales
+  const [water, setWater] = useState(0);
+  const [steps, setSteps] = useState(0);
+  const [sleepHours, setSleepHours] = useState(7.0);
+  const [sleepQuality, setSleepQuality] = useState(3);
+  const [energy, setEnergy] = useState(7);
+  const [stress, setStress] = useState(4);
+  const [motivation, setMotivation] = useState(7);
+  const [weight, setWeight] = useState<string>('');
   const lastWeight = measurements[0]?.weight_kg ? Number(measurements[0].weight_kg) : 70;
-  const [weight, setWeight] = useState<string>(todayHealth?.notes?.includes('Peso registrado:') 
-    ? todayHealth.notes.split('Peso registrado:')[1].trim().split(' ')[0] 
-    : ''
-  );
   
   const [isSaving, setIsSaving] = useState(false);
+
+  // Cargar métricas al cambiar de fecha
+  React.useEffect(() => {
+    const dayRecord = dailyHealth.find((h) => h.date === selectedDate);
+    setWater(dayRecord?.water_ml || 0);
+    setSteps(dayRecord?.steps || 0);
+    setSleepHours(Number(dayRecord?.sleep_hours) || 7.0);
+    setSleepQuality(dayRecord?.sleep_quality || 3);
+    setEnergy(dayRecord?.energy_level || 7);
+    setStress(dayRecord?.stress_level || 4);
+    setMotivation(dayRecord?.motivation_level || 7);
+
+    const measure = measurements.find((m) => m.measured_at === selectedDate);
+    if (measure?.weight_kg) {
+      setWeight(measure.weight_kg.toString());
+    } else if (dayRecord?.notes?.includes('Peso registrado:')) {
+      setWeight(dayRecord.notes.split('Peso registrado:')[1].trim().split(' ')[0]);
+    } else {
+      setWeight('');
+    }
+  }, [selectedDate, dailyHealth, measurements]);
 
   if (!isOpen) return null;
 
@@ -38,7 +56,7 @@ export default function HealthLoggerModal({ userId, isOpen, onClose }: HealthLog
     try {
       // 1. Guardar salud diaria en Supabase
       const notesString = weight ? `Peso registrado: ${weight} kg` : '';
-      await upsertTodayHealth(userId, {
+      await upsertDailyHealth(userId, selectedDate, {
         water_ml: water,
         steps: steps,
         sleep_hours: sleepHours,
@@ -52,6 +70,7 @@ export default function HealthLoggerModal({ userId, isOpen, onClose }: HealthLog
       // 2. Si introdujo peso, guardarlo también en la tabla body_measurements
       if (weight && parseFloat(weight) > 0) {
         await addMeasurement(userId, {
+          measured_at: selectedDate,
           weight_kg: parseFloat(weight),
         });
       }
@@ -89,6 +108,18 @@ export default function HealthLoggerModal({ userId, isOpen, onClose }: HealthLog
       {/* Form Fields */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6 pb-28">
         
+        {/* Date Selector */}
+        <div className="glass p-5 rounded-3xl border border-white/5 space-y-2">
+          <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest block">Fecha de Registro</label>
+          <input
+            type="date"
+            value={selectedDate}
+            max={new Date().toISOString().split('T')[0]}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="w-full bg-slate-800 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 ring-brand-blue/30 text-slate-100 font-bold"
+          />
+        </div>
+
         {/* 1. AGUA WIDGET */}
         <div className="glass p-5 rounded-3xl border border-white/5 space-y-4">
           <div className="flex justify-between items-center">

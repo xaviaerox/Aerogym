@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../../infrastructure/supabase/client';
 import type { WorkoutSession, WorkoutSet, Routine, RoutineExercise } from '../../infrastructure/supabase/types';
+import { BASE_EXERCISES } from '../../constants/exercises';
 
 // Tipos internos del store (enriquecidos para la UI)
 export interface ActiveSet extends WorkoutSet {
@@ -43,6 +44,15 @@ interface WorkoutState {
   createRoutine: (userId: string, name: string, description?: string) => Promise<Routine>;
   deleteRoutine: (routineId: string) => Promise<void>;
   updateRoutineExercises: (routineId: string, exercises: Omit<RoutineExercise, 'id'>[]) => Promise<void>;
+
+  // Actions — Past Sessions
+  updatePastSession: (sessionId: string, updates: Partial<WorkoutSession>) => Promise<void>;
+  deletePastSession: (sessionId: string) => Promise<void>;
+  saveSessionEdits: (
+    sessionId: string, 
+    sessionUpdates: Partial<WorkoutSession>, 
+    exercises: { exercise_id: string; sets: Partial<WorkoutSet>[] }[]
+  ) => Promise<void>;
 }
 
 export const useWorkoutStore = create<WorkoutState>((set, get) => ({
@@ -81,17 +91,22 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   startSession: (routine) => {
     const { workoutSetsHistory } = get();
     const exercises: ActiveExercise[] = (routine?.exercises || []).map((re) => {
+      const isCardio = BASE_EXERCISES.find((e) => e.id === re.exercise_id)?.muscleGroup === 'Cardio';
+
       // Buscar última serie realizada de este ejercicio en el historial
       const history = workoutSetsHistory
         .filter((s) => s.exercise_id === re.exercise_id && s.is_completed)
         .sort((a, b) => new Date(b.logged_at).getTime() - new Date(a.logged_at).getTime());
       
-      const lastWeight = history[0]?.weight_kg ? Number(history[0].weight_kg) : (re.default_weight_kg || 0);
-      const lastReps = history[0]?.reps || (re.default_reps ? parseInt(re.default_reps) : null);
+      const lastWeight = isCardio ? 0 : history[0]?.weight_kg ? Number(history[0].weight_kg) : (re.default_weight_kg || 0);
+      const lastReps = isCardio ? null : history[0]?.reps || (re.default_reps ? parseInt(re.default_reps) : null);
+      const lastDuration = history[0]?.duration_seconds || (re.default_reps && !isNaN(parseInt(re.default_reps)) ? parseInt(re.default_reps) * 60 : 600);
+
+      const defaultSetsCount = isCardio ? 1 : (re.default_sets || 3);
 
       return {
         exercise_id: re.exercise_id,
-        sets: Array.from({ length: re.default_sets || 3 }, (_, i) => ({
+        sets: Array.from({ length: defaultSetsCount }, (_, i) => ({
           id: `temp-${Date.now()}-${i}`,
           session_id: '',
           exercise_id: re.exercise_id,
@@ -100,7 +115,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
           weight_kg: lastWeight,
           rpe: null,
           rir: null,
-          duration_seconds: null,
+          duration_seconds: isCardio ? lastDuration : null,
           distance_meters: null,
           is_completed: false,
           is_warmup: false,
@@ -200,6 +215,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
           is_warmup: set.is_warmup,
           is_pr: isPR,
           e1rm_kg: e1rm,
+          duration_seconds: set.duration_seconds || null,
+          distance_meters: set.distance_meters || null,
         };
       });
     });
@@ -294,13 +311,16 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     set((state) => {
       if (!state.activeSession) return state;
 
+      const isCardio = BASE_EXERCISES.find((e) => e.id === exerciseId)?.muscleGroup === 'Cardio';
+
       // Buscar última serie realizada de este ejercicio en el historial
       const history = state.workoutSetsHistory
         .filter((s) => s.exercise_id === exerciseId && s.is_completed)
         .sort((a, b) => new Date(b.logged_at).getTime() - new Date(a.logged_at).getTime());
       
-      const lastWeight = history[0]?.weight_kg ? Number(history[0].weight_kg) : 0;
-      const lastReps = history[0]?.reps || null;
+      const lastWeight = isCardio ? 0 : history[0]?.weight_kg ? Number(history[0].weight_kg) : 0;
+      const lastReps = isCardio ? null : history[0]?.reps || null;
+      const lastDuration = history[0]?.duration_seconds || 600;
 
       const newExercise: ActiveExercise = {
         exercise_id: exerciseId,
@@ -314,7 +334,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
             weight_kg: lastWeight,
             rpe: null,
             rir: null,
-            duration_seconds: null,
+            duration_seconds: isCardio ? lastDuration : null,
             distance_meters: null,
             is_completed: false,
             is_warmup: false,
@@ -376,5 +396,101 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       );
     }
     await get().fetchRoutines(get().routines[0]?.user_id);
+  },
+
+  updatePastSession: async (sessionId, updates) => {
+    const { error } = await supabase
+      .from('workout_sessions')
+      .update(updates)
+      .eq('id', sessionId);
+
+    if (!error) {
+      set((state) => ({
+        sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, ...updates } : s)),
+      }));
+    } else {
+      throw error;
+    }
+  },
+
+  deletePastSession: async (sessionId) => {
+    await supabase.from('workout_sets').delete().eq('session_id', sessionId);
+    const { error } = await supabase.from('workout_sessions').delete().eq('id', sessionId);
+
+    if (!error) {
+      set((state) => ({
+        sessions: state.sessions.filter((s) => s.id !== sessionId),
+        workoutSetsHistory: state.workoutSetsHistory.filter((s) => s.session_id !== sessionId),
+      }));
+    } else {
+      throw error;
+    }
+  },
+
+  saveSessionEdits: async (sessionId, sessionUpdates, exercises) => {
+    const { error: deleteError } = await supabase
+      .from('workout_sets')
+      .delete()
+      .eq('session_id', sessionId);
+
+    if (deleteError) throw deleteError;
+
+    let totalVolume = 0;
+    const setsToInsert = exercises.flatMap((ex) => {
+      return (ex.sets || []).map((set, idx) => {
+        const isCardio = BASE_EXERCISES.find(e => e.id === ex.exercise_id)?.muscleGroup === 'Cardio';
+        const reps = isCardio ? null : (Number(set.reps) || 0);
+        const weight = isCardio ? 0 : (Number(set.weight_kg) || 0);
+        const e1rm = reps && weight ? weight * (1 + reps / 30) : null;
+
+        if (!isCardio && set.is_completed && reps && weight) {
+          totalVolume += reps * weight;
+        }
+
+        return {
+          session_id: sessionId,
+          exercise_id: ex.exercise_id,
+          set_number: idx + 1,
+          reps: isCardio ? null : set.reps || null,
+          weight_kg: isCardio ? 0 : set.weight_kg || 0,
+          rpe: set.rpe || null,
+          rir: set.rir !== null && set.rir !== undefined ? set.rir : null,
+          is_completed: set.is_completed ?? true,
+          is_warmup: set.is_warmup ?? false,
+          is_pr: set.is_pr ?? false,
+          e1rm_kg: e1rm,
+          duration_seconds: isCardio ? (set.duration_seconds || null) : null,
+          distance_meters: isCardio ? (set.distance_meters || null) : null,
+        };
+      });
+    });
+
+    if (setsToInsert.length > 0) {
+      const { error: insertError } = await supabase
+        .from('workout_sets')
+        .insert(setsToInsert);
+
+      if (insertError) throw insertError;
+    }
+
+    const finalUpdates = {
+      ...sessionUpdates,
+      total_volume_kg: totalVolume,
+    };
+
+    const { data: updatedSession, error: updateError } = await supabase
+      .from('workout_sessions')
+      .update(finalUpdates)
+      .eq('id', sessionId)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    const userId = get().sessions[0]?.user_id;
+    if (userId) {
+      await get().fetchSessions(userId);
+      await get().fetchWorkoutHistory(userId);
+    }
   },
 }));

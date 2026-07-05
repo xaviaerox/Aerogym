@@ -10,7 +10,9 @@ import {
   Sparkles,
   Save,
   Clock,
-  Dumbbell
+  Dumbbell,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import {
   DndContext,
@@ -31,7 +33,7 @@ import { BASE_EXERCISES } from '../constants/exercises';
 import { useWorkoutStore } from '../application/stores/useWorkoutStore';
 import type { Routine, RoutineExercise } from '../infrastructure/supabase/types';
 import { supabase } from '../infrastructure/supabase/client';
-import { cn } from '../lib/utils';
+import { cn, getMuscleWikiUrl } from '../lib/utils';
 
 interface RoutineEditorProps {
   routine: Routine & { exercises: RoutineExercise[] };
@@ -130,6 +132,18 @@ export default function RoutineEditor({ routine, onBack }: RoutineEditorProps) {
     setIsSelectorOpen(false);
     setSearch('');
     setSelectedMuscle(null);
+  };
+
+  const moveExercise = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= exercises.length) return;
+    setExercises((items) => {
+      const updated = [...items];
+      const temp = updated[index];
+      updated[index] = updated[newIndex];
+      updated[newIndex] = temp;
+      return updated;
+    });
   };
 
   const handleSave = async () => {
@@ -247,10 +261,14 @@ export default function RoutineEditor({ routine, onBack }: RoutineEditorProps) {
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={exercises.map((item) => item.tempId)} strategy={verticalListSortingStrategy}>
               <div className="space-y-3">
-                {exercises.map((ex) => (
+                {exercises.map((ex, idx) => (
                   <SortableItem
                     key={ex.tempId}
                     item={ex}
+                    index={idx}
+                    isFirst={idx === 0}
+                    isLast={idx === exercises.length - 1}
+                    onMove={(dir) => moveExercise(idx, dir)}
                     onRemove={() => handleRemoveExercise(ex.tempId)}
                     onUpdateField={(field, val) => handleUpdateField(ex.tempId, field, val)}
                   />
@@ -362,17 +380,21 @@ export default function RoutineEditor({ routine, onBack }: RoutineEditorProps) {
 interface SortableItemProps {
   key?: string;
   item: EditableExercise;
+  index: number;
+  isFirst: boolean;
+  isLast: boolean;
+  onMove: (direction: 'up' | 'down') => void;
   onRemove: () => void;
   onUpdateField: (field: keyof EditableExercise, val: any) => void;
 }
 
-function SortableItem({ item, onRemove, onUpdateField }: SortableItemProps) {
+function SortableItem({ item, index, isFirst, isLast, onMove, onRemove, onUpdateField }: SortableItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.tempId,
   });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: transform ? CSS.Transform.toString(transform) : undefined,
     transition,
     zIndex: isDragging ? 50 : 'auto',
   };
@@ -391,17 +413,48 @@ function SortableItem({ item, onRemove, onUpdateField }: SortableItemProps) {
       {/* Top Bar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {/* drag handle */}
-          <div
-            {...attributes}
-            {...listeners}
-            className="p-2 -ml-2 text-slate-500 cursor-grab active:cursor-grabbing hover:text-slate-300 transition-colors"
-          >
-            <GripVertical size={18} />
+          {/* drag handle & arrows */}
+          <div className="flex items-center gap-1 -ml-2">
+            <div
+              {...attributes}
+              {...listeners}
+              className="p-1.5 text-slate-500 cursor-grab active:cursor-grabbing hover:text-slate-300 transition-colors"
+            >
+              <GripVertical size={16} />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <button
+                type="button"
+                disabled={isFirst}
+                onClick={() => onMove('up')}
+                className="p-0.5 text-slate-500 hover:text-brand-blue disabled:opacity-30 disabled:hover:text-slate-500 transition-colors"
+              >
+                <ChevronUp size={12} />
+              </button>
+              <button
+                type="button"
+                disabled={isLast}
+                onClick={() => onMove('down')}
+                className="p-0.5 text-slate-500 hover:text-brand-blue disabled:opacity-30 disabled:hover:text-slate-500 transition-colors"
+              >
+                <ChevronDown size={12} />
+              </button>
+            </div>
           </div>
           <div>
-            <h4 className="font-bold text-slate-100 text-sm">{item.name}</h4>
-            <p className="text-[9px] text-slate-500 uppercase tracking-widest font-black">
+            <div className="flex items-center gap-2">
+              <h4 className="font-bold text-slate-100 text-sm">{item.name}</h4>
+              <a
+                href={getMuscleWikiUrl(item.muscleGroup)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[9px] text-slate-500 hover:text-brand-blue font-bold px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 hover:border-brand-blue/30 transition-all"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Wiki ↗
+              </a>
+            </div>
+            <p className="text-[9px] text-slate-500 uppercase tracking-widest font-black mt-0.5">
               {item.muscleGroup}
             </p>
           </div>
@@ -412,52 +465,84 @@ function SortableItem({ item, onRemove, onUpdateField }: SortableItemProps) {
       </div>
 
       {/* Config Row */}
-      <div className="grid grid-cols-4 gap-2">
-        <div>
-          <label className="text-[8px] text-slate-500 uppercase font-black tracking-widest block mb-0.5">Series</label>
-          <input
-            type="number"
-            value={item.default_sets}
-            min={1}
-            max={20}
-            onChange={(e) => onUpdateField('default_sets', parseInt(e.target.value) || 1)}
-            className="w-full bg-slate-800/80 text-center rounded-xl py-2 outline-none font-bold text-sm text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
-          />
-        </div>
-        <div>
-          <label className="text-[8px] text-slate-500 uppercase font-black tracking-widest block mb-0.5">Reps</label>
-          <input
-            type="text"
-            value={item.default_reps}
-            placeholder="8-12"
-            onChange={(e) => onUpdateField('default_reps', e.target.value)}
-            className="w-full bg-slate-800/80 text-center rounded-xl py-2 outline-none font-bold text-sm text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
-          />
-        </div>
-        <div>
-          <label className="text-[8px] text-slate-500 uppercase font-black tracking-widest block mb-0.5">Peso (kg)</label>
-          <input
-            type="number"
-            value={item.default_weight_kg || ''}
-            placeholder="0"
-            onChange={(e) => onUpdateField('default_weight_kg', parseFloat(e.target.value) || 0)}
-            className="w-full bg-slate-800/80 text-center rounded-xl py-2 outline-none font-bold text-sm text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
-          />
-        </div>
-        <div>
-          <label className="text-[8px] text-slate-500 uppercase font-black tracking-widest block mb-0.5">Rest (seg)</label>
-          <div className="relative">
+      {item.muscleGroup === 'Cardio' ? (
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[8px] text-slate-500 uppercase font-black tracking-widest block mb-0.5">Duración (min)</label>
             <input
               type="number"
-              value={item.rest_seconds}
-              placeholder="90"
-              onChange={(e) => onUpdateField('rest_seconds', parseInt(e.target.value) || 90)}
-              className="w-full bg-slate-800/80 text-center rounded-xl py-2 pl-1 pr-4 outline-none font-bold text-sm text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
+              value={item.default_reps ? parseInt(item.default_reps) || 10 : 10}
+              min={1}
+              onChange={(e) => {
+                onUpdateField('default_reps', (parseInt(e.target.value) || 10).toString());
+                onUpdateField('default_sets', 1);
+                onUpdateField('default_weight_kg', 0);
+              }}
+              className="w-full bg-slate-800/80 text-center rounded-xl py-2 outline-none font-bold text-sm text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
             />
-            <Clock size={10} className="absolute right-2 top-3 text-slate-600" />
+          </div>
+          <div>
+            <label className="text-[8px] text-slate-500 uppercase font-black tracking-widest block mb-0.5">Rest (seg)</label>
+            <div className="relative">
+              <input
+                type="number"
+                value={item.rest_seconds}
+                placeholder="90"
+                onChange={(e) => onUpdateField('rest_seconds', parseInt(e.target.value) || 90)}
+                className="w-full bg-slate-800/80 text-center rounded-xl py-2 pl-1 pr-4 outline-none font-bold text-sm text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
+              />
+              <Clock size={10} className="absolute right-2 top-3 text-slate-600" />
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-4 gap-2">
+          <div>
+            <label className="text-[8px] text-slate-500 uppercase font-black tracking-widest block mb-0.5">Series</label>
+            <input
+              type="number"
+              value={item.default_sets}
+              min={1}
+              max={20}
+              onChange={(e) => onUpdateField('default_sets', parseInt(e.target.value) || 1)}
+              className="w-full bg-slate-800/80 text-center rounded-xl py-2 outline-none font-bold text-sm text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
+            />
+          </div>
+          <div>
+            <label className="text-[8px] text-slate-500 uppercase font-black tracking-widest block mb-0.5">Reps</label>
+            <input
+              type="text"
+              value={item.default_reps}
+              placeholder="8-12"
+              onChange={(e) => onUpdateField('default_reps', e.target.value)}
+              className="w-full bg-slate-800/80 text-center rounded-xl py-2 outline-none font-bold text-sm text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
+            />
+          </div>
+          <div>
+            <label className="text-[8px] text-slate-500 uppercase font-black tracking-widest block mb-0.5">Peso (kg)</label>
+            <input
+              type="number"
+              value={item.default_weight_kg || ''}
+              placeholder="0"
+              onChange={(e) => onUpdateField('default_weight_kg', parseFloat(e.target.value) || 0)}
+              className="w-full bg-slate-800/80 text-center rounded-xl py-2 outline-none font-bold text-sm text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
+            />
+          </div>
+          <div>
+            <label className="text-[8px] text-slate-500 uppercase font-black tracking-widest block mb-0.5">Rest (seg)</label>
+            <div className="relative">
+              <input
+                type="number"
+                value={item.rest_seconds}
+                placeholder="90"
+                onChange={(e) => onUpdateField('rest_seconds', parseInt(e.target.value) || 90)}
+                className="w-full bg-slate-800/80 text-center rounded-xl py-2 pl-1 pr-4 outline-none font-bold text-sm text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
+              />
+              <Clock size={10} className="absolute right-2 top-3 text-slate-600" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

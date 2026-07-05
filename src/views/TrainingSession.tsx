@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Check, Timer, Trophy, Sparkles, ChevronRight } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, getMuscleWikiUrl } from '../lib/utils';
 import { BASE_EXERCISES } from '../constants/exercises';
 import { calculateE1RM, getBestE1RM, suggestWeight } from '../lib/engine';
 import { useAuthStore } from '../application/stores/useAuthStore';
@@ -126,9 +126,14 @@ export default function TrainingSession() {
       <div className="space-y-8">
         {activeSession.exercises.map((ex) => {
           const exerciseInfo = BASE_EXERCISES.find((e) => e.id === ex.exercise_id);
-          const bestE1RM = workoutSetsHistory
-            .filter((s) => s.exercise_id === ex.exercise_id && s.is_completed)
-            .reduce((max, s) => Math.max(max, Number(s.e1rm_kg) || 0), 0);
+          const isCardio = exerciseInfo?.muscleGroup === 'Cardio';
+          const bestE1RM = isCardio 
+            ? 0 
+            : workoutSetsHistory
+                .filter((s) => s.exercise_id === ex.exercise_id && s.is_completed)
+                .reduce((max, s) => Math.max(max, Number(s.e1rm_kg) || 0), 0);
+
+          const setsToRender = isCardio ? ex.sets.slice(0, 1) : ex.sets;
 
           return (
             <div key={ex.exercise_id} className="space-y-4">
@@ -142,30 +147,123 @@ export default function TrainingSession() {
                       Record Estimado: {bestE1RM.toFixed(1)}kg
                     </p>
                   )}
+                  {isCardio && (
+                    <p className="text-[10px] uppercase text-brand-blue font-bold tracking-widest">
+                      Ejercicio de Cardio
+                    </p>
+                  )}
                 </div>
-                <div className="flex items-center gap-1 text-[10px] text-brand-blue/60 font-bold uppercase tracking-widest bg-brand-blue/5 px-2 py-1 rounded-full border border-brand-blue/10">
-                  <Sparkles size={10} />
-                  IA
+                <div className="flex items-center gap-2">
+                  {exerciseInfo?.muscleGroup && (
+                    <a
+                      href={getMuscleWikiUrl(exerciseInfo.muscleGroup)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-slate-400 hover:text-brand-blue font-bold uppercase tracking-widest bg-white/5 hover:bg-brand-blue/10 px-2 py-1 rounded-full border border-white/10 hover:border-brand-blue/30 transition-all inline-flex items-center gap-1"
+                    >
+                      Wiki ↗
+                    </a>
+                  )}
+                  <div className="flex items-center gap-1 text-[10px] text-brand-blue/60 font-bold uppercase tracking-widest bg-brand-blue/5 px-2 py-1 rounded-full border border-brand-blue/10">
+                    <Sparkles size={10} />
+                    IA
+                  </div>
                 </div>
               </div>
 
               {/* Sets Header */}
-              <div className="grid grid-cols-[30px_1fr_1fr_45px_45px_50px] gap-2 px-2 text-[10px] uppercase text-slate-400 font-bold tracking-widest">
-                <span>#</span>
-                <span className="text-center">KG</span>
-                <span className="text-center">Reps</span>
-                <span className="text-center">RPE</span>
-                <span className="text-center">RIR</span>
-                <span className="text-right">✓</span>
-              </div>
+              {isCardio ? (
+                <div className="grid grid-cols-[30px_1fr_1fr_60px_50px] gap-2 px-2 text-[10px] uppercase text-slate-400 font-bold tracking-widest">
+                  <span>#</span>
+                  <span className="text-center">Minutos</span>
+                  <span className="text-center">Metros</span>
+                  <span className="text-center">RPE</span>
+                  <span className="text-right">✓</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-[30px_1fr_1fr_45px_45px_50px] gap-2 px-2 text-[10px] uppercase text-slate-400 font-bold tracking-widest">
+                  <span>#</span>
+                  <span className="text-center">KG</span>
+                  <span className="text-center">Reps</span>
+                  <span className="text-center">RPE</span>
+                  <span className="text-center">RIR</span>
+                  <span className="text-right">✓</span>
+                </div>
+              )}
 
-              {ex.sets.map((set, sIdx) => {
-                const currentE1RM = set.weight_kg && set.reps
+              {setsToRender.map((set, sIdx) => {
+                const currentE1RM = !isCardio && set.weight_kg && set.reps
                   ? calculateE1RM(set.weight_kg, set.reps)
                   : 0;
-                const isSetPR = set.weight_kg && set.reps
+                const isSetPR = !isCardio && set.weight_kg && set.reps
                   ? isPR(ex.exercise_id, set.weight_kg, set.reps)
                   : false;
+
+                if (isCardio) {
+                  return (
+                    <div
+                      key={set.id}
+                      className={cn(
+                        'grid grid-cols-[30px_1fr_1fr_60px_50px] gap-2 items-center p-2 rounded-xl transition-all border',
+                        set.is_completed
+                          ? 'bg-brand-blue/10 border-brand-blue/20'
+                          : 'bg-white/5 border-transparent'
+                      )}
+                    >
+                      <div className="flex flex-col items-center">
+                        <span className="text-sm font-bold text-slate-500">{sIdx + 1}</span>
+                      </div>
+
+                      {/* Minutes Input */}
+                      <input
+                        type="number"
+                        value={set.duration_seconds ? Math.round(set.duration_seconds / 60) : ''}
+                        placeholder="0 min"
+                        onChange={(e) =>
+                          updateActiveExercise(ex.exercise_id, sIdx, 'duration_seconds', (parseInt(e.target.value) || 0) * 60)
+                        }
+                        className="w-full bg-slate-800 text-center rounded-lg py-2 outline-none font-bold text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
+                      />
+
+                      {/* Meters Input */}
+                      <input
+                        type="number"
+                        value={set.distance_meters !== null && set.distance_meters !== undefined ? set.distance_meters : ''}
+                        placeholder="Opcional"
+                        onChange={(e) =>
+                          updateActiveExercise(ex.exercise_id, sIdx, 'distance_meters', parseInt(e.target.value) || null)
+                        }
+                        className="w-full bg-slate-800 text-center rounded-lg py-2 outline-none font-bold text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
+                      />
+
+                      {/* RPE */}
+                      <input
+                        type="number"
+                        value={set.rpe || ''}
+                        placeholder="-"
+                        min="1"
+                        max="10"
+                        onChange={(e) =>
+                          updateActiveExercise(ex.exercise_id, sIdx, 'rpe', parseFloat(e.target.value) || null)
+                        }
+                        className="bg-slate-800 text-center rounded-lg py-2 outline-none font-bold text-slate-400 placeholder:text-slate-600 focus:text-brand-blue"
+                      />
+
+                      {/* Complete toggle */}
+                      <button
+                        onClick={() => handleToggleSet(ex.exercise_id, sIdx, set)}
+                        className={cn(
+                          'w-10 h-10 rounded-lg flex items-center justify-center transition-all ml-auto',
+                          set.is_completed
+                            ? 'bg-brand-blue text-slate-950'
+                            : 'bg-slate-800 text-slate-500'
+                        )}
+                      >
+                        <Check size={20} strokeWidth={3} />
+                      </button>
+                    </div>
+                  );
+                }
 
                 return (
                   <div
@@ -255,13 +353,15 @@ export default function TrainingSession() {
                 );
               })}
 
-              <button
-                onClick={() => addSetToActive(ex.exercise_id)}
-                className="w-full py-2 bg-white/5 text-slate-400 rounded-xl text-xs font-bold uppercase tracking-widest border border-dashed border-white/10 hover:border-brand-blue/30 hover:text-brand-blue transition-all"
-              >
-                <Plus size={14} className="inline mr-1" />
-                Añadir Serie
-              </button>
+              {!isCardio && (
+                <button
+                  onClick={() => addSetToActive(ex.exercise_id)}
+                  className="w-full py-2 bg-white/5 text-slate-400 rounded-xl text-xs font-bold uppercase tracking-widest border border-dashed border-white/10 hover:border-brand-blue/30 hover:text-brand-blue transition-all"
+                >
+                  <Plus size={14} className="inline mr-1" />
+                  Añadir Serie
+                </button>
+              )}
             </div>
           );
         })}
