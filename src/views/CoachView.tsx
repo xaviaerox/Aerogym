@@ -189,7 +189,7 @@ export default function CoachView() {
           <div>
             <p className="font-black text-slate-50 text-sm">Aero Coach</p>
             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-              Gemini RAG Context
+              Groq · Llama 3.3
             </p>
           </div>
         </div>

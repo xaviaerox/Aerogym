@@ -1,5 +1,8 @@
-// Service to communicate with the MuscleWiki API or fallback to mock data
-// if the key is on the BASIC/Free tier.
+// Service to communicate with the MuscleWiki API.
+// Priority order:
+//   1. Supabase Edge Function proxy (bypasses CORS, works with any tier from server)
+//   2. Direct API call (only works on TESTING+ tier)
+//   3. Local exercise database (always available, 50+ exercises, real data)
 
 export interface MuscleWikiVideo {
   angle: string;
@@ -12,6 +15,7 @@ export interface MuscleWikiExercise {
   id: string | number;
   name: string;
   primary_muscles: string[];
+  secondary_muscles?: string[];
   category: string;
   difficulty: string | null;
   force: string | null;
@@ -26,7 +30,12 @@ export interface MuscleWikiExercise {
 // Default key provided by the user
 const DEFAULT_API_KEY = 'mw_rJ7RFufexI5drONWeYvc3ANy3HwnfgL8Sw8KpUHtdNk';
 const STORAGE_KEY_API_KEY = 'aerogym_musclewiki_api_key';
-const STORAGE_KEY_MOCK_MODE = 'aerogym_musclewiki_mock_mode';
+const STORAGE_KEY_OFFLINE_MODE = 'aerogym_musclewiki_offline_mode';
+
+// Supabase proxy URL (set via VITE env var) – bypasses browser CORS
+const SUPABASE_PROXY_URL = import.meta.env.VITE_SUPABASE_URL
+  ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/musclewiki-proxy`
+  : null;
 
 // Translations English -> Spanish for UI consistency
 export const TRANSLATE_MUSCLE: Record<string, string> = {
@@ -60,168 +69,119 @@ export const TRANSLATE_CATEGORY: Record<string, string> = {
   'Stretch': 'Estiramientos',
 };
 
-// Rich Mock exercise database for BASIC tier fallback
-export const MOCK_MUSCLEWIKI_EXERCISES: MuscleWikiExercise[] = [
+// Helper to build MuscleWiki CDN video URLs
+function mwVideo(category: string, slug: string, angles: string[] = ['front', 'side']): MuscleWikiVideo[] {
+  const cat = category.charAt(0).toUpperCase() + category.slice(1);
+  return angles.map(angle => ({
+    angle,
+    gender: 'male' as const,
+    og_image: `https://images.musclewiki.com/media/images/og-male-${cat}-${slug}-${angle}.jpg`,
+    url: `https://media.musclewiki.com/media/videos/unbranded/male-${cat}-${slug}-${angle}.mp4`,
+  }));
+}
+
+// ─── COMPREHENSIVE LOCAL EXERCISE DATABASE ─────────────────────────────────
+// 50+ exercises covering all major muscle groups with detailed instructions.
+// Based on real MuscleWiki exercise data and CDN URL patterns.
+export const LOCAL_EXERCISES: MuscleWikiExercise[] = [
+
+  // ─── BÍCEPS ───────────────────────────────────────────────────────────────
   {
     id: 1001,
     name: 'Curl de Bíceps con Barra (Barbell Curl)',
     primary_muscles: ['Biceps'],
+    secondary_muscles: ['Forearms'],
     category: 'Barbell',
     difficulty: 'Intermediate',
     force: 'Pull',
     grips: ['Underhand'],
     mechanic: 'Isolation',
     steps: [
-      'Párate derecho sosteniendo una barra con un agarre supinado (palmas hacia arriba) al ancho de tus hombros.',
-      'Manteniendo los codos cerca de tu torso y los brazos inmóviles, contrae los bíceps para flexionar la barra hacia adelante.',
-      'Continúa el movimiento hasta que tus bíceps estén completamente contraídos y la barra a la altura de los hombros.',
-      'Mantén la posición contraída por un segundo para maximizar la tensión.',
-      'Baja lentamente la barra de regreso a la posición inicial, controlando el peso en todo momento.'
+      'Párate derecho sosteniendo una barra con agarre supinado (palmas hacia arriba) al ancho de los hombros.',
+      'Mantén los codos pegados al torso durante todo el movimiento.',
+      'Contrae los bíceps para flexionar la barra hacia los hombros de forma controlada.',
+      'Sube hasta que los bíceps estén completamente contraídos y la barra a la altura de los hombros.',
+      'Mantén la contracción 1 segundo y baja lentamente hasta la posición inicial.',
     ],
-    videos: [
-      {
-        angle: 'front',
-        gender: 'male',
-        og_image: 'https://images.musclewiki.com/media/images/og-male-Barbell-barbell-curl-front.jpg',
-        url: 'https://media.musclewiki.com/media/videos/unbranded/male-Barbell-barbell-curl-front.mp4'
-      },
-      {
-        angle: 'side',
-        gender: 'male',
-        og_image: 'https://images.musclewiki.com/media/images/og-male-Barbell-barbell-curl-side.jpg',
-        url: 'https://media.musclewiki.com/media/videos/unbranded/male-Barbell-barbell-curl-side.mp4'
-      }
-    ],
+    videos: mwVideo('Barbell', 'barbell-curl'),
     bodymap_male: 'https://api.musclewiki.com/stream/images/bodymaps/1?gender=male',
-    bodymap_female: 'https://api.musclewiki.com/stream/images/bodymaps/1?gender=female'
   },
   {
-    id: 1002,
-    name: 'Press de Banca con Mancuernas (Dumbbell Bench Press)',
-    primary_muscles: ['Chest'],
+    id: 1051,
+    name: 'Curl Martillo con Mancuernas (Hammer Curl)',
+    primary_muscles: ['Biceps'],
+    secondary_muscles: ['Forearms'],
     category: 'Dumbbell',
-    difficulty: 'Beginner',
-    force: 'Push',
-    grips: ['Overhand'],
-    mechanic: 'Compound',
-    steps: [
-      'Acuéstate boca arriba en un banco plano sosteniendo una mancuerna en cada mano a los costados de tu pecho.',
-      'Mantén los pies bien apoyados en el suelo y los hombros retraídos contra el banco.',
-      'Empuja las mancuernas hacia arriba extendiendo los brazos, asegurándote de que no choquen arriba.',
-      'Baja las mancuernas de forma controlada hasta que sientas un estiramiento cómodo en el pecho.',
-      'Repite el movimiento manteniendo los codos en un ángulo aproximado de 45 a 60 grados con respecto al torso.'
-    ],
-    videos: [
-      {
-        angle: 'front',
-        gender: 'male',
-        og_image: 'https://images.musclewiki.com/media/images/og-male-Dumbbells-dumbbell-chest-press-front.jpg',
-        url: 'https://media.musclewiki.com/media/videos/unbranded/male-Dumbbells-dumbbell-chest-press-front.mp4'
-      }
-    ],
-    bodymap_male: 'https://api.musclewiki.com/stream/images/bodymaps/2?gender=male',
-    bodymap_female: 'https://api.musclewiki.com/stream/images/bodymaps/2?gender=female'
-  },
-  {
-    id: 1003,
-    name: 'Jalón Dorsal en Polea (Cable Lat Pulldown)',
-    primary_muscles: ['Lats'],
-    category: 'Cables',
     difficulty: 'Beginner',
     force: 'Pull',
-    grips: ['Overhand'],
-    mechanic: 'Compound',
-    steps: [
-      'Siéntate en la máquina de jalón al pecho y ajusta la almohadilla de las rodillas para que queden firmes.',
-      'Sujeta la barra con un agarre prono un poco más ancho que tus hombros.',
-      'Saca pecho e inclina el torso ligeramente hacia atrás.',
-      'Tira de la barra hacia abajo hacia la parte superior de tu pecho, llevando los codos hacia tus costados y apretando los dorsales.',
-      'Regresa la barra lentamente a la posición inicial permitiendo que los dorsales se estiren por completo.'
-    ],
-    videos: [
-      {
-        angle: 'front',
-        gender: 'male',
-        og_image: 'https://images.musclewiki.com/media/images/og-male-Cables-lat-pulldown-front.jpg',
-        url: 'https://media.musclewiki.com/media/videos/unbranded/male-Cables-lat-pulldown-front.mp4'
-      }
-    ]
-  },
-  {
-    id: 1004,
-    name: 'Sentadilla Goblet (Goblet Squat)',
-    primary_muscles: ['Quadriceps'],
-    category: 'Dumbbell',
-    difficulty: 'Beginner',
-    force: 'Push',
-    grips: ['Neutral'],
-    mechanic: 'Compound',
-    steps: [
-      'Sostén una mancuerna verticalmente frente a tu pecho, sujetándola con ambas manos por la base superior.',
-      'Párate con los pies a una anchura ligeramente mayor que la de tus hombros y las puntas de los pies apuntando ligeramente hacia afuera.',
-      'Inicia el descenso empujando la cadera hacia atrás y flexionando las rodillas, como si fueras a sentarte en una silla.',
-      'Baja hasta que tus muslos estén paralelos al suelo o lo más profundo que te permita tu movilidad.',
-      'Mantén la espalda recta y el pecho erguido. Empuja con fuerza los talones para volver a la posición de pie.'
-    ],
-    videos: [
-      {
-        angle: 'front',
-        gender: 'male',
-        og_image: 'https://images.musclewiki.com/media/images/og-male-Dumbbells-goblet-squat-front.jpg',
-        url: 'https://media.musclewiki.com/media/videos/unbranded/male-Dumbbells-goblet-squat-front.mp4'
-      }
-    ]
-  },
-  {
-    id: 1005,
-    name: 'Peso Muerto Rumano con Mancuernas (Dumbbell Romanian Deadlift)',
-    primary_muscles: ['Hamstrings'],
-    category: 'Dumbbell',
-    difficulty: 'Intermediate',
-    force: 'Pull',
-    grips: ['Overhand'],
-    mechanic: 'Compound',
-    steps: [
-      'Párate con los pies separados al ancho de las caderas, sosteniendo una mancuerna en cada mano frente a tus muslos.',
-      'Mantén una flexión muy ligera en las rodillas y la columna en una posición neutra (espalda recta).',
-      'Empuja las caderas hacia atrás para iniciar el descenso del torso, deslizando las mancuernas cerca de tus piernas.',
-      'Baja el peso hasta sentir un estiramiento completo en los isquiotibiales (generalmente justo debajo de las rodillas).',
-      'Contrae los glúteos e isquiotibiales para empujar la cadera hacia adelante y volver a la posición vertical.'
-    ],
-    videos: [
-      {
-        angle: 'front',
-        gender: 'male',
-        og_image: 'https://images.musclewiki.com/media/images/og-male-Dumbbells-romanian-deadlift-front.jpg',
-        url: 'https://media.musclewiki.com/media/videos/unbranded/male-Dumbbells-romanian-deadlift-front.mp4'
-      }
-    ]
-  },
-  {
-    id: 1006,
-    name: 'Elevación Lateral con Mancuernas (Dumbbell Lateral Raise)',
-    primary_muscles: ['Shoulders'],
-    category: 'Dumbbell',
-    difficulty: 'Beginner',
-    force: 'Push',
     grips: ['Neutral'],
     mechanic: 'Isolation',
     steps: [
-      'Párate derecho con una mancuerna en cada mano a los costados de tus muslos, inclinando el torso ligeramente hacia adelante.',
-      'Manteniendo los codos ligeramente flexionados, eleva los brazos hacia los lados formando un arco.',
-      'Continúa elevando el peso hasta que tus brazos queden paralelos al suelo (altura de los hombros).',
-      'Siente la contracción en los deltoides laterales por una fracción de segundo.',
-      'Baja las mancuernas de manera controlada y repite.'
+      'Párate con los pies al ancho de los hombros, sosteniendo una mancuerna en cada mano con agarre neutro (palmas enfrentadas).',
+      'Mantén los codos junto al torso y los pulgares apuntando hacia arriba.',
+      'Flexiona los codos para subir las mancuernas hacia los hombros sin rotar las muñecas.',
+      'Aprieta los bíceps y el braquiorradial en la parte superior.',
+      'Baja lentamente hasta la posición inicial con control total.',
     ],
-    videos: [
-      {
-        angle: 'front',
-        gender: 'male',
-        og_image: 'https://images.musclewiki.com/media/images/og-male-Dumbbells-lateral-raises-front.jpg',
-        url: 'https://media.musclewiki.com/media/videos/unbranded/male-Dumbbells-lateral-raises-front.mp4'
-      }
-    ]
+    videos: mwVideo('Dumbbells', 'hammer-curl'),
   },
+  {
+    id: 1052,
+    name: 'Curl Concentrado con Mancuerna (Concentration Curl)',
+    primary_muscles: ['Biceps'],
+    category: 'Dumbbell',
+    difficulty: 'Beginner',
+    force: 'Pull',
+    grips: ['Underhand'],
+    mechanic: 'Isolation',
+    steps: [
+      'Siéntate en un banco, inclínate ligeramente hacia adelante y apoya el codo derecho en la cara interna del muslo derecho.',
+      'Sostén una mancuerna con agarre supinado dejando el brazo extendido.',
+      'Contrae el bíceps para levantar la mancuerna hacia el hombro, rotando ligeramente la muñeca hacia afuera al llegar arriba.',
+      'Mantén la contracción máxima 1-2 segundos antes de bajar.',
+      'Completa las repeticiones en un lado y cambia al otro brazo.',
+    ],
+    videos: mwVideo('Dumbbells', 'concentration-curl', ['side']),
+  },
+  {
+    id: 1053,
+    name: 'Curl de Bíceps en Polea (Cable Curl)',
+    primary_muscles: ['Biceps'],
+    secondary_muscles: ['Forearms'],
+    category: 'Cables',
+    difficulty: 'Beginner',
+    force: 'Pull',
+    grips: ['Underhand'],
+    mechanic: 'Isolation',
+    steps: [
+      'Ajusta la polea a la posición más baja y conecta la barra recta o EZ.',
+      'Sujeta la barra con agarre supinado al ancho de los hombros y da un pequeño paso atrás.',
+      'Mantén los codos fijos a los costados y curva la barra hacia los hombros.',
+      'La polea mantiene tensión constante en los bíceps durante todo el recorrido.',
+      'Baja de forma controlada evitando que el peso caiga libremente.',
+    ],
+    videos: mwVideo('Cables', 'cable-curl'),
+  },
+  {
+    id: 1054,
+    name: 'Curl Inclinado con Mancuernas (Incline Dumbbell Curl)',
+    primary_muscles: ['Biceps'],
+    category: 'Dumbbell',
+    difficulty: 'Intermediate',
+    force: 'Pull',
+    grips: ['Underhand'],
+    mechanic: 'Isolation',
+    steps: [
+      'Recuéstate en un banco inclinado a 45-60° con una mancuerna en cada mano colgando libremente.',
+      'Partiendo de esta posición estirada (máximo estiramiento del bíceps), curva las mancuernas hacia los hombros.',
+      'Gira ligeramente las muñecas hacia afuera al subir para mayor contracción.',
+      'No lleves los codos hacia adelante: deben permanecer detrás del torso.',
+      'Baja completamente para maximizar el estiramiento en cada repetición.',
+    ],
+    videos: mwVideo('Dumbbells', 'incline-dumbbell-curl', ['side']),
+  },
+
+  // ─── TRÍCEPS ──────────────────────────────────────────────────────────────
   {
     id: 1007,
     name: 'Extensión de Tríceps en Polea (Triceps Pushdown)',
@@ -232,154 +192,930 @@ export const MOCK_MUSCLEWIKI_EXERCISES: MuscleWikiExercise[] = [
     grips: ['Overhand'],
     mechanic: 'Isolation',
     steps: [
-      'Sjeta una barra recta o en V conectada a una polea alta con un agarre prono al ancho de los hombros.',
-      'Párate cerca de la polea con el torso ligeramente inclinado hacia adelante y coloca tus codos pegados a los costados del cuerpo.',
-      'Empuja la barra hacia abajo extendiendo los brazos por completo, apretando los tríceps al final del rango.',
-      'Evita que los codos se muevan hacia adelante o hacia los lados.',
-      'Sube lentamente la barra de regreso a la posición de inicio, sintiendo el estiramiento en los tríceps.'
+      'Sujeta la barra recta o en V conectada a la polea alta con agarre prono al ancho de los hombros.',
+      'Párate cerca de la polea con el torso ligeramente inclinado y los codos pegados al torso.',
+      'Extiende los brazos completamente hacia abajo apretando los tríceps al final.',
+      'Evita que los codos se muevan durante el movimiento: son el eje fijo.',
+      'Sube lentamente la barra hasta la posición inicial sintiendo el estiramiento.',
     ],
-    videos: [
-      {
-        angle: 'front',
-        gender: 'male',
-        og_image: 'https://images.musclewiki.com/media/images/og-male-Cables-tricep-pushdown-front.jpg',
-        url: 'https://media.musclewiki.com/media/videos/unbranded/male-Cables-tricep-pushdown-front.mp4'
-      }
-    ]
+    videos: mwVideo('Cables', 'tricep-pushdown'),
   },
   {
-    id: 1008,
-    name: 'Flexiones de Pecho (Push Up)',
-    primary_muscles: ['Chest'],
-    category: 'Bodyweight',
-    difficulty: 'Beginner',
+    id: 1055,
+    name: 'Extensión de Tríceps sobre la Cabeza (Overhead Tricep Extension)',
+    primary_muscles: ['Triceps'],
+    category: 'Dumbbell',
+    difficulty: 'Intermediate',
+    force: 'Push',
+    grips: ['Neutral'],
+    mechanic: 'Isolation',
+    steps: [
+      'Siéntate o párate sosteniendo una mancuerna con ambas manos por encima de la cabeza (agarre en copa).',
+      'Mantén los codos apuntando al techo y cerca de la cabeza.',
+      'Dobla los codos para bajar la mancuerna detrás de la cabeza hasta sentir el estiramiento en los tríceps.',
+      'Extiende los codos para subir la mancuerna de vuelta a la posición inicial.',
+      'Mantén el core activo para no sobrecargar la zona lumbar.',
+    ],
+    videos: mwVideo('Dumbbells', 'overhead-tricep-extension', ['side']),
+  },
+  {
+    id: 1056,
+    name: 'Press de Codo Cerrado con Barra (Close-Grip Bench Press)',
+    primary_muscles: ['Triceps'],
+    secondary_muscles: ['Chest', 'Shoulders'],
+    category: 'Barbell',
+    difficulty: 'Intermediate',
     force: 'Push',
     grips: ['Overhand'],
     mechanic: 'Compound',
     steps: [
-      'Colócate en posición de plancha con las manos alineadas justo debajo de tus hombros y el cuerpo formando una línea recta desde la cabeza a los talones.',
-      'Mantén el abdomen contraído y la cabeza en posición neutra, mirando al suelo.',
-      'Flexiona los codos hacia atrás en un ángulo de unos 45 grados con respecto a tu cuerpo para bajar el pecho.',
-      'Baja hasta que tu pecho casi toque el suelo.',
-      'Empuja el suelo con fuerza para extender los brazos y volver a la posición de inicio.'
+      'Acuéstate en un banco plano y sujeta la barra con un agarre más estrecho que el hombro (20-30 cm entre las manos).',
+      'Baja la barra hacia el pecho inferior manteniendo los codos cerca del torso (no abiertos).',
+      'Toca el pecho ligeramente y empuja la barra verticalmente hacia arriba.',
+      'Aprieta los tríceps al extender los brazos por completo en la parte superior.',
+      'Repite controlando el descenso para maximizar el trabajo de los tríceps.',
     ],
-    videos: [
-      {
-        angle: 'front',
-        gender: 'male',
-        og_image: 'https://images.musclewiki.com/media/images/og-male-Bodyweight-pushup-front.jpg',
-        url: 'https://media.musclewiki.com/media/videos/unbranded/male-Bodyweight-pushup-front.mp4'
-      }
-    ]
+    videos: mwVideo('Barbell', 'close-grip-bench-press'),
   },
   {
-    id: 1009,
-    name: 'Prensa de Piernas (Leg Press)',
-    primary_muscles: ['Quadriceps'],
-    category: 'Machine',
-    difficulty: 'Beginner',
+    id: 1057,
+    name: 'Fondos en Paralelas (Tricep Dips)',
+    primary_muscles: ['Triceps'],
+    secondary_muscles: ['Chest', 'Shoulders'],
+    category: 'Bodyweight',
+    difficulty: 'Intermediate',
     force: 'Push',
     grips: ['Neutral'],
     mechanic: 'Compound',
     steps: [
-      'Siéntate en la máquina de prensa y apoya la espalda y cabeza firmemente contra el soporte.',
-      'Coloca los pies en la plataforma separados al ancho de los hombros.',
-      'Libera las barras de seguridad y sujeta las manijas laterales para estabilidad.',
-      'Flexiona las rodillas para bajar la plataforma lentamente hacia tu pecho, formando un ángulo de 90 grados con las rodillas sin levantar la espalda baja.',
-      'Empuja la plataforma con fuerza extendiendo las piernas, asegurándote de no bloquear las rodillas al final del recorrido.'
+      'Sujeta las barras paralelas y eleva el cuerpo hasta que los brazos estén totalmente extendidos.',
+      'Para enfatizar los tríceps, mantén el torso erguido (sin inclinarse hacia adelante) y los codos cerca del cuerpo.',
+      'Baja lentamente doblando los codos hasta que los brazos queden paralelos al suelo (90°).',
+      'Empuja hacia arriba para volver a la posición inicial apretando los tríceps.',
+      'Evita balancear las piernas durante el movimiento.',
     ],
-    videos: [
-      {
-        angle: 'side',
-        gender: 'male',
-        og_image: 'https://images.musclewiki.com/media/images/og-male-Machine-leg-press-side.jpg',
-        url: 'https://media.musclewiki.com/media/videos/unbranded/male-Machine-leg-press-side.mp4'
-      }
-    ]
+    videos: mwVideo('Bodyweight', 'tricep-dips', ['side']),
   },
   {
-    id: 1010,
-    name: 'Press Militar con Mancuernas (Dumbbell Shoulder Press)',
-    primary_muscles: ['Shoulders'],
+    id: 1058,
+    name: 'Extensión de Tríceps con Cuerda en Polea',
+    primary_muscles: ['Triceps'],
+    category: 'Cables',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: ['Neutral'],
+    mechanic: 'Isolation',
+    steps: [
+      'Conecta la cuerda a la polea alta y sujeta cada extremo con agarre neutro.',
+      'Coloca los pulgares mirando hacia arriba y los codos pegados al torso.',
+      'Extiende los brazos hacia abajo separando ligeramente las cuerdas al llegar al fondo.',
+      'La separación de las cuerdas aumenta la contracción final de los tríceps.',
+      'Sube lentamente manteniendo los codos fijos como punto de apoyo.',
+    ],
+    videos: mwVideo('Cables', 'tricep-rope-pushdown'),
+  },
+
+  // ─── PECHO ────────────────────────────────────────────────────────────────
+  {
+    id: 1002,
+    name: 'Press de Banca con Mancuernas (Dumbbell Bench Press)',
+    primary_muscles: ['Chest'],
+    secondary_muscles: ['Triceps', 'Shoulders'],
     category: 'Dumbbell',
     difficulty: 'Beginner',
     force: 'Push',
     grips: ['Overhand'],
     mechanic: 'Compound',
     steps: [
-      'Siéntate en un banco con respaldo vertical sosteniendo una mancuerna en cada mano a la altura de las orejas.',
-      'Mantén los pies firmemente apoyados en el suelo y el abdomen activo.',
-      'Empuja las mancuernas verticalmente hacia arriba hasta que tus brazos estén extendidos casi por completo.',
-      'Baja las mancuernas controladamente hasta la altura inicial de los hombros/orejas.'
+      'Acuéstate en un banco plano con una mancuerna en cada mano a los costados del pecho.',
+      'Mantén los pies en el suelo, la espalda contra el banco y los hombros retraídos.',
+      'Empuja las mancuernas hacia arriba extendiendo los brazos sin que choquen en la parte superior.',
+      'Baja controladamente hasta sentir un buen estiramiento en el pecho.',
+      'Mantén los codos a 45-60° respecto al torso para proteger los hombros.',
     ],
-    videos: [
-      {
-        angle: 'front',
-        gender: 'male',
-        og_image: 'https://images.musclewiki.com/media/images/og-male-Dumbbells-dumbbell-shoulder-press-front.jpg',
-        url: 'https://media.musclewiki.com/media/videos/unbranded/male-Dumbbells-dumbbell-shoulder-press-front.mp4'
-      }
-    ]
+    videos: mwVideo('Dumbbells', 'dumbbell-chest-press'),
+    bodymap_male: 'https://api.musclewiki.com/stream/images/bodymaps/2?gender=male',
   },
   {
-    id: 1011,
-    name: 'Plancha Abdominal (Plank)',
-    primary_muscles: ['Abs'],
+    id: 1008,
+    name: 'Flexiones de Pecho (Push Up)',
+    primary_muscles: ['Chest'],
+    secondary_muscles: ['Triceps', 'Shoulders'],
     category: 'Bodyweight',
     difficulty: 'Beginner',
-    force: 'Hold',
-    grips: [],
-    mechanic: 'Isolation',
+    force: 'Push',
+    grips: ['Overhand'],
+    mechanic: 'Compound',
     steps: [
-      'Apoya los antebrazos en el suelo alineando los codos justo debajo de los hombros.',
-      'Extiende las piernas hacia atrás apoyando solo la punta de los pies, elevando el cuerpo.',
-      'Contrae fuertemente el abdomen y los glúteos para mantener la espalda recta.',
-      'Sostén esta posición estática respirando con normalidad, evitando elevar o dejar caer la cadera.'
+      'Posición de plancha con manos alineadas debajo de los hombros y cuerpo en línea recta.',
+      'Contraer abdomen y glúteos para evitar que la cadera suba o baje.',
+      'Dobla los codos hacia atrás en ~45° al cuerpo para bajar el pecho hacia el suelo.',
+      'Baja hasta que el pecho casi toque el suelo.',
+      'Empuja con fuerza para volver a la posición inicial apretando el pecho.',
     ],
-    videos: [
-      {
-        angle: 'side',
-        gender: 'male',
-        og_image: 'https://images.musclewiki.com/media/images/og-male-Bodyweight-plank-side.jpg',
-        url: 'https://media.musclewiki.com/media/videos/unbranded/male-Bodyweight-plank-side.mp4'
-      }
-    ]
+    videos: mwVideo('Bodyweight', 'pushup'),
   },
   {
-    id: 1012,
-    name: 'Tirón al Rostro (Face Pull)',
-    primary_muscles: ['Shoulders'],
+    id: 1059,
+    name: 'Press de Banca Inclinado con Barra (Incline Barbell Bench Press)',
+    primary_muscles: ['Chest'],
+    secondary_muscles: ['Triceps', 'Shoulders'],
+    category: 'Barbell',
+    difficulty: 'Intermediate',
+    force: 'Push',
+    grips: ['Overhand'],
+    mechanic: 'Compound',
+    steps: [
+      'Recuéstate en un banco inclinado a 30-45° con la barra sobre el pecho superior.',
+      'Sujeta la barra con agarre ligeramente más ancho que los hombros.',
+      'Baja la barra de forma controlada hacia la parte superior del pecho.',
+      'Empuja hacia arriba y ligeramente hacia atrás siguiendo el arco natural del movimiento.',
+      'El pecho superior (clavicular) es el músculo más activado en esta variante.',
+    ],
+    videos: mwVideo('Barbell', 'incline-barbell-bench-press'),
+  },
+  {
+    id: 1060,
+    name: 'Cruce de Poleas (Cable Fly)',
+    primary_muscles: ['Chest'],
+    category: 'Cables',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: ['Neutral'],
+    mechanic: 'Isolation',
+    steps: [
+      'Ajusta las poleas a la altura del pecho o por encima y sujeta los mangos con agarre neutro.',
+      'Da un paso al frente para tensar los cables y posiciónate en el centro.',
+      'Con los codos ligeramente doblados, une las manos frente al pecho dibujando un arco amplio.',
+      'Aprieta el pecho al unir las manos y mantén 1 segundo la contracción máxima.',
+      'Vuelve lentamente a la posición inicial sintiendo el estiramiento en el pecho.',
+    ],
+    videos: mwVideo('Cables', 'cable-fly'),
+  },
+  {
+    id: 1061,
+    name: 'Aperturas con Mancuernas (Dumbbell Fly)',
+    primary_muscles: ['Chest'],
+    category: 'Dumbbell',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: ['Neutral'],
+    mechanic: 'Isolation',
+    steps: [
+      'Acuéstate en un banco plano con una mancuerna en cada mano y los brazos extendidos sobre el pecho.',
+      'Con los codos ligeramente doblados, baja los brazos hacia los lados en un arco amplio.',
+      'Siente el estiramiento completo del pecho en la posición más baja.',
+      'Contrae el pecho para unir las mancuernas de vuelta sobre el torso.',
+      'Mantén los codos en el mismo ángulo durante todo el movimiento.',
+    ],
+    videos: mwVideo('Dumbbells', 'dumbbell-fly'),
+  },
+
+  // ─── ESPALDA ──────────────────────────────────────────────────────────────
+  {
+    id: 1003,
+    name: 'Jalón Dorsal en Polea (Cable Lat Pulldown)',
+    primary_muscles: ['Lats'],
+    secondary_muscles: ['Biceps', 'Middle Back'],
+    category: 'Cables',
+    difficulty: 'Beginner',
+    force: 'Pull',
+    grips: ['Overhand'],
+    mechanic: 'Compound',
+    steps: [
+      'Siéntate en la máquina ajustando la almohadilla de rodillas para que queden firmes.',
+      'Sujeta la barra con agarre prono un poco más ancho que los hombros.',
+      'Saca pecho e inclina el torso ligeramente hacia atrás.',
+      'Tira de la barra hacia la parte superior del pecho llevando los codos hacia abajo y atrás.',
+      'Regresa la barra lentamente a la posición inicial permitiendo que los dorsales se estiren.',
+    ],
+    videos: mwVideo('Cables', 'lat-pulldown'),
+  },
+  {
+    id: 1062,
+    name: 'Dominadas (Pull Up)',
+    primary_muscles: ['Lats'],
+    secondary_muscles: ['Biceps', 'Middle Back'],
+    category: 'Bodyweight',
+    difficulty: 'Advanced',
+    force: 'Pull',
+    grips: ['Overhand'],
+    mechanic: 'Compound',
+    steps: [
+      'Cuélgate de una barra con agarre prono ligeramente más ancho que los hombros.',
+      'Activa los dorsales deprimiendo las escápulas antes de empezar a tirar.',
+      'Tira del cuerpo hacia arriba hasta que la barbilla supere la barra.',
+      'Enfócate en llevar los codos hacia abajo y atrás, no en doblar los brazos.',
+      'Baja lentamente hasta la extensión completa para maximizar el estiramiento.',
+    ],
+    videos: mwVideo('Bodyweight', 'pull-up'),
+  },
+  {
+    id: 1063,
+    name: 'Remo con Barra (Barbell Row)',
+    primary_muscles: ['Middle Back'],
+    secondary_muscles: ['Lats', 'Biceps', 'Traps'],
+    category: 'Barbell',
+    difficulty: 'Intermediate',
+    force: 'Pull',
+    grips: ['Overhand'],
+    mechanic: 'Compound',
+    steps: [
+      'Con la barra cargada en el suelo, ponte de pie con los pies al ancho de los hombros.',
+      'Inclínate hacia adelante hasta que el torso quede casi paralelo al suelo, con rodillas ligeramente dobladas.',
+      'Sujeta la barra con agarre prono al ancho de los hombros.',
+      'Tira de la barra hacia el abdomen llevando los codos hacia atrás y apretando la espalda media.',
+      'Baja lentamente la barra hasta la posición colgante, manteniendo la columna neutral.',
+    ],
+    videos: mwVideo('Barbell', 'barbell-row'),
+  },
+  {
+    id: 1064,
+    name: 'Remo con Mancuerna (Dumbbell Row)',
+    primary_muscles: ['Lats'],
+    secondary_muscles: ['Middle Back', 'Biceps'],
+    category: 'Dumbbell',
+    difficulty: 'Beginner',
+    force: 'Pull',
+    grips: ['Neutral'],
+    mechanic: 'Compound',
+    steps: [
+      'Coloca una mano y la rodilla del mismo lado en un banco para soporte.',
+      'Con la otra mano sostén una mancuerna y deja el brazo extendido hacia el suelo.',
+      'Tira de la mancuerna hacia la cadera llevando el codo hacia el techo.',
+      'Aprieta la espalda en la posición superior y baja controladamente.',
+      'Mantén la espalda paralela al suelo y evita rotar el torso.',
+    ],
+    videos: mwVideo('Dumbbells', 'dumbbell-row', ['side']),
+  },
+  {
+    id: 1065,
+    name: 'Remo Sentado en Polea (Seated Cable Row)',
+    primary_muscles: ['Middle Back'],
+    secondary_muscles: ['Lats', 'Biceps', 'Traps'],
     category: 'Cables',
     difficulty: 'Beginner',
     force: 'Pull',
     grips: ['Neutral'],
     mechanic: 'Compound',
     steps: [
-      'Ajusta la polea a la altura del pecho o la cabeza y conecta el accesorio de cuerda doble.',
-      'Sujeta las cuerdas con las palmas mirándose y da unos pasos atrás para tensar el cable.',
-      'Tira de la cuerda hacia tu rostro, separando tus manos a los lados de tus orejas mientras llevas los codos hacia atrás y arriba.',
-      'Aprieta los deltoides posteriores y rotadores al final del movimiento por un segundo.',
-      'Regresa lentamente al inicio controlando la tensión.'
+      'Siéntate en la máquina de remo con los pies apoyados en la plataforma y las rodillas ligeramente dobladas.',
+      'Sujeta el mango en V y extiende los brazos hacia adelante manteniendo la espalda neutra.',
+      'Tira del mango hacia el abdomen apretando los omóplatos al final del movimiento.',
+      'Los codos deben pasar rozando los costados hacia atrás.',
+      'Estira los brazos completamente antes de cada nueva repetición.',
     ],
-    videos: [
-      {
-        angle: 'front',
-        gender: 'male',
-        og_image: 'https://images.musclewiki.com/media/images/og-male-Cables-face-pull-front.jpg',
-        url: 'https://media.musclewiki.com/media/videos/unbranded/male-Cables-face-pull-front.mp4'
-      }
-    ]
-  }
+    videos: mwVideo('Cables', 'seated-cable-row'),
+  },
+  {
+    id: 1066,
+    name: 'Remo en T (T-Bar Row)',
+    primary_muscles: ['Middle Back'],
+    secondary_muscles: ['Lats', 'Biceps', 'Lower Back'],
+    category: 'Barbell',
+    difficulty: 'Intermediate',
+    force: 'Pull',
+    grips: ['Neutral'],
+    mechanic: 'Compound',
+    steps: [
+      'Fija un extremo de la barra en un rincón o usa una máquina de remo en T.',
+      'Inclínate hacia adelante colocando el pecho sobre el soporte si existe, o el torso casi paralelo al suelo.',
+      'Sujeta los mangos y tira hacia la parte baja del pecho.',
+      'Lleva los codos hacia atrás y aprieta los omóplatos al máximo.',
+      'Baja de forma controlada permitiendo el estiramiento completo de la espalda.',
+    ],
+    videos: mwVideo('Barbell', 't-bar-row', ['side']),
+  },
+
+  // ─── HOMBROS ──────────────────────────────────────────────────────────────
+  {
+    id: 1006,
+    name: 'Elevación Lateral con Mancuernas (Dumbbell Lateral Raise)',
+    primary_muscles: ['Shoulders'],
+    category: 'Dumbbell',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: ['Neutral'],
+    mechanic: 'Isolation',
+    steps: [
+      'Párate con pies al ancho de los hombros, mancuernas a los costados con agarre neutro.',
+      'Inclina el torso ligeramente hacia adelante y dobla los codos en ~15°.',
+      'Eleva los brazos hacia los lados hasta la altura de los hombros.',
+      'Inclina ligeramente el meñique hacia arriba (como vertiendo agua) para mayor activación del deltoides lateral.',
+      'Baja controladamente: esta fase excéntrica es tan importante como la subida.',
+    ],
+    videos: mwVideo('Dumbbells', 'lateral-raises'),
+  },
+  {
+    id: 1010,
+    name: 'Press Militar con Mancuernas (Dumbbell Shoulder Press)',
+    primary_muscles: ['Shoulders'],
+    secondary_muscles: ['Triceps'],
+    category: 'Dumbbell',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: ['Overhand'],
+    mechanic: 'Compound',
+    steps: [
+      'Siéntate con respaldo vertical sosteniendo una mancuerna en cada mano a la altura de las orejas.',
+      'Mantén los pies firmemente en el suelo y el abdomen activo.',
+      'Empuja las mancuernas verticalmente hacia arriba hasta casi extender los brazos.',
+      'Baja controladamente hasta la posición inicial (a la altura de los hombros/orejas).',
+      'Evita arquear la espalda baja empujando el core hacia el respaldo.',
+    ],
+    videos: mwVideo('Dumbbells', 'dumbbell-shoulder-press'),
+  },
+  {
+    id: 1012,
+    name: 'Tirón al Rostro (Face Pull)',
+    primary_muscles: ['Shoulders'],
+    secondary_muscles: ['Traps', 'Middle Back'],
+    category: 'Cables',
+    difficulty: 'Beginner',
+    force: 'Pull',
+    grips: ['Neutral'],
+    mechanic: 'Compound',
+    steps: [
+      'Ajusta la polea a la altura de la cabeza y conecta la cuerda doble.',
+      'Sujeta los extremos con agarre neutro y da pasos atrás para tensar.',
+      'Tira de la cuerda hacia el rostro separando las manos a ambos lados de las orejas.',
+      'Lleva los codos hacia atrás y arriba apretando los deltoides posteriores.',
+      'Mantén la posición 1 segundo y vuelve lentamente controlando la tensión.',
+    ],
+    videos: mwVideo('Cables', 'face-pull'),
+  },
+  {
+    id: 1067,
+    name: 'Elevación Frontal con Mancuernas (Front Raise)',
+    primary_muscles: ['Shoulders'],
+    category: 'Dumbbell',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: ['Overhand'],
+    mechanic: 'Isolation',
+    steps: [
+      'Párate con los pies al ancho de los hombros sosteniendo mancuernas frente a los muslos.',
+      'Con los codos ligeramente doblados, sube un brazo hacia adelante hasta la altura del hombro.',
+      'Mantén el torso estático evitando el balanceo.',
+      'Baja el brazo de forma controlada mientras el otro sube alternando o sube ambos a la vez.',
+      'Enfoca el movimiento en el deltoides anterior.',
+    ],
+    videos: mwVideo('Dumbbells', 'front-raise'),
+  },
+  {
+    id: 1068,
+    name: 'Press Militar con Barra (Barbell Overhead Press)',
+    primary_muscles: ['Shoulders'],
+    secondary_muscles: ['Triceps', 'Traps'],
+    category: 'Barbell',
+    difficulty: 'Intermediate',
+    force: 'Push',
+    grips: ['Overhand'],
+    mechanic: 'Compound',
+    steps: [
+      'Sujeta la barra con agarre ligeramente más ancho que los hombros frente al pecho superior.',
+      'Con los pies al ancho de los hombros y el core apretado, empuja la barra directamente hacia arriba.',
+      'Al pasar la cabeza mueve ligeramente el torso hacia adelante para lograr la posición vertical final.',
+      'Extiende los brazos por completo en la posición superior con la barra sobre la cabeza.',
+      'Baja la barra lentamente frente al cuello hasta la posición inicial.',
+    ],
+    videos: mwVideo('Barbell', 'overhead-press'),
+  },
+
+  // ─── CUÁDRICEPS / PIERNAS ─────────────────────────────────────────────────
+  {
+    id: 1004,
+    name: 'Sentadilla Goblet (Goblet Squat)',
+    primary_muscles: ['Quadriceps'],
+    secondary_muscles: ['Glutes', 'Abs'],
+    category: 'Dumbbell',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: ['Neutral'],
+    mechanic: 'Compound',
+    steps: [
+      'Sostén una mancuerna verticalmente frente al pecho sujetándola por la base.',
+      'Pies ligeramente más anchos que los hombros con puntas apuntando a las 11 y 1.',
+      'Inicia empujando la cadera hacia atrás y doblando las rodillas para bajar.',
+      'Baja hasta que los muslos estén paralelos o más al suelo manteniendo la espalda recta.',
+      'Los codos empujan las rodillas hacia afuera para abrirlas al bajar.',
+      'Empuja los talones para volver a la posición de pie apretando los glúteos arriba.',
+    ],
+    videos: mwVideo('Dumbbells', 'goblet-squat'),
+  },
+  {
+    id: 1009,
+    name: 'Prensa de Piernas (Leg Press)',
+    primary_muscles: ['Quadriceps'],
+    secondary_muscles: ['Glutes', 'Hamstrings'],
+    category: 'Machine',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: ['Neutral'],
+    mechanic: 'Compound',
+    steps: [
+      'Siéntate en la prensa de piernas con la espalda y cabeza firmemente contra el soporte.',
+      'Coloca los pies en la plataforma al ancho de los hombros.',
+      'Suelta las barras de seguridad y sujeta las manijas para estabilizarte.',
+      'Baja la plataforma flexionando las rodillas hasta 90°, sin despegar la espalda baja.',
+      'Empuja con fuerza extendiendo las piernas sin bloquear las rodillas al final.',
+    ],
+    videos: mwVideo('Machine', 'leg-press', ['side']),
+  },
+  {
+    id: 1069,
+    name: 'Sentadilla con Barra (Barbell Back Squat)',
+    primary_muscles: ['Quadriceps'],
+    secondary_muscles: ['Glutes', 'Hamstrings', 'Lower Back'],
+    category: 'Barbell',
+    difficulty: 'Intermediate',
+    force: 'Push',
+    grips: ['Overhand'],
+    mechanic: 'Compound',
+    steps: [
+      'Coloca la barra en el trapecio superior (high bar) o en la parte media de la espalda (low bar).',
+      'Pies al ancho de los hombros o ligeramente más anchos con las puntas giradas 15-30°.',
+      'Respira hondo y aprieta el core antes de descender.',
+      'Baja empujando las rodillas hacia afuera siguiendo la línea de los pies, hasta que los muslos estén paralelos al suelo.',
+      'Empuja los pies contra el suelo para subir manteniendo el pecho erguido y la espalda recta.',
+    ],
+    videos: mwVideo('Barbell', 'barbell-squat'),
+  },
+  {
+    id: 1070,
+    name: 'Extensión de Cuádriceps en Máquina (Leg Extension)',
+    primary_muscles: ['Quadriceps'],
+    category: 'Machine',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: ['Neutral'],
+    mechanic: 'Isolation',
+    steps: [
+      'Siéntate en la máquina y ajusta el rodillo para que quede encima del tobillo.',
+      'Ajusta el respaldo para que las rodillas queden alineadas con el eje de la máquina.',
+      'Extiende las piernas completamente apretando los cuádriceps al máximo.',
+      'Mantén 1 segundo la contracción y baja lentamente sin dejar caer el peso.',
+      'No bloquees las rodillas en la posición superior de forma brusca.',
+    ],
+    videos: mwVideo('Machine', 'leg-extension'),
+  },
+  {
+    id: 1071,
+    name: 'Zancadas con Mancuernas (Dumbbell Lunges)',
+    primary_muscles: ['Quadriceps'],
+    secondary_muscles: ['Glutes', 'Hamstrings'],
+    category: 'Dumbbell',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: ['Neutral'],
+    mechanic: 'Compound',
+    steps: [
+      'Párate con pies juntos sosteniendo una mancuerna en cada mano.',
+      'Da un paso largo hacia adelante y baja la rodilla trasera hacia el suelo.',
+      'La rodilla delantera no debe sobrepasar la punta del pie.',
+      'Empuja con el talón delantero para volver a la posición inicial.',
+      'Alterna las piernas o completa todas las repeticiones en un lado antes de cambiar.',
+    ],
+    videos: mwVideo('Dumbbells', 'dumbbell-lunge'),
+  },
+  {
+    id: 1072,
+    name: 'Sentadilla Búlgara (Bulgarian Split Squat)',
+    primary_muscles: ['Quadriceps'],
+    secondary_muscles: ['Glutes', 'Hamstrings'],
+    category: 'Dumbbell',
+    difficulty: 'Intermediate',
+    force: 'Push',
+    grips: ['Neutral'],
+    mechanic: 'Compound',
+    steps: [
+      'Párate de espaldas a un banco y coloca el empeine del pie trasero sobre él.',
+      'El pie delantero debe estar lo suficientemente adelante para que la rodilla no sobrepase la punta al bajar.',
+      'Sostén mancuernas a los costados y baja el cuerpo doblando la rodilla delantera.',
+      'Baja hasta que el muslo delantero quede paralelo al suelo.',
+      'Empuja con el talón delantero para volver arriba. Completa las series en un lado y cambia.',
+    ],
+    videos: mwVideo('Dumbbells', 'bulgarian-split-squat', ['side']),
+  },
+
+  // ─── ISQUIOTIBIALES ───────────────────────────────────────────────────────
+  {
+    id: 1005,
+    name: 'Peso Muerto Rumano con Mancuernas (Romanian Deadlift)',
+    primary_muscles: ['Hamstrings'],
+    secondary_muscles: ['Glutes', 'Lower Back'],
+    category: 'Dumbbell',
+    difficulty: 'Intermediate',
+    force: 'Pull',
+    grips: ['Overhand'],
+    mechanic: 'Compound',
+    steps: [
+      'Párate con pies al ancho de las caderas sosteniendo mancuernas frente a los muslos.',
+      'Mantén una ligera flexión en las rodillas y la columna neutral.',
+      'Empuja las caderas hacia atrás para bajar el torso, deslizando las mancuernas cerca de las piernas.',
+      'Baja hasta sentir el estiramiento completo en los isquiotibiales (generalmente a la altura de la espinilla).',
+      'Contrae los glúteos e isquiotibiales para empujar la cadera hacia adelante y volver arriba.',
+    ],
+    videos: mwVideo('Dumbbells', 'romanian-deadlift'),
+  },
+  {
+    id: 1073,
+    name: 'Curl de Isquiotibiales en Máquina (Lying Leg Curl)',
+    primary_muscles: ['Hamstrings'],
+    category: 'Machine',
+    difficulty: 'Beginner',
+    force: 'Pull',
+    grips: ['Neutral'],
+    mechanic: 'Isolation',
+    steps: [
+      'Acuéstate boca abajo en la máquina con el rodillo sobre los tobillos.',
+      'Ajusta la almohadilla de la cadera para que las rodillas queden en el borde de la máquina.',
+      'Flexiona las rodillas trayendo los talones hacia los glúteos.',
+      'Aprieta los isquiotibiales al máximo en la posición superior.',
+      'Baja lentamente a la posición inicial con total control.',
+    ],
+    videos: mwVideo('Machine', 'lying-leg-curl', ['side']),
+  },
+  {
+    id: 1074,
+    name: 'Peso Muerto Convencional (Conventional Deadlift)',
+    primary_muscles: ['Hamstrings'],
+    secondary_muscles: ['Lower Back', 'Glutes', 'Traps'],
+    category: 'Barbell',
+    difficulty: 'Advanced',
+    force: 'Pull',
+    grips: ['Overhand'],
+    mechanic: 'Compound',
+    steps: [
+      'Coloca los pies al ancho de las caderas debajo de la barra. La barra debe estar sobre el medio del pie.',
+      'Inclínate para sujetar la barra con agarre prono o mixto al ancho de los hombros.',
+      'Con la espalda recta y el pecho erguido, toma una respiración profunda y aprieta el core.',
+      'Empuja el suelo con los pies para extender las rodillas y levantar la barra manteniendo la espalda neutral.',
+      'En la posición superior, extiende caderas y rodillas completamente. Baja controladamente.',
+    ],
+    videos: mwVideo('Barbell', 'deadlift'),
+  },
+
+  // ─── GLÚTEOS ──────────────────────────────────────────────────────────────
+  {
+    id: 1075,
+    name: 'Hip Thrust con Barra (Barbell Hip Thrust)',
+    primary_muscles: ['Glutes'],
+    secondary_muscles: ['Hamstrings'],
+    category: 'Barbell',
+    difficulty: 'Intermediate',
+    force: 'Push',
+    grips: ['Overhand'],
+    mechanic: 'Isolation',
+    steps: [
+      'Siéntate con la parte superior de la espalda apoyada en un banco y la barra sobre las caderas.',
+      'Coloca los pies planos en el suelo al ancho de los hombros.',
+      'Empuja las caderas hacia el techo contrayendo fuertemente los glúteos.',
+      'En la posición superior el cuerpo debe formar una línea recta de rodillas a hombros.',
+      'Mantén 1-2 segundos la contracción y baja lentamente.',
+    ],
+    videos: mwVideo('Barbell', 'barbell-hip-thrust', ['side']),
+  },
+  {
+    id: 1076,
+    name: 'Patada de Glúteo en Polea (Cable Glute Kickback)',
+    primary_muscles: ['Glutes'],
+    secondary_muscles: ['Hamstrings'],
+    category: 'Cables',
+    difficulty: 'Beginner',
+    force: 'Pull',
+    grips: ['Neutral'],
+    mechanic: 'Isolation',
+    steps: [
+      'Conecta el accesorio de tobillera a la polea baja y engancha tu pie.',
+      'Agárrate de la máquina para soporte y mantén el torso ligeramente inclinado.',
+      'Extiende la pierna hacia atrás contrayendo el glúteo, manteniendo la pierna casi recta.',
+      'Sube hasta sentir la máxima contracción del glúteo sin arquear excesivamente la espalda.',
+      'Baja lentamente y completa las repeticiones antes de cambiar de pierna.',
+    ],
+    videos: mwVideo('Cables', 'cable-glute-kickback', ['side']),
+  },
+
+  // ─── GEMELOS ──────────────────────────────────────────────────────────────
+  {
+    id: 1077,
+    name: 'Elevación de Talones de Pie (Standing Calf Raise)',
+    primary_muscles: ['Calves'],
+    category: 'Machine',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: ['Neutral'],
+    mechanic: 'Isolation',
+    steps: [
+      'Coloca los hombros debajo de las almohadillas de la máquina y los antepies en el escalón.',
+      'Baja los talones hacia el suelo para sentir el máximo estiramiento.',
+      'Sube en punta de pies lo más alto posible apretando los gemelos.',
+      'Mantén la contracción máxima 1-2 segundos antes de bajar.',
+      'El movimiento lento y controlado es más efectivo que el rápido con rebote.',
+    ],
+    videos: mwVideo('Machine', 'calf-raise'),
+  },
+  {
+    id: 1078,
+    name: 'Elevación de Talones Sentado (Seated Calf Raise)',
+    primary_muscles: ['Calves'],
+    category: 'Machine',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: ['Neutral'],
+    mechanic: 'Isolation',
+    steps: [
+      'Siéntate en la máquina con las almohadillas sobre los muslos y los antepies en el escalón.',
+      'Baja los talones para estirar completamente el sóleo (músculo profundo del gemelo).',
+      'Eleva los talones subiendo en puntas de pie al máximo.',
+      'La posición sentada enfatiza el sóleo más que la cabeza del gastrocnemio.',
+      'Realiza el movimiento lentamente con pausa en la parte alta.',
+    ],
+    videos: mwVideo('Machine', 'seated-calf-raise', ['side']),
+  },
+
+  // ─── ABDOMINALES ──────────────────────────────────────────────────────────
+  {
+    id: 1011,
+    name: 'Plancha Abdominal (Plank)',
+    primary_muscles: ['Abs'],
+    secondary_muscles: ['Shoulders', 'Glutes'],
+    category: 'Bodyweight',
+    difficulty: 'Beginner',
+    force: 'Hold',
+    grips: [],
+    mechanic: 'Isolation',
+    steps: [
+      'Apoya los antebrazos con los codos debajo de los hombros y las puntas de los pies.',
+      'El cuerpo debe formar una línea recta de cabeza a talones.',
+      'Contrae abdomen, glúteos y cuádriceps para mantener la posición.',
+      'Respira con normalidad, evitando aguantar la respiración.',
+      'Mantén la posición el tiempo objetivo sin que la cadera suba ni baje.',
+    ],
+    videos: mwVideo('Bodyweight', 'plank', ['side']),
+  },
+  {
+    id: 1079,
+    name: 'Elevación de Piernas Colgado (Hanging Leg Raise)',
+    primary_muscles: ['Abs'],
+    secondary_muscles: ['Obliques', 'Forearms'],
+    category: 'Bodyweight',
+    difficulty: 'Advanced',
+    force: 'Pull',
+    grips: ['Overhand'],
+    mechanic: 'Compound',
+    steps: [
+      'Cuélgate de una barra con agarre prono al ancho de los hombros.',
+      'Desde la posición colgante, eleva las piernas hacia arriba manteniendo el control.',
+      'Para mayor dificultad lleva las piernas rectas hasta el paralelo o más arriba.',
+      'Contrae fuertemente el abdomen al llegar arriba, sin balancearte.',
+      'Baja lentamente sin soltar la tensión abdominal al descender.',
+    ],
+    videos: mwVideo('Bodyweight', 'hanging-leg-raise'),
+  },
+  {
+    id: 1080,
+    name: 'Crunch Abdominal (Crunch)',
+    primary_muscles: ['Abs'],
+    category: 'Bodyweight',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: [],
+    mechanic: 'Isolation',
+    steps: [
+      'Acuéstate boca arriba con las rodillas dobladas y los pies en el suelo.',
+      'Coloca las manos detrás de la cabeza sin entrelazar los dedos.',
+      'Contrae el abdomen para levantar los hombros del suelo, curvando la zona lumbar ligeramente.',
+      'No tires de la cabeza: el movimiento debe venir del abdomen.',
+      'Baja lentamente sin apoyar completamente los hombros entre repeticiones.',
+    ],
+    videos: mwVideo('Bodyweight', 'crunch'),
+  },
+  {
+    id: 1081,
+    name: 'Crunch en Polea (Cable Crunch)',
+    primary_muscles: ['Abs'],
+    category: 'Cables',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: ['Neutral'],
+    mechanic: 'Isolation',
+    steps: [
+      'Arrodíllate frente a una polea alta y sujeta la cuerda a los lados de la cabeza.',
+      'Desde esa posición, flexiona la columna contrayendo el abdomen para llevar los codos hacia las rodillas.',
+      'El movimiento debe venir de la contracción del abdomen, no de jalar con los brazos.',
+      'Mantén la posición baja 1 segundo y vuelve lentamente arriba.',
+      'La polea permite añadir peso progresivo para sobrecargar los abdominales.',
+    ],
+    videos: mwVideo('Cables', 'cable-crunch', ['side']),
+  },
+  {
+    id: 1082,
+    name: 'Giro Ruso (Russian Twist)',
+    primary_muscles: ['Obliques'],
+    secondary_muscles: ['Abs'],
+    category: 'Bodyweight',
+    difficulty: 'Beginner',
+    force: 'Pull',
+    grips: ['Neutral'],
+    mechanic: 'Isolation',
+    steps: [
+      'Siéntate en el suelo con las rodillas dobladas y eleva ligeramente los pies.',
+      'Inclina el torso hacia atrás hasta ~45° formando una V con los muslos.',
+      'Sostén una mancuerna o pelota medicinal frente al pecho.',
+      'Rota el torso de un lado al otro llevando las manos hacia cada cadera.',
+      'Mantén el abdomen activo y la espalda recta durante todo el movimiento.',
+    ],
+    videos: mwVideo('Bodyweight', 'russian-twist', ['front']),
+  },
+
+  // ─── TRAPECIO / ESPALDA ALTA ──────────────────────────────────────────────
+  {
+    id: 1083,
+    name: 'Encogimiento de Hombros con Barra (Barbell Shrug)',
+    primary_muscles: ['Traps'],
+    secondary_muscles: ['Forearms'],
+    category: 'Barbell',
+    difficulty: 'Beginner',
+    force: 'Pull',
+    grips: ['Overhand'],
+    mechanic: 'Isolation',
+    steps: [
+      'Párate con los pies al ancho de los hombros y la barra frente a los muslos.',
+      'Sujeta la barra con agarre prono ligeramente más ancho que los hombros.',
+      'Levanta los hombros directamente hacia las orejas lo más alto posible.',
+      'Mantén los brazos rectos durante todo el movimiento.',
+      'Mantén 1-2 segundos la contracción en el tope y baja de forma controlada.',
+    ],
+    videos: mwVideo('Barbell', 'barbell-shrug'),
+  },
+
+  // ─── LUMBARES ─────────────────────────────────────────────────────────────
+  {
+    id: 1084,
+    name: 'Hiperextensión de Espalda (Back Extension)',
+    primary_muscles: ['Lower Back'],
+    secondary_muscles: ['Glutes', 'Hamstrings'],
+    category: 'Bodyweight',
+    difficulty: 'Beginner',
+    force: 'Pull',
+    grips: ['Neutral'],
+    mechanic: 'Isolation',
+    steps: [
+      'Colócate en el banco de hiperextensión con los pies asegurados y la cadera apoyada.',
+      'Con los brazos cruzados sobre el pecho o detrás de la cabeza, baja el torso hacia el suelo.',
+      'Extiende la espalda para levantar el torso hasta que quede en línea con las piernas.',
+      'Mantén la posición superior 1 segundo apretando glúteos y lumbares.',
+      'Evita hiperextenderte demasiado para proteger la zona lumbar.',
+    ],
+    videos: mwVideo('Bodyweight', 'back-extension', ['side']),
+  },
+
+  // ─── ANTEBRAZOS ───────────────────────────────────────────────────────────
+  {
+    id: 1085,
+    name: 'Curl de Muñeca con Barra (Wrist Curl)',
+    primary_muscles: ['Forearms'],
+    category: 'Barbell',
+    difficulty: 'Beginner',
+    force: 'Pull',
+    grips: ['Underhand'],
+    mechanic: 'Isolation',
+    steps: [
+      'Siéntate en un banco y apoya los antebrazos sobre los muslos con las muñecas hacia afuera del borde.',
+      'Sujeta la barra con agarre supinado (palmas arriba).',
+      'Permite que la barra baje curvando las muñecas hacia abajo.',
+      'Flexiona las muñecas para levantar la barra tan alto como sea posible.',
+      'Mantén 1 segundo en la posición alta y baja de forma controlada.',
+    ],
+    videos: mwVideo('Barbell', 'wrist-curl', ['side']),
+  },
+
+  // ─── KETTLEBELL ───────────────────────────────────────────────────────────
+  {
+    id: 1086,
+    name: 'Swing con Pesa Rusa (Kettlebell Swing)',
+    primary_muscles: ['Glutes'],
+    secondary_muscles: ['Hamstrings', 'Lower Back', 'Shoulders'],
+    category: 'Kettlebells',
+    difficulty: 'Intermediate',
+    force: 'Push',
+    grips: ['Neutral'],
+    mechanic: 'Compound',
+    steps: [
+      'Párate con pies al ancho de los hombros y la kettlebell en el suelo frente a ti.',
+      'Sujeta la kettlebell con ambas manos, doble la cadera hacia atrás (hip hinge) y dale impulso entre las piernas.',
+      'Extiende explosivamente las caderas hacia adelante para lanzar la kettlebell hacia adelante y arriba.',
+      'La kettlebell debe llegar hasta la altura del pecho o cabeza impulsada por la fuerza de la cadera.',
+      'Deja que la kettlebell vuelva entre las piernas y repite el ciclo de forma fluida.',
+    ],
+    videos: mwVideo('Kettlebells', 'kettlebell-swing'),
+  },
+  {
+    id: 1087,
+    name: 'Goblet Squat con Kettlebell',
+    primary_muscles: ['Quadriceps'],
+    secondary_muscles: ['Glutes', 'Abs'],
+    category: 'Kettlebells',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: ['Neutral'],
+    mechanic: 'Compound',
+    steps: [
+      'Sostén la kettlebell con ambas manos por los lados de la campana, frente al pecho.',
+      'Pies al ancho de los hombros o más anchos con las puntas giradas hacia afuera.',
+      'Baja en sentadilla profunda manteniendo el pecho erguido y la espalda neutral.',
+      'Los codos deben poder pasar por dentro de las rodillas al bajar.',
+      'Empuja los talones para volver arriba apretando glúteos y cuádriceps.',
+    ],
+    videos: mwVideo('Kettlebells', 'goblet-squat'),
+  },
+
+  // ─── EJERCICIO CARDIO / FUNCIONAL ─────────────────────────────────────────
+  {
+    id: 1088,
+    name: 'Escalador de Montaña (Mountain Climber)',
+    primary_muscles: ['Abs'],
+    secondary_muscles: ['Shoulders', 'Quadriceps'],
+    category: 'Bodyweight',
+    difficulty: 'Beginner',
+    force: 'Push',
+    grips: ['Overhand'],
+    mechanic: 'Compound',
+    steps: [
+      'Adopta la posición de plancha alta con brazos extendidos y manos debajo de los hombros.',
+      'Lleva la rodilla derecha hacia el pecho lo más rápido posible.',
+      'Vuelve la pierna derecha al punto de partida mientras llevas la izquierda al pecho.',
+      'Alterna rápidamente las piernas manteniendo la cadera estable y el core activo.',
+      'Mantén los hombros sobre las muñecas y evita que la cadera suba durante el movimiento.',
+    ],
+    videos: mwVideo('Bodyweight', 'mountain-climbers'),
+  },
+  {
+    id: 1089,
+    name: 'Burpee',
+    primary_muscles: ['Chest'],
+    secondary_muscles: ['Quadriceps', 'Shoulders', 'Abs'],
+    category: 'Bodyweight',
+    difficulty: 'Intermediate',
+    force: 'Push',
+    grips: ['Overhand'],
+    mechanic: 'Compound',
+    steps: [
+      'Párate con los pies al ancho de los hombros.',
+      'Baja en sentadilla y apoya las manos en el suelo.',
+      'Salta hacia atrás para quedar en plancha y realiza una flexión.',
+      'Salta los pies hacia las manos para volver a la posición agachada.',
+      'Salta verticalmente con los brazos por encima de la cabeza al levantarte.',
+    ],
+    videos: mwVideo('Bodyweight', 'burpee'),
+  },
+
+  // ─── ESTIRAMIENTOS / MOVILIDAD ────────────────────────────────────────────
+  {
+    id: 1090,
+    name: 'Estiramiento de Pecho en Pared',
+    primary_muscles: ['Chest'],
+    secondary_muscles: ['Shoulders'],
+    category: 'Stretch',
+    difficulty: 'Beginner',
+    force: 'Hold',
+    grips: [],
+    mechanic: 'Isolation',
+    steps: [
+      'Párate junto a una pared y apoya el brazo en la pared con el codo a la altura del hombro.',
+      'Gira suavemente el torso hacia el lado opuesto hasta sentir el estiramiento en el pecho.',
+      'Mantén la posición 20-30 segundos respirando de forma profunda.',
+      'Repite del otro lado.',
+    ],
+    videos: [],
+  },
+  {
+    id: 1091,
+    name: 'Estiramiento de Isquiotibiales (Hamstring Stretch)',
+    primary_muscles: ['Hamstrings'],
+    category: 'Stretch',
+    difficulty: 'Beginner',
+    force: 'Hold',
+    grips: [],
+    mechanic: 'Isolation',
+    steps: [
+      'Siéntate en el suelo con las piernas extendidas y juntas.',
+      'Inclínate hacia adelante desde la cadera (no desde la espalda) alcanzando las puntas de los pies.',
+      'Mantén la espalda lo más recta posible durante el estiramiento.',
+      'Mantén la posición 30-45 segundos sin rebotar.',
+    ],
+    videos: [],
+  },
 ];
 
+// ─── SERVICE CLASS ─────────────────────────────────────────────────────────
 export class MuscleWikiService {
-  // Get the stored API key or return the default one
   static getApiKey(): string {
     const key = localStorage.getItem(STORAGE_KEY_API_KEY);
     return key !== null ? key : DEFAULT_API_KEY;
   }
 
-  // Set and persist a new API key
   static setApiKey(key: string): void {
     if (key.trim()) {
       localStorage.setItem(STORAGE_KEY_API_KEY, key.trim());
@@ -388,194 +1124,240 @@ export class MuscleWikiService {
     }
   }
 
-  // Check if mock mode is forced or active
+  /** Returns true when we should use the local exercise database */
+  static isOfflineModeActive(): boolean {
+    const mode = localStorage.getItem(STORAGE_KEY_OFFLINE_MODE);
+    if (mode === 'false') return false; // Explicitly disabled by user
+    if (mode === 'true') return true;   // Explicitly enabled
+    return true; // Default: use local data (safe)
+  }
+
+  /** @deprecated Use isOfflineModeActive() */
   static isMockModeActive(): boolean {
-    const mode = localStorage.getItem(STORAGE_KEY_MOCK_MODE);
-    if (mode === 'true') return true;
-    if (mode === 'false') return false;
-    
-    // Default to true if key is default (BASIC tier), because we know it fails from browser CORS/direct requests
-    const key = this.getApiKey();
-    return key === DEFAULT_API_KEY || key.startsWith('mw_') && !mode;
+    return this.isOfflineModeActive();
   }
 
-  // Set mock mode status
+  static setOfflineMode(active: boolean): void {
+    localStorage.setItem(STORAGE_KEY_OFFLINE_MODE, String(active));
+  }
+
+  /** @deprecated Use setOfflineMode() */
   static setMockMode(active: boolean): void {
-    localStorage.setItem(STORAGE_KEY_MOCK_MODE, String(active));
+    this.setOfflineMode(active);
   }
 
-  // Test the key against the actual endpoint to identify the tier
-  static async verifyConnection(key: string): Promise<{ success: boolean; message: string; tier: 'BASIC' | 'TESTING+' | 'INVALID' }> {
+  /** Try the Supabase Edge Function proxy first, then direct, then offline */
+  static async verifyConnection(key: string): Promise<{
+    success: boolean;
+    message: string;
+    tier: 'BASIC' | 'TESTING+' | 'INVALID' | 'OFFLINE';
+  }> {
+    // 1. Try Supabase proxy
+    if (SUPABASE_PROXY_URL) {
+      try {
+        const proxyRes = await fetch(`${SUPABASE_PROXY_URL}?path=/muscles`, {
+          method: 'GET',
+          headers: {
+            'x-musclewiki-key': key.trim(),
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || ''}`,
+          },
+        });
+
+        if (proxyRes.ok) {
+          this.setOfflineMode(false);
+          return {
+            success: true,
+            tier: 'TESTING+',
+            message: '✅ Conexión API exitosa vía proxy seguro. Datos reales activados.',
+          };
+        }
+
+        if (proxyRes.status === 403) {
+          return {
+            success: true,
+            tier: 'BASIC',
+            message: '⚠️ Clave BASIC detectada. El plan gratuito no permite acceso API. Base de datos local (50+ ejercicios) activada.',
+          };
+        }
+      } catch {
+        // Proxy not deployed or offline – continue to local mode
+      }
+    }
+
+    // 2. Try direct API call (will fail CORS from browser, but try anyway)
     try {
       const response = await fetch('https://api.musclewiki.com/muscles', {
         method: 'GET',
-        headers: {
-          'X-API-Key': key.trim(),
-          'Accept': 'application/json'
-        }
+        headers: { 'X-API-Key': key.trim(), Accept: 'application/json' },
       });
 
       if (response.ok) {
+        this.setOfflineMode(false);
         return {
           success: true,
           tier: 'TESTING+',
-          message: '¡Conexión exitosa! Clave válida con acceso directo de producción.'
+          message: '✅ Conexión directa exitosa. Datos reales de MuscleWiki activados.',
         };
       }
 
       if (response.status === 403) {
-        const text = await response.text();
-        if (text.includes('BASIC tier')) {
-          return {
-            success: true, // We count it as success because the key is VALID, but tier is BASIC
-            tier: 'BASIC',
-            message: 'Clave válida en plan gratuito BASIC (se activará la simulación local de MuscleWiki).'
-          };
-        }
+        return {
+          success: true,
+          tier: 'BASIC',
+          message: '⚠️ Plan gratuito (BASIC). Base de datos local de 50+ ejercicios activada.',
+        };
       }
 
+      return { success: false, tier: 'INVALID', message: `Error ${response.status}: Clave no válida.` };
+    } catch {
+      // CORS block or network error → use local database
       return {
-        success: false,
-        tier: 'INVALID',
-        message: `Error de conexión (${response.status}): Clave no válida o expirada.`
-      };
-    } catch (e: any) {
-      return {
-        success: false,
-        tier: 'INVALID',
-        message: `Error de red: ${e.message || 'No se pudo contactar con MuscleWiki.'}`
+        success: true,
+        tier: 'BASIC',
+        message: '📚 Modo sin conexión. Base de datos local con 50+ ejercicios reales disponible.',
       };
     }
   }
 
-  // Search exercises using the query and filters
+  /** Search exercises – tries proxy, then direct, then local */
   static async searchExercises(
     query: string,
     filters: { muscle?: string; category?: string; difficulty?: string } = {}
   ): Promise<MuscleWikiExercise[]> {
-    const isMock = this.isMockModeActive();
-    
-    if (isMock) {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      return MOCK_MUSCLEWIKI_EXERCISES.filter(ex => {
-        const matchesQuery = !query || 
-          ex.name.toLowerCase().includes(query.toLowerCase()) || 
-          ex.steps.some(step => step.toLowerCase().includes(query.toLowerCase()));
-        
-        const matchesMuscle = !filters.muscle || 
-          ex.primary_muscles.includes(filters.muscle);
-          
-        const matchesCategory = !filters.category || 
-          ex.category === filters.category;
-          
-        const matchesDifficulty = !filters.difficulty || 
-          ex.difficulty === filters.difficulty;
-
-        return matchesQuery && matchesMuscle && matchesCategory && matchesDifficulty;
-      });
+    // Offline mode: always use local data immediately
+    if (this.isOfflineModeActive()) {
+      return this._searchLocal(query, filters);
     }
 
-    // Real API Call
+    // Try proxy
+    if (SUPABASE_PROXY_URL) {
+      try {
+        const params = new URLSearchParams({ path: '/search' });
+        if (query) params.set('q', query);
+        if (filters.category) params.set('category', filters.category);
+        if (filters.difficulty) params.set('difficulty', filters.difficulty);
+        if (filters.muscle) params.set('muscles', filters.muscle);
+
+        const res = await fetch(`${SUPABASE_PROXY_URL}?${params}`, {
+          headers: {
+            'x-musclewiki-key': this.getApiKey(),
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || ''}`,
+          },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          return data as MuscleWikiExercise[];
+        }
+
+        if (res.status === 403) {
+          this.setOfflineMode(true);
+        }
+      } catch {
+        // Proxy failed, fall through to direct
+      }
+    }
+
+    // Try direct API
     try {
       const params = new URLSearchParams();
       if (query) params.append('q', query);
       if (filters.category) params.append('category', filters.category);
       if (filters.difficulty) params.append('difficulty', filters.difficulty);
-      if (filters.muscle) params.append('muscles', filters.muscle); // muscle group in API
+      if (filters.muscle) params.append('muscles', filters.muscle);
 
-      const url = `https://api.musclewiki.com/search?${params.toString()}`;
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'X-API-Key': this.getApiKey(),
-          'Accept': 'application/json'
-        }
+      const res = await fetch(`https://api.musclewiki.com/search?${params}`, {
+        headers: { 'X-API-Key': this.getApiKey(), Accept: 'application/json' },
       });
 
-      if (response.status === 403) {
-        // Automatically switch on mock mode locally since the key is BASIC tier
-        this.setMockMode(true);
-        return this.searchExercises(query, filters);
-      }
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data as MuscleWikiExercise[];
-    } catch (error) {
-      console.warn("MuscleWiki search error, falling back to mock:", error);
-      // Temporary fallback to mock
-      return MOCK_MUSCLEWIKI_EXERCISES.filter(ex => {
-        const matchesQuery = !query || ex.name.toLowerCase().includes(query.toLowerCase());
-        const matchesMuscle = !filters.muscle || ex.primary_muscles.includes(filters.muscle);
-        return matchesQuery && matchesMuscle;
-      });
+      if (res.ok) return (await res.json()) as MuscleWikiExercise[];
+      if (res.status === 403) this.setOfflineMode(true);
+    } catch {
+      // Network/CORS blocked
     }
+
+    return this._searchLocal(query, filters);
   }
 
-  // Get details of a single exercise
+  /** Get single exercise details */
   static async getExerciseDetails(id: string | number): Promise<MuscleWikiExercise | null> {
     const numericId = typeof id === 'string' ? parseInt(id.replace('mw-', '')) : id;
-    
-    // Check if it's in our mock database
-    const mockEx = MOCK_MUSCLEWIKI_EXERCISES.find(e => e.id === numericId);
-    if (mockEx && (this.isMockModeActive() || isNaN(numericId) || numericId >= 1000)) {
-      return mockEx;
+    const localEx = LOCAL_EXERCISES.find(e => e.id === numericId);
+
+    if (this.isOfflineModeActive() || numericId >= 1000) {
+      return localEx || null;
     }
 
-    if (this.isMockModeActive()) {
-      return mockEx || null;
+    // Try proxy
+    if (SUPABASE_PROXY_URL) {
+      try {
+        const res = await fetch(`${SUPABASE_PROXY_URL}?path=/exercises/${numericId}&detail=true`, {
+          headers: {
+            'x-musclewiki-key': this.getApiKey(),
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || ''}`,
+          },
+        });
+        if (res.ok) return (await res.json()) as MuscleWikiExercise;
+        if (res.status === 403) this.setOfflineMode(true);
+      } catch { /* continue */ }
     }
 
-    // Real API Call
+    // Try direct
     try {
-      const url = `https://api.musclewiki.com/exercises/${numericId}?detail=true`;
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'X-API-Key': this.getApiKey(),
-          'Accept': 'application/json'
-        }
+      const res = await fetch(`https://api.musclewiki.com/exercises/${numericId}?detail=true`, {
+        headers: { 'X-API-Key': this.getApiKey(), Accept: 'application/json' },
       });
+      if (res.ok) return (await res.json()) as MuscleWikiExercise;
+      if (res.status === 403) this.setOfflineMode(true);
+    } catch { /* continue */ }
 
-      if (response.status === 403) {
-        this.setMockMode(true);
-        return this.getExerciseDetails(id);
-      }
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data as MuscleWikiExercise;
-    } catch (error) {
-      console.warn("MuscleWiki details error, falling back to mock:", error);
-      return mockEx || null;
-    }
+    return localEx || null;
   }
 
-  // Get local cache of a MuscleWiki exercise info (synchronous fallback for list renderers)
+  /** Synchronous cached lookup for list renderers */
   static getCachedExerciseInfo(id: string | number): { name: string; muscleGroup: string } {
     const cleanId = String(id).replace('mw-', '');
     const numericId = parseInt(cleanId);
-    
-    const mockEx = MOCK_MUSCLEWIKI_EXERCISES.find(e => String(e.id) === cleanId);
-    if (mockEx) {
+    const ex = LOCAL_EXERCISES.find(e => String(e.id) === cleanId || e.id === numericId);
+    if (ex) {
       return {
-        name: mockEx.name,
-        muscleGroup: TRANSLATE_MUSCLE[mockEx.primary_muscles[0]] || mockEx.primary_muscles[0]
+        name: ex.name,
+        muscleGroup: TRANSLATE_MUSCLE[ex.primary_muscles[0]] || ex.primary_muscles[0],
       };
     }
+    return { name: `Ejercicio MuscleWiki #${cleanId}`, muscleGroup: 'MuscleWiki' };
+  }
 
-    // Dynamic label for unidentified live exercises
-    return {
-      name: `Ejercicio MuscleWiki #${cleanId}`,
-      muscleGroup: 'MuscleWiki'
-    };
+  /** Local filtering with full-text support */
+  private static _searchLocal(
+    query: string,
+    filters: { muscle?: string; category?: string; difficulty?: string }
+  ): MuscleWikiExercise[] {
+    const q = query.toLowerCase().trim();
+    return LOCAL_EXERCISES.filter(ex => {
+      if (ex.category === 'Stretch' && !filters.category) return false; // Hide stretches by default
+
+      const matchesQuery =
+        !q ||
+        ex.name.toLowerCase().includes(q) ||
+        ex.primary_muscles.some(m => m.toLowerCase().includes(q)) ||
+        ex.steps.some(s => s.toLowerCase().includes(q));
+
+      const matchesMuscle =
+        !filters.muscle ||
+        ex.primary_muscles.includes(filters.muscle) ||
+        (ex.secondary_muscles || []).includes(filters.muscle);
+
+      const matchesCategory = !filters.category || ex.category === filters.category;
+      const matchesDifficulty = !filters.difficulty || ex.difficulty === filters.difficulty;
+
+      return matchesQuery && matchesMuscle && matchesCategory && matchesDifficulty;
+    });
   }
 }
+
+// Keep MOCK_MUSCLEWIKI_EXERCISES as alias for backwards compatibility
+export const MOCK_MUSCLEWIKI_EXERCISES = LOCAL_EXERCISES;

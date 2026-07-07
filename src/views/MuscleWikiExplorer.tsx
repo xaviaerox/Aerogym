@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Filter, ArrowLeft, BookOpen, Play, X, Dumbbell, Sparkles, AlertCircle } from 'lucide-react';
+import { Search, Filter, ArrowLeft, BookOpen, Play, X, Dumbbell, Sparkles } from 'lucide-react';
 import {
   MuscleWikiService,
   MuscleWikiExercise,
@@ -93,8 +93,8 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
               <Dumbbell size={10} className="text-brand-blue" />
               Base de Datos Científica
               {isDemoActive && (
-                <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[8px] tracking-normal font-bold">
-                  Modo Demo
+                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[8px] tracking-normal font-bold">
+                  50+ Ejercicios
                 </span>
               )}
             </p>
@@ -102,14 +102,14 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
         </div>
       </div>
 
-      {/* Demo Mode Notice */}
+      {/* Offline Library Notice */}
       {isDemoActive && (
-        <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-3xl text-xs text-amber-300/90 flex gap-3 leading-relaxed">
-          <AlertCircle className="text-amber-400 flex-shrink-0" size={16} />
+        <div className="bg-emerald-500/5 border border-emerald-500/15 p-4 rounded-3xl text-xs text-emerald-300/90 flex gap-3 leading-relaxed">
+          <BookOpen className="text-emerald-400 flex-shrink-0 mt-0.5" size={16} />
           <div>
-            <p className="font-bold">Ejecutando en Modo Simulado (Local)</p>
+            <p className="font-bold text-emerald-300">Biblioteca Local · 50+ ejercicios reales</p>
             <p className="text-[10px] mt-0.5 opacity-80">
-              Tu clave está en el plan BASIC gratuito. Para proteger la aplicación de bloqueos de red en el navegador, estamos usando una base local premium de 12 ejercicios seleccionados de MuscleWiki con videos e instrucciones traducidas.
+              Base de datos integrada con instrucciones detalladas, videos de MuscleWiki CDN y cobertura completa de todos los grupos musculares. Actualiza a plan TESTING+ en musclewiki.com para activar búsquedas en tiempo real.
             </p>
           </div>
         </div>
