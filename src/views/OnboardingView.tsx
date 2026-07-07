@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, Dumbbell, Target, Zap, User, Check } from 'lucide-react';
+import { ChevronRight, Dumbbell, Target, Zap, User, Check, Flame, Trophy } from 'lucide-react';
 import { useAuthStore } from '../application/stores/useAuthStore';
 import { cn } from '../lib/utils';
 import type { Profile } from '../infrastructure/supabase/types';
@@ -10,11 +10,11 @@ interface OnboardingViewProps {
 }
 
 const GOALS = [
-  { key: 'hypertrophy', label: 'Ganar Músculo', emoji: '💪', desc: 'Hipertrofia y volumen' },
-  { key: 'strength', label: 'Ganar Fuerza', emoji: '🏋️', desc: 'Levantar más peso' },
-  { key: 'fat_loss', label: 'Perder Grasa', emoji: '🔥', desc: 'Definición y composición' },
-  { key: 'recomposition', label: 'Recomposición', emoji: '⚡', desc: 'Músculo y pérdida de grasa' },
-  { key: 'maintenance', label: 'Mantenimiento', emoji: '🎯', desc: 'Mantener mi forma' },
+  { key: 'hypertrophy', label: 'Ganar Músculo', icon: Dumbbell, iconColor: 'text-brand-blue', desc: 'Hipertrofia y volumen' },
+  { key: 'strength', label: 'Ganar Fuerza', icon: Trophy, iconColor: 'text-amber-500', desc: 'Levantar más peso' },
+  { key: 'fat_loss', label: 'Perder Grasa', icon: Flame, iconColor: 'text-orange-500', desc: 'Definición y composición' },
+  { key: 'recomposition', label: 'Recomposición', icon: Zap, iconColor: 'text-yellow-500', desc: 'Músculo y pérdida de grasa' },
+  { key: 'maintenance', label: 'Mantenimiento', icon: Target, iconColor: 'text-emerald-500', desc: 'Mantener mi forma' },
 ] as const;
 
 const LEVELS = [
@@ -192,7 +192,9 @@ export default function OnboardingView({ profile }: OnboardingViewProps) {
                         : 'glass border-white/5 hover:border-white/20'
                     )}
                   >
-                    <span className="text-3xl">{goal.emoji}</span>
+                    <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center flex-shrink-0 border border-white/5">
+                      <goal.icon size={22} className={goal.iconColor} />
+                    </div>
                     <div className="flex-1">
                       <p className="font-bold text-slate-50">{goal.label}</p>
                       <p className="text-xs text-slate-400">{goal.desc}</p>

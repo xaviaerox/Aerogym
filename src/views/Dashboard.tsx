@@ -28,7 +28,7 @@ import { useUIStore, type DashboardWidgets } from '../application/stores/useUISt
 import { useGamificationStore } from '../application/stores/useGamificationStore';
 import type { Routine, RoutineExercise } from '../infrastructure/supabase/types';
 import HealthLoggerModal from '../components/HealthLoggerModal';
-import { Trophy } from 'lucide-react';
+import { Trophy, Shield, Award, Zap } from 'lucide-react';
 
 interface DashboardProps {
   nextRoutine?: Routine & { exercises: RoutineExercise[] };
@@ -239,7 +239,7 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
               {format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}
             </p>
             <h1 className="text-3xl font-bold text-slate-50 mt-1">
-              Hola, {profile?.name?.split(' ')[0] || 'atleta'} 👋
+              Hola, {profile?.name?.split(' ')[0] || 'atleta'}
             </h1>
           </div>
           <button
@@ -672,7 +672,7 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
                 >
                   <div className="pr-2">
                     <span className="text-xs font-black text-brand-blue uppercase tracking-wider block">
-                      Entrenamiento Libre 🏋️‍♂️
+                      Entrenamiento Libre
                     </span>
                     <span className="text-[10px] text-slate-400 mt-0.5 block">
                       Registra una sesión en blanco añadiendo tus ejercicios en el momento.
@@ -731,12 +731,12 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
             className="fixed bottom-24 left-6 right-6 md:left-auto md:right-6 md:w-96 glass bg-slate-950/90 border-brand-blue/30 rounded-3xl p-5 shadow-2xl z-[120] space-y-3"
           >
             <div className="flex gap-3 items-start">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-400 border border-amber-500/20 text-2xl flex-shrink-0">
-                {newUnlockedAchievement.icon === 'dumbbell' && '🏋️‍♂️'}
-                {newUnlockedAchievement.icon === 'shield' && '🛡️'}
-                {newUnlockedAchievement.icon === 'zap' && '⚡'}
-                {newUnlockedAchievement.icon === 'trophy' && '🏆'}
-                {!['dumbbell', 'shield', 'zap', 'trophy'].includes(newUnlockedAchievement.icon) && '🏅'}
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-400 border border-amber-500/20 flex-shrink-0">
+                {newUnlockedAchievement.icon === 'dumbbell' && <Dumbbell size={24} />}
+                {newUnlockedAchievement.icon === 'shield' && <Shield size={24} />}
+                {newUnlockedAchievement.icon === 'zap' && <Zap size={24} />}
+                {newUnlockedAchievement.icon === 'trophy' && <Trophy size={24} />}
+                {!['dumbbell', 'shield', 'zap', 'trophy'].includes(newUnlockedAchievement.icon) && <Award size={24} />}
               </div>
               <div className="flex-1 space-y-1">
                 <span className="text-[10px] bg-brand-blue text-slate-950 px-2 py-0.5 rounded font-black uppercase tracking-tighter">

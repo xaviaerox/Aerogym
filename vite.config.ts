@@ -12,7 +12,8 @@ export default defineConfig(({mode}) => {
       react(), 
       tailwindcss(),
       VitePWA({
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
+        includeAssets: ['icon-192.png', 'icon-512.png'],
         manifest: {
           name: 'AeroGym',
           short_name: 'AeroGym',
@@ -34,6 +35,11 @@ export default defineConfig(({mode}) => {
               type: 'image/png'
             }
           ]
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+          cleanupOutdatedCaches: true,
+          clientsClaim: true
         }
       })
     ],

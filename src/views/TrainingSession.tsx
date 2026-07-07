@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Plus, Check, Timer, Trophy, Sparkles, ChevronRight } from 'lucide-react';
+import { X, Plus, Check, Timer, Trophy, Sparkles, ChevronRight, BookOpen, ArrowLeft, Loader2 } from 'lucide-react';
 import { cn, getMuscleWikiUrl } from '../lib/utils';
 import { BASE_EXERCISES } from '../constants/exercises';
 import { calculateE1RM, getBestE1RM, suggestWeight } from '../lib/engine';
 import { useAuthStore } from '../application/stores/useAuthStore';
 import { useWorkoutStore, type ActiveSet } from '../application/stores/useWorkoutStore';
 import { useGamificationStore } from '../application/stores/useGamificationStore';
+import { MuscleWikiService, TRANSLATE_MUSCLE, TRANSLATE_CATEGORY } from '../lib/muscleWikiService';
 
 const playBeep = (freq: number, duration: number) => {
   try {
@@ -32,6 +33,25 @@ export default function TrainingSession() {
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState('');
   const [difficulty, setDifficulty] = useState<number | undefined>();
+
+  // MuscleWiki Guide Modal State
+  const [activeMwGuideId, setActiveMwGuideId] = useState<string | null>(null);
+  const [mwGuideData, setMwGuideData] = useState<any | null>(null);
+  const [isLoadingMwGuide, setIsLoadingMwGuide] = useState(false);
+
+  const handleOpenMwGuide = async (exerciseId: string) => {
+    setActiveMwGuideId(exerciseId);
+    setIsLoadingMwGuide(true);
+    setMwGuideData(null);
+    try {
+      const details = await MuscleWikiService.getExerciseDetails(exerciseId);
+      setMwGuideData(details);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingMwGuide(false);
+    }
+  };
 
   if (!activeSession) return null;
 
@@ -125,7 +145,8 @@ export default function TrainingSession() {
       {/* Exercises */}
       <div className="space-y-8">
         {activeSession.exercises.map((ex) => {
-          const exerciseInfo = BASE_EXERCISES.find((e) => e.id === ex.exercise_id);
+          const exerciseInfo = BASE_EXERCISES.find((e) => e.id === ex.exercise_id) ||
+            (ex.exercise_id.startsWith('mw-') ? MuscleWikiService.getCachedExerciseInfo(ex.exercise_id) : undefined);
           const isCardio = exerciseInfo?.muscleGroup === 'Cardio';
           const bestE1RM = isCardio 
             ? 0 
@@ -154,15 +175,25 @@ export default function TrainingSession() {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  {exerciseInfo?.muscleGroup && (
-                    <a
-                      href={getMuscleWikiUrl(exerciseInfo.muscleGroup)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[10px] text-slate-400 hover:text-brand-blue font-bold uppercase tracking-widest bg-white/5 hover:bg-brand-blue/10 px-2 py-1 rounded-full border border-white/10 hover:border-brand-blue/30 transition-all inline-flex items-center gap-1"
+                  {ex.exercise_id.startsWith('mw-') ? (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenMwGuide(ex.exercise_id)}
+                      className="text-[10px] text-brand-blue hover:text-slate-950 font-bold uppercase tracking-widest bg-brand-blue/10 hover:bg-brand-blue px-2.5 py-1 rounded-full border border-brand-blue/20 hover:border-brand-blue transition-all inline-flex items-center gap-1"
                     >
-                      Wiki ↗
-                    </a>
+                      Guía <BookOpen size={10} />
+                    </button>
+                  ) : (
+                    exerciseInfo?.muscleGroup && (
+                      <a
+                        href={getMuscleWikiUrl(exerciseInfo.muscleGroup)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-slate-400 hover:text-brand-blue font-bold uppercase tracking-widest bg-white/5 hover:bg-brand-blue/10 px-2 py-1 rounded-full border border-white/10 hover:border-brand-blue/30 transition-all inline-flex items-center gap-1"
+                      >
+                        Wiki ↗
+                      </a>
+                    )
                   )}
                   <div className="flex items-center gap-1 text-[10px] text-brand-blue/60 font-bold uppercase tracking-widest bg-brand-blue/5 px-2 py-1 rounded-full border border-brand-blue/10">
                     <Sparkles size={10} />
@@ -417,6 +448,97 @@ export default function TrainingSession() {
           FINALIZAR ENTRENAMIENTO
         </button>
       </div>
+
+      {/* MuscleWiki Guide Modal */}
+      <AnimatePresence>
+        {activeMwGuideId && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/95 backdrop-blur-md z-[100] overflow-y-auto px-4 py-8"
+          >
+            <div className="max-w-md mx-auto space-y-6">
+              <div className="flex justify-between items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveMwGuideId(null);
+                    setMwGuideData(null);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 glass rounded-xl text-slate-400 text-xs font-bold"
+                >
+                  <ArrowLeft size={16} /> Cerrar Guía
+                </button>
+              </div>
+
+              {isLoadingMwGuide ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <Loader2 className="animate-spin text-brand-blue" size={32} />
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest animate-pulse">
+                    Cargando guía...
+                  </p>
+                </div>
+              ) : mwGuideData ? (
+                <div className="space-y-6">
+                  <div className="space-y-1.5">
+                    <h2 className="text-xl font-bold text-slate-55">{mwGuideData.name}</h2>
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-[9px] bg-brand-blue/10 text-brand-blue px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                        {TRANSLATE_MUSCLE[mwGuideData.primary_muscles[0]] || mwGuideData.primary_muscles[0]}
+                      </span>
+                      <span className="text-[9px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                        {TRANSLATE_CATEGORY[mwGuideData.category] || mwGuideData.category}
+                      </span>
+                      {mwGuideData.difficulty && (
+                        <span className="text-[9px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                          {mwGuideData.difficulty}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {mwGuideData.videos.length > 0 && (
+                    <div className="glass overflow-hidden rounded-3xl border border-white/5 bg-slate-950 aspect-video relative">
+                      <video
+                        src={mwGuideData.videos[0].url}
+                        poster={mwGuideData.videos[0].og_image}
+                        controls
+                        loop
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <BookOpen size={14} className="text-brand-blue" /> Paso a Paso
+                    </h3>
+                    <div className="space-y-3">
+                      {mwGuideData.steps.map((step: string, idx: number) => (
+                        <div key={idx} className="flex gap-4 glass p-4 rounded-2xl border border-white/5 items-start">
+                          <div className="w-5.5 h-5.5 rounded-full bg-brand-blue/10 border border-brand-blue/20 flex items-center justify-center font-black text-[9px] text-brand-blue flex-shrink-0 mt-0.5">
+                            {idx + 1}
+                          </div>
+                          <p className="text-[11px] text-slate-300 leading-relaxed flex-1">
+                            {step}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="glass p-8 rounded-3xl text-center text-slate-400">
+                  No se pudo cargar la guía para este ejercicio.
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

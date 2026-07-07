@@ -5,6 +5,7 @@ import { useAuthStore } from '../application/stores/useAuthStore';
 import { useWorkoutStore } from '../application/stores/useWorkoutStore';
 import { useHealthStore } from '../application/stores/useHealthStore';
 import { sendChatMessage, generateWeeklyReport, type UserContextForAI } from '../lib/aiService';
+import MuscleWikiExplorer from './MuscleWikiExplorer';
 import { subDays } from 'date-fns';
 import { cn } from '../lib/utils';
 
@@ -24,10 +25,11 @@ export default function CoachView() {
   const { sessions } = useWorkoutStore();
   const { dailyHealth, measurements } = useHealthStore();
 
+  const [activeSubTab, setActiveSubTab] = useState<'chat' | 'musclewiki'>('chat');
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'model',
-      content: `¡Hola ${profile?.name || 'atleta'}! 💪 Soy Aero, tu coach personal. He revisado tu historial: ${sessions.length} entrenamientos registrados. ¿En qué puedo ayudarte hoy?\n\nPuedes pulsar en el botón de la cabecera para generar tu auditoría estoica semanal instantánea.`,
+      content: `¡Hola ${profile?.name || 'atleta'}! Soy Aero, tu coach personal. He revisado tu historial: ${sessions.length} entrenamientos registrados. ¿En qué puedo ayudarte hoy?\n\nPuedes pulsar en el botón de la cabecera para generar tu auditoría estoica semanal instantánea.`,
     },
   ]);
   const [input, setInput] = useState('');
@@ -203,82 +205,118 @@ export default function CoachView() {
         </button>
       </div>
 
-      {/* Messages */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scroll-smooth"
-      >
-        {messages.map((msg, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            className={cn('flex w-full', msg.role === 'user' ? 'justify-end' : 'justify-start')}
+      {/* Sub-tab Navigation */}
+      <div className="px-4 py-3 border-b border-white/5">
+        <div className="flex bg-slate-800/80 p-1.5 rounded-2xl border border-white/5">
+          <button
+            onClick={() => setActiveSubTab('chat')}
+            className={cn(
+              'flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all',
+              activeSubTab === 'chat'
+                ? 'bg-brand-blue text-slate-950 shadow-md font-black'
+                : 'text-slate-400 hover:text-slate-200 font-bold'
+            )}
           >
-            <div
-              className={cn(
-                'max-w-[85%] p-4 rounded-2xl shadow-lg',
-                msg.role === 'user'
-                  ? 'bg-brand-blue text-slate-950 rounded-tr-none font-black text-sm'
-                  : 'glass-dark border border-white/10 rounded-tl-none text-slate-100 text-sm leading-relaxed'
-              )}
-            >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
-            </div>
-          </motion.div>
-        ))}
-
-        {isTyping && (
-          <div className="flex justify-start">
-            <div className="glass-dark border border-white/10 p-4 rounded-2xl rounded-tl-none flex items-center gap-2">
-              <Loader2 size={16} className="animate-spin text-brand-blue" />
-              <span className="text-xs text-slate-400 font-medium">Aero está pensando...</span>
-            </div>
-          </div>
-        )}
+            Aero Coach (IA)
+          </button>
+          <button
+            onClick={() => setActiveSubTab('musclewiki')}
+            className={cn(
+              'flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all',
+              activeSubTab === 'musclewiki'
+                ? 'bg-brand-blue text-slate-950 shadow-md font-black'
+                : 'text-slate-400 hover:text-slate-200 font-bold'
+            )}
+          >
+            MuscleWiki
+          </button>
+        </div>
       </div>
 
-      {/* Suggested prompts */}
-      <AnimatePresence>
-        {messages.length === 1 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar"
+      {activeSubTab === 'chat' ? (
+        <>
+          {/* Messages */}
+          <div
+            ref={scrollRef}
+            className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scroll-smooth"
           >
-            {SUGGESTED_PROMPTS.map((prompt, i) => (
-              <button
+            {messages.map((msg, i) => (
+              <motion.div
                 key={i}
-                onClick={() => handleSend(prompt.text)}
-                className="flex items-center gap-1.5 px-4 py-2.5 glass border-white/5 hover:border-brand-blue/20 rounded-xl text-xs font-bold text-slate-300 hover:text-brand-blue transition-all whitespace-nowrap"
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                className={cn('flex w-full', msg.role === 'user' ? 'justify-end' : 'justify-start')}
               >
-                <prompt.icon size={14} className="text-brand-blue" />
-                {prompt.text}
-              </button>
+                <div
+                  className={cn(
+                    'max-w-[85%] p-4 rounded-2xl shadow-lg',
+                    msg.role === 'user'
+                      ? 'bg-brand-blue text-slate-950 rounded-tr-none font-black text-sm'
+                      : 'glass-dark border border-white/10 rounded-tl-none text-slate-100 text-sm leading-relaxed'
+                  )}
+                >
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                </div>
+              </motion.div>
             ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* Input bar */}
-      <div className="p-4 bg-slate-950/80 backdrop-blur-md border-t border-white/5 flex gap-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="Pregúntale a Aero sobre tu progreso o dudas..."
-          className="flex-1 bg-slate-800/80 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500"
-        />
-        <button
-          onClick={() => handleSend()}
-          disabled={!input.trim() || isTyping}
-          className="p-3 bg-brand-blue text-slate-950 rounded-2xl font-bold hover:bg-brand-blue/90 transition-colors disabled:opacity-50"
-        >
-          <Send size={18} />
-        </button>
-      </div>
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="glass-dark border border-white/10 p-4 rounded-2xl rounded-tl-none flex items-center gap-2">
+                  <Loader2 size={16} className="animate-spin text-brand-blue" />
+                  <span className="text-xs text-slate-400 font-medium">Aero está pensando...</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Suggested prompts */}
+          <AnimatePresence>
+            {messages.length === 1 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar"
+              >
+                {SUGGESTED_PROMPTS.map((prompt, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleSend(prompt.text)}
+                    className="flex items-center gap-1.5 px-4 py-2.5 glass border-white/5 hover:border-brand-blue/20 rounded-xl text-xs font-bold text-slate-300 hover:text-brand-blue transition-all whitespace-nowrap"
+                  >
+                    <prompt.icon size={14} className="text-brand-blue" />
+                    {prompt.text}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Input bar */}
+          <div className="p-4 bg-slate-950/80 backdrop-blur-md border-t border-white/5 flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              placeholder="Pregúntale a Aero sobre tu progreso o dudas..."
+              className="flex-1 bg-slate-800/80 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500"
+            />
+            <button
+              onClick={() => handleSend()}
+              disabled={!input.trim() || isTyping}
+              className="p-3 bg-brand-blue text-slate-950 rounded-2xl font-bold hover:bg-brand-blue/90 transition-colors disabled:opacity-50"
+            >
+              <Send size={18} />
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="flex-1 overflow-y-auto px-4 pt-4">
+          <MuscleWikiExplorer />
+        </div>
+      )}
     </div>
   );
 }

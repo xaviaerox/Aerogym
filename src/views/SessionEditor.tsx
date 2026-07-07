@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useWorkoutStore } from '../application/stores/useWorkoutStore';
 import { BASE_EXERCISES } from '../constants/exercises';
 import { cn, getMuscleWikiUrl } from '../lib/utils';
+import { MuscleWikiService, TRANSLATE_MUSCLE } from '../lib/muscleWikiService';
+import MuscleWikiExplorer from './MuscleWikiExplorer';
 import { calculateE1RM } from '../lib/engine';
 import type { WorkoutSession, WorkoutSet } from '../infrastructure/supabase/types';
 
@@ -46,6 +48,7 @@ export default function SessionEditor({ session, onBack }: SessionEditorProps) {
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
+  const [activeSelectorTab, setActiveSelectorTab] = useState<'aerogym' | 'musclewiki'>('aerogym');
 
   // Group sets by exercise
   const [exercises, setExercises] = useState<EditableExercise[]>([]);
@@ -161,6 +164,29 @@ export default function SessionEditor({ session, onBack }: SessionEditorProps) {
     setIsSelectorOpen(false);
     setSearch('');
     setSelectedMuscle(null);
+  };
+
+  const handleAddMuscleWikiExercise = (mwEx: any) => {
+    const newEx: EditableExercise = {
+      exercise_id: `mw-${mwEx.id}`,
+      sets: [
+        {
+          id: `temp-${Date.now()}`,
+          reps: 10,
+          weight_kg: 0,
+          rpe: null,
+          rir: null,
+          duration_seconds: null,
+          distance_meters: null,
+          is_completed: true,
+          is_warmup: false,
+          is_pr: false,
+        },
+      ],
+    };
+
+    setExercises((prev) => [...prev, newEx]);
+    setIsSelectorOpen(false);
   };
 
   const handleRemoveExercise = (exerciseId: string) => {
@@ -299,7 +325,8 @@ export default function SessionEditor({ session, onBack }: SessionEditorProps) {
         </h2>
 
         {exercises.map((ex) => {
-          const exerciseInfo = BASE_EXERCISES.find((e) => e.id === ex.exercise_id);
+          const exerciseInfo = BASE_EXERCISES.find((e) => e.id === ex.exercise_id) ||
+            (ex.exercise_id.startsWith('mw-') ? MuscleWikiService.getCachedExerciseInfo(ex.exercise_id) : undefined);
           const isCardio = exerciseInfo?.muscleGroup === 'Cardio';
 
           return (
@@ -308,19 +335,25 @@ export default function SessionEditor({ session, onBack }: SessionEditorProps) {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-slate-50">{exerciseInfo?.name || ex.exercise_id}</h3>
-                    {exerciseInfo?.muscleGroup && (
-                      <a
-                        href={getMuscleWikiUrl(exerciseInfo.muscleGroup)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[9px] text-slate-500 hover:text-brand-blue font-bold px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 hover:border-brand-blue/30 transition-all"
-                      >
-                        Wiki ↗
-                      </a>
+                    {ex.exercise_id.startsWith('mw-') ? (
+                      <span className="text-[8px] text-brand-blue font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-brand-blue/10 border border-brand-blue/20">
+                        MuscleWiki
+                      </span>
+                    ) : (
+                      exerciseInfo?.muscleGroup && (
+                        <a
+                          href={getMuscleWikiUrl(exerciseInfo.muscleGroup)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[9px] text-slate-500 hover:text-brand-blue font-bold px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 hover:border-brand-blue/30 transition-all"
+                        >
+                          Wiki ↗
+                        </a>
+                      )
                     )}
                   </div>
                   <p className="text-[9px] text-slate-500 uppercase tracking-widest font-black mt-0.5">
-                    {exerciseInfo?.muscleGroup || 'Musculación'} · {exerciseInfo?.type || 'Compuesto'}
+                    {exerciseInfo?.muscleGroup || 'Musculación'} · {(exerciseInfo as any)?.type || 'Compuesto'}
                   </p>
                 </div>
                 <button
@@ -496,10 +529,12 @@ export default function SessionEditor({ session, onBack }: SessionEditorProps) {
             <div className="flex justify-between items-center p-6 pb-3">
               <h2 className="text-2xl font-bold">Añadir Ejercicio</h2>
               <button
+                type="button"
                 onClick={() => {
                   setIsSelectorOpen(false);
                   setSearch('');
                   setSelectedMuscle(null);
+                  setActiveSelectorTab('aerogym');
                 }}
                 className="p-2 glass rounded-full"
               >
@@ -507,63 +542,104 @@ export default function SessionEditor({ session, onBack }: SessionEditorProps) {
               </button>
             </div>
 
-            <div className="px-6 pb-3">
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar ejercicio o músculo..."
-                className="w-full bg-slate-800/80 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500"
-                autoFocus
-              />
-            </div>
-
-            {/* Muscle Group Filters */}
-            <div className="px-6 pb-4 overflow-x-auto flex gap-2 no-scrollbar scrollbar-none">
-              <button
-                onClick={() => setSelectedMuscle(null)}
-                className={cn(
-                  'px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap',
-                  selectedMuscle === null
-                    ? 'bg-brand-blue text-slate-950 border-brand-blue'
-                    : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
-                )}
-              >
-                Todos
-              </button>
-              {muscleGroups.map((mg) => (
+            {/* Selector Tabs */}
+            <div className="px-6 pb-4">
+              <div className="flex bg-slate-800/80 p-1.5 rounded-2xl border border-white/5">
                 <button
-                  key={mg}
-                  onClick={() => setSelectedMuscle(mg === selectedMuscle ? null : mg)}
+                  type="button"
+                  onClick={() => setActiveSelectorTab('aerogym')}
                   className={cn(
-                    'px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap',
-                    selectedMuscle === mg
-                      ? 'bg-brand-blue text-slate-950 border-brand-blue'
-                      : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
+                    'flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all',
+                    activeSelectorTab === 'aerogym'
+                      ? 'bg-brand-blue text-slate-950 font-black shadow-md'
+                      : 'text-slate-400 hover:text-slate-200 font-bold'
                   )}
                 >
-                  {mg}
+                  Aerogym
                 </button>
-              ))}
+                <button
+                  type="button"
+                  onClick={() => setActiveSelectorTab('musclewiki')}
+                  className={cn(
+                    'flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all',
+                    activeSelectorTab === 'musclewiki'
+                      ? 'bg-brand-blue text-slate-950 font-black shadow-md'
+                      : 'text-slate-400 hover:text-slate-200 font-bold'
+                  )}
+                >
+                  MuscleWiki
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-2">
-              {filteredExercises.map((ex) => (
-                <button
-                  key={ex.id}
-                  onClick={() => handleAddExercise(ex.id)}
-                  className="w-full p-4 glass rounded-xl flex justify-between items-center hover:border-brand-blue/30 border border-transparent transition-all"
-                >
-                  <div className="text-left">
-                    <p className="font-bold">{ex.name}</p>
-                    <p className="text-[10px] uppercase text-slate-400 tracking-wider font-bold">
-                      {ex.muscleGroup} · {ex.type}
-                    </p>
-                  </div>
-                  <ChevronRight size={20} className="text-slate-500" />
-                </button>
-              ))}
-            </div>
+            {activeSelectorTab === 'aerogym' ? (
+              <>
+                <div className="px-6 pb-3">
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Buscar ejercicio o músculo..."
+                    className="w-full bg-slate-800/80 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Muscle Group Filters */}
+                <div className="px-6 pb-4 overflow-x-auto flex gap-2 no-scrollbar scrollbar-none">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMuscle(null)}
+                    className={cn(
+                      'px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap',
+                      selectedMuscle === null
+                        ? 'bg-brand-blue text-slate-950 border-brand-blue'
+                        : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
+                    )}
+                  >
+                    Todos
+                  </button>
+                  {muscleGroups.map((mg) => (
+                    <button
+                      type="button"
+                      key={mg}
+                      onClick={() => setSelectedMuscle(mg === selectedMuscle ? null : mg)}
+                      className={cn(
+                        'px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap',
+                        selectedMuscle === mg
+                          ? 'bg-brand-blue text-slate-950 border-brand-blue'
+                          : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
+                      )}
+                    >
+                      {mg}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-2">
+                  {filteredExercises.map((ex) => (
+                    <button
+                      type="button"
+                      key={ex.id}
+                      onClick={() => handleAddExercise(ex.id)}
+                      className="w-full p-4 glass rounded-xl flex justify-between items-center hover:border-brand-blue/30 border border-transparent transition-all"
+                    >
+                      <div className="text-left">
+                        <p className="font-bold">{ex.name}</p>
+                        <p className="text-[10px] uppercase text-slate-400 tracking-wider font-bold">
+                          {ex.muscleGroup} · {ex.type}
+                        </p>
+                      </div>
+                      <ChevronRight size={20} className="text-slate-500" />
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 overflow-y-auto px-6 pb-6">
+                <MuscleWikiExplorer onSelectExercise={handleAddMuscleWikiExercise} />
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

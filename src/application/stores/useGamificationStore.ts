@@ -66,7 +66,7 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       if (sessionsCount >= 1) {
         await checkAndInsert(
           'first_workout',
-          'Primer Paso 🏋️‍♂️',
+          'Primer Paso',
           'Completaste tu primer entrenamiento en AeroGym. ¡El viaje ha comenzado!',
           'dumbbell'
         );
@@ -76,7 +76,7 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       if (streak >= 3) {
         await checkAndInsert(
           'iron_consistency',
-          'Consistencia de Hierro 🛡️',
+          'Consistencia de Hierro',
           'Entrenaste al menos 3 días consecutivos. La constancia supera al talento.',
           'shield'
         );
@@ -86,7 +86,7 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       if (maxSessionVolume >= 5000) {
         await checkAndInsert(
           'steel_titan',
-          'Titán de Acero ⚡',
+          'Titán de Acero',
           'Moviste más de 5,000 kg de volumen total en una sola sesión de entrenamiento.',
           'zap'
         );
@@ -96,7 +96,7 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       if (hasAnyPR) {
         await checkAndInsert(
           'limit_breaker',
-          'Superador de Límites 🏆',
+          'Superador de Límites',
           'Superaste tu récord personal estimado (PR) en algún ejercicio de tu bitácora.',
           'trophy'
         );

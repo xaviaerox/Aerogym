@@ -22,6 +22,7 @@ import Analytics from './views/Analytics';
 import ProfileSettings from './views/ProfileSettings';
 import OnboardingView from './views/OnboardingView';
 import CoachView from './views/CoachView';
+import PWAReloadPrompt from './components/PWAReloadPrompt';
 
 type Tab = 'home' | 'workouts' | 'coach' | 'analytics' | 'profile';
 
@@ -57,42 +58,7 @@ export default function App() {
     return routines[lastIdx + 1];
   }, [sessions, routines]);
 
-  // ── Loading screen ──────────────────────────────────────────
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-        <div className="w-16 h-16 bg-brand-blue/20 rounded-3xl border border-brand-blue/30 flex items-center justify-center">
-          <Dumbbell size={32} className="text-brand-blue" />
-        </div>
-        <Loader2 size={24} className="text-brand-blue animate-spin" />
-      </div>
-    );
-  }
-
-  // ── Auth guard ───────────────────────────────────────────────
-  if (!isAuthenticated) {
-    return <AuthView />;
-  }
-
-  // ── Onboarding ───────────────────────────────────────────────
-  if (profile && !profile.onboarding_complete) {
-    return (
-      <div className="min-h-screen max-w-md mx-auto px-4 pt-6 pb-10">
-        <OnboardingView profile={profile} />
-      </div>
-    );
-  }
-
-  // ── Active Session (fullscreen) ──────────────────────────────
-  if (activeSession) {
-    return (
-      <div className="min-h-screen max-w-md mx-auto px-4 pt-6 pb-10">
-        <TrainingSession />
-      </div>
-    );
-  }
-
-  // ── Main App ─────────────────────────────────────────────────
+  // ── Main App Content ─────────────────────────────────────────
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
@@ -110,57 +76,101 @@ export default function App() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-transparent flex flex-col max-w-md mx-auto relative overflow-hidden">
-      {/* Main Content */}
-      <main className="flex-1 pb-24 overflow-y-auto px-4 pt-6">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            {renderContent()}
-          </motion.div>
-        </AnimatePresence>
-      </main>
+  const renderMain = () => {
+    // ── Loading screen ──────────────────────────────────────────
+    if (isLoading) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+          <div className="w-16 h-16 bg-brand-blue/20 rounded-3xl border border-brand-blue/30 flex items-center justify-center">
+            <Dumbbell size={32} className="text-brand-blue" />
+          </div>
+          <Loader2 size={24} className="text-brand-blue animate-spin" />
+        </div>
+      );
+    }
 
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-dark h-20 px-6 flex items-center justify-between z-50 rounded-t-3xl border-t border-white/5">
-        <NavBtn
-          icon={<LayoutDashboard size={24} />}
-          active={activeTab === 'home'}
-          onClick={() => setActiveTab('home')}
-          label="Inicio"
-        />
-        <NavBtn
-          icon={<Dumbbell size={24} />}
-          active={activeTab === 'workouts'}
-          onClick={() => setActiveTab('workouts')}
-          label="Log"
-        />
-        <NavBtn
-          icon={<Sparkles size={24} />}
-          active={activeTab === 'coach'}
-          onClick={() => setActiveTab('coach')}
-          label="Coach"
-        />
-        <NavBtn
-          icon={<TrendingUp size={24} />}
-          active={activeTab === 'analytics'}
-          onClick={() => setActiveTab('analytics')}
-          label="Stats"
-        />
-        <NavBtn
-          icon={<User size={24} />}
-          active={activeTab === 'profile'}
-          onClick={() => setActiveTab('profile')}
-          label="Perfil"
-        />
-      </nav>
-    </div>
+    // ── Auth guard ───────────────────────────────────────────────
+    if (!isAuthenticated) {
+      return <AuthView />;
+    }
+
+    // ── Onboarding ───────────────────────────────────────────────
+    if (profile && !profile.onboarding_complete) {
+      return (
+        <div className="min-h-screen max-w-md mx-auto px-4 pt-6 pb-10">
+          <OnboardingView profile={profile} />
+        </div>
+      );
+    }
+
+    // ── Active Session (fullscreen) ──────────────────────────────
+    if (activeSession) {
+      return (
+        <div className="min-h-screen max-w-md mx-auto px-4 pt-6 pb-10">
+          <TrainingSession />
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-transparent flex flex-col max-w-md mx-auto relative overflow-hidden">
+        {/* Main Content */}
+        <main className="flex-1 pb-24 overflow-y-auto px-4 pt-6">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              {renderContent()}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+
+        {/* Bottom Nav */}
+        <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-dark h-20 px-6 flex items-center justify-between z-50 rounded-t-3xl border-t border-white/5">
+          <NavBtn
+            icon={<LayoutDashboard size={24} />}
+            active={activeTab === 'home'}
+            onClick={() => setActiveTab('home')}
+            label="Inicio"
+          />
+          <NavBtn
+            icon={<Dumbbell size={24} />}
+            active={activeTab === 'workouts'}
+            onClick={() => setActiveTab('workouts')}
+            label="Log"
+          />
+          <NavBtn
+            icon={<Sparkles size={24} />}
+            active={activeTab === 'coach'}
+            onClick={() => setActiveTab('coach')}
+            label="Coach"
+          />
+          <NavBtn
+            icon={<TrendingUp size={24} />}
+            active={activeTab === 'analytics'}
+            onClick={() => setActiveTab('analytics')}
+            label="Stats"
+          />
+          <NavBtn
+            icon={<User size={24} />}
+            active={activeTab === 'profile'}
+            onClick={() => setActiveTab('profile')}
+            label="Perfil"
+          />
+        </nav>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {renderMain()}
+      <PWAReloadPrompt />
+    </>
   );
 }
 
