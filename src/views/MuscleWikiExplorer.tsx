@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Filter, ArrowLeft, BookOpen, X, Dumbbell, Sparkles } from 'lucide-react';
+import { Search, Filter, ArrowLeft, BookOpen, X, Dumbbell, Sparkles, Play } from 'lucide-react';
 import {
   MuscleWikiService,
   MuscleWikiExercise,

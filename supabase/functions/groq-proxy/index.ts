@@ -6,14 +6,8 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-const ALLOWED_ORIGINS = [
-  'https://xaviaerox.github.io',
-  'http://localhost:3000',
-  'http://localhost:5173',
-];
-
 const corsHeaders = (origin: string) => ({
-  'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+  'Access-Control-Allow-Origin': origin || '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 });
