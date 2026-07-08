@@ -4,7 +4,6 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
-const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 const ALLOWED_ORIGINS = [
@@ -34,7 +33,10 @@ serve(async (req) => {
     });
   }
 
+  // Leer el secret DENTRO del handler (no a nivel de módulo)
+  const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
   if (!GROQ_API_KEY) {
+    console.error('GROQ_API_KEY is not set in environment');
     return new Response(JSON.stringify({ error: 'Groq API key not configured' }), {
       status: 500,
       headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
@@ -62,6 +64,8 @@ serve(async (req) => {
       });
     }
 
+    console.log(`Calling Groq with model=${model}, messages=${messages.length}`);
+
     // Llamar a la API de Groq (compatible con OpenAI)
     const groqResponse = await fetch(GROQ_BASE_URL, {
       method: 'POST',
@@ -79,7 +83,7 @@ serve(async (req) => {
 
     if (!groqResponse.ok) {
       const errorData = await groqResponse.json();
-      console.error('Groq API error:', errorData);
+      console.error('Groq API error:', JSON.stringify(errorData));
       return new Response(JSON.stringify({ error: 'Groq API error', details: errorData }), {
         status: groqResponse.status,
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
@@ -87,12 +91,13 @@ serve(async (req) => {
     }
 
     const data = await groqResponse.json();
+    console.log('Groq response OK');
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    console.error('Edge function error:', err);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    console.error('Edge function error:', String(err));
+    return new Response(JSON.stringify({ error: 'Internal server error', detail: String(err) }), {
       status: 500,
       headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
     });

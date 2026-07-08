@@ -8,6 +8,7 @@ import { useAuthStore } from '../application/stores/useAuthStore';
 import { useWorkoutStore, type ActiveSet } from '../application/stores/useWorkoutStore';
 import { useGamificationStore } from '../application/stores/useGamificationStore';
 import { MuscleWikiService, TRANSLATE_MUSCLE, TRANSLATE_CATEGORY } from '../lib/muscleWikiService';
+import ExerciseMedia from '../components/ExerciseMedia';
 
 const playBeep = (freq: number, duration: number) => {
   try {
@@ -498,19 +499,10 @@ export default function TrainingSession() {
                     </div>
                   </div>
 
-                  {mwGuideData.videos.length > 0 && (
-                    <div className="glass overflow-hidden rounded-3xl border border-white/5 bg-slate-950 aspect-video relative">
-                      <video
-                        src={mwGuideData.videos[0].url}
-                        poster={mwGuideData.videos[0].og_image}
-                        controls
-                        loop
-                        muted
-                        playsInline
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
+                  <ExerciseMedia
+                    exerciseName={mwGuideData.name}
+                    primaryMuscle={mwGuideData.primary_muscles[0]}
+                  />
 
                   <div className="space-y-3">
                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">

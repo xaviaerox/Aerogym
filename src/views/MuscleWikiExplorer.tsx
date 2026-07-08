@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Filter, ArrowLeft, BookOpen, Play, X, Dumbbell, Sparkles } from 'lucide-react';
+import { Search, Filter, ArrowLeft, BookOpen, X, Dumbbell, Sparkles } from 'lucide-react';
 import {
   MuscleWikiService,
   MuscleWikiExercise,
@@ -8,6 +8,8 @@ import {
   TRANSLATE_CATEGORY
 } from '../lib/muscleWikiService';
 import { cn } from '../lib/utils';
+import ExerciseMedia from '../components/ExerciseMedia';
+import { prewarmGifCache } from '../lib/exerciseGifService';
 
 // Filter choices
 const MUSCLES = [
@@ -43,6 +45,9 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
   const [selectedExercise, setSelectedExercise] = useState<MuscleWikiExercise | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [isDemoActive, setIsDemoActive] = useState(() => MuscleWikiService.isMockModeActive());
+
+  // Prewarm GIF cache on mount so GIFs are ready when user opens an exercise
+  useEffect(() => { prewarmGifCache(); }, []);
 
   // Load exercises when query or filters change
   useEffect(() => {
@@ -341,20 +346,11 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
                 </div>
               </div>
 
-              {/* Video Player */}
-              {selectedExercise.videos.length > 0 && (
-                <div className="glass overflow-hidden rounded-3xl border border-white/5 bg-slate-950 aspect-video relative">
-                  <video
-                    src={selectedExercise.videos[0].url}
-                    poster={selectedExercise.videos[0].og_image}
-                    controls
-                    loop
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
+              {/* Exercise GIF (ExerciseDB OSS) */}
+              <ExerciseMedia
+                exerciseName={selectedExercise.name}
+                primaryMuscle={selectedExercise.primary_muscles[0]}
+              />
 
               {/* Specs Grid */}
               <div className="grid grid-cols-2 gap-3 bg-white/[0.02] p-4 rounded-3xl border border-white/5 text-xs">
