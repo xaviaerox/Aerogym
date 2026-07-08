@@ -138,6 +138,7 @@ export default function CoachView() {
       const response = await sendChatMessage(context, history, msg, ragContext);
       setMessages((prev) => [...prev, { role: 'model', content: response }]);
     } catch (error: unknown) {
+      console.error('sendChatMessage error:', error);
       const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
       let friendlyMsg = 'Parece que hay un problema de conexión. Inténtalo de nuevo.';
 

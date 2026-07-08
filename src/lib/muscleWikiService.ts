@@ -32,10 +32,8 @@ const DEFAULT_API_KEY = 'mw_rJ7RFufexI5drONWeYvc3ANy3HwnfgL8Sw8KpUHtdNk';
 const STORAGE_KEY_API_KEY = 'aerogym_musclewiki_api_key';
 const STORAGE_KEY_OFFLINE_MODE = 'aerogym_musclewiki_offline_mode';
 
-// Supabase proxy URL (set via VITE env var) – bypasses browser CORS
-const SUPABASE_PROXY_URL = import.meta.env.VITE_SUPABASE_URL
-  ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/musclewiki-proxy`
-  : null;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://ualgaluxhznwavksguuu.supabase.co';
+const SUPABASE_PROXY_URL = `${SUPABASE_URL}/functions/v1/musclewiki-proxy`;
 
 // Translations English -> Spanish for UI consistency
 export const TRANSLATE_MUSCLE: Record<string, string> = {

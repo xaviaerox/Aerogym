@@ -30,6 +30,23 @@ const DIFFICULTIES = [
   { key: 'Advanced', label: 'Avanzado' }
 ];
 
+function ExerciseImage({ src, alt }: { src: string; alt: string }) {
+  const [error, setError] = useState(false);
+
+  if (error) {
+    return <Dumbbell size={20} className="text-brand-blue" />;
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="w-full h-full object-cover"
+      onError={() => setError(true)}
+    />
+  );
+}
+
 interface MuscleWikiExplorerProps {
   onBack?: () => void;
   onSelectExercise?: (exercise: MuscleWikiExercise) => void;
@@ -254,7 +271,7 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
                 {/* Image / Icon container */}
                 <div className="w-16 h-16 bg-slate-800 rounded-2xl flex-shrink-0 flex items-center justify-center overflow-hidden border border-white/5 relative">
                   {thumbUrl ? (
-                    <img src={thumbUrl} alt={ex.name} className="w-full h-full object-cover" />
+                    <ExerciseImage src={thumbUrl} alt={ex.name} />
                   ) : (
                     <Dumbbell size={20} className="text-brand-blue" />
                   )}
@@ -306,7 +323,7 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/95 backdrop-blur-md z-[100] overflow-y-auto px-4 py-8"
+            className="fixed inset-0 bg-slate-950 z-[100] overflow-y-auto px-4 py-8"
           >
             <div className="max-w-md mx-auto space-y-6">
               {/* Modal Header */}
