@@ -13,7 +13,7 @@ export default defineConfig(({mode}) => {
       tailwindcss(),
       VitePWA({
         registerType: 'prompt',
-        includeAssets: ['icon-192.png', 'icon-512.png'],
+        includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
         manifest: {
           name: 'AeroGym',
           short_name: 'AeroGym',
