@@ -7,17 +7,25 @@ interface ExerciseMediaProps {
   exerciseName: string;
   primaryMuscle: string;
   className?: string;
+  localGifUrl?: string | null;
 }
 
 type State = 'loading' | 'loaded' | 'error';
 
-export default function ExerciseMedia({ exerciseName, primaryMuscle, className = '' }: ExerciseMediaProps) {
+export default function ExerciseMedia({ exerciseName, primaryMuscle, className = '', localGifUrl = null }: ExerciseMediaProps) {
   const [gifUrl, setGifUrl] = useState<string | null>(null);
   const [state, setState] = useState<State>('loading');
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
+    
+    if (localGifUrl) {
+      setGifUrl(localGifUrl);
+      setState('loaded');
+      return;
+    }
+
     setState('loading');
     setGifUrl(null);
 
@@ -36,7 +44,7 @@ export default function ExerciseMedia({ exerciseName, primaryMuscle, className =
       });
 
     return () => { mountedRef.current = false; };
-  }, [exerciseName, primaryMuscle]);
+  }, [exerciseName, primaryMuscle, localGifUrl]);
 
   return (
     <div className={`relative aspect-video rounded-3xl overflow-hidden border border-white/5 bg-slate-950 ${className}`}>
@@ -76,7 +84,7 @@ export default function ExerciseMedia({ exerciseName, primaryMuscle, className =
             />
             {/* Source badge */}
             <div className="absolute bottom-2 right-3 bg-slate-900/70 backdrop-blur-sm border border-white/10 rounded-full px-2 py-0.5 text-[9px] text-slate-400 font-bold tracking-widest uppercase">
-              ExerciseDB
+              {localGifUrl ? 'Base de Datos Local' : 'ExerciseDB'}
             </div>
           </motion.div>
         )}

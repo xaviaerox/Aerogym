@@ -63,8 +63,11 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
   const [showFilters, setShowFilters] = useState(false);
   const [isDemoActive, setIsDemoActive] = useState(() => MuscleWikiService.isMockModeActive());
 
-  // Prewarm GIF cache on mount so GIFs are ready when user opens an exercise
-  useEffect(() => { prewarmGifCache(); }, []);
+  // Prewarm GIF cache and local dataset on mount so they are ready
+  useEffect(() => {
+    prewarmGifCache();
+    MuscleWikiService.loadDataset().catch(console.error);
+  }, []);
 
   // Load exercises when query or filters change
   useEffect(() => {
@@ -116,7 +119,7 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
               Base de Datos Científica
               {isDemoActive && (
                 <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[8px] tracking-normal font-bold">
-                  50+ Ejercicios
+                  1,300+ Ejercicios
                 </span>
               )}
             </p>
@@ -129,9 +132,9 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
         <div className="bg-emerald-500/5 border border-emerald-500/15 p-4 rounded-3xl text-xs text-emerald-300/90 flex gap-3 leading-relaxed">
           <BookOpen className="text-emerald-400 flex-shrink-0 mt-0.5" size={16} />
           <div>
-            <p className="font-bold text-emerald-300">Biblioteca Local · 50+ ejercicios reales</p>
+            <p className="font-bold text-emerald-300">Biblioteca Local · 1,300+ ejercicios reales</p>
             <p className="text-[10px] mt-0.5 opacity-80">
-              Base de datos integrada con instrucciones detalladas, videos de MuscleWiki CDN y cobertura completa de todos los grupos musculares. Actualiza a plan TESTING+ en musclewiki.com para activar búsquedas en tiempo real.
+              Base de datos integrada con instrucciones detalladas paso a paso en español, imágenes y animaciones locales completas de todos los grupos musculares y equipamientos.
             </p>
           </div>
         </div>
@@ -367,6 +370,7 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
               <ExerciseMedia
                 exerciseName={selectedExercise.name}
                 primaryMuscle={selectedExercise.primary_muscles[0]}
+                localGifUrl={selectedExercise.videos[0]?.url}
               />
 
               {/* Specs Grid */}
@@ -385,7 +389,9 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
                 </div>
                 <div>
                   <span className="text-slate-500 uppercase tracking-wider font-bold text-[9px]">Origen Datos</span>
-                  <p className="font-bold text-brand-blue mt-0.5 font-mono">MuscleWiki API</p>
+                  <p className="font-bold text-brand-blue mt-0.5 font-mono">
+                    {String(selectedExercise.id).startsWith('mw-') ? 'Dataset Local' : 'MuscleWiki API'}
+                  </p>
                 </div>
               </div>
 

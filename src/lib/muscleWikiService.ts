@@ -65,6 +65,36 @@ export const TRANSLATE_CATEGORY: Record<string, string> = {
   'Bodyweight': 'Peso Corporal',
   'Machine': 'Máquinas',
   'Stretch': 'Estiramientos',
+  
+  // Mapeos adicionales para el dataset multilingüe
+  'assisted': 'Asistido',
+  'band': 'Bandas Elásticas',
+  'barbell': 'Barra',
+  'bosu ball': 'Bosu',
+  'cable': 'Polea',
+  'dumbbell': 'Mancuernas',
+  'elliptical machine': 'Elíptica',
+  'ez barbell': 'Barra EZ',
+  'hammer': 'Martillo',
+  'kettlebell': 'Pesa Rusa (Kettlebell)',
+  'leverage machine': 'Máquina de Palanca',
+  'medicine ball': 'Balón Medicinal',
+  'olympic barbell': 'Barra Olímpica',
+  'resistance band': 'Banda de Resistencia',
+  'roller': 'Rodillo de Espuma',
+  'rope': 'Cuerda',
+  'skierg machine': 'Máquina SkiErg',
+  'sled machine': 'Trineo (Sled)',
+  'smith machine': 'Multipower / Smith',
+  'stability ball': 'Balón de Estabilidad',
+  'stationary bike': 'Bicicleta Estática',
+  'stepmill machine': 'Subir Escaleras',
+  'tire': 'Neumático',
+  'trap bar': 'Barra Hexagonal / Trap',
+  'upper body ergometer': 'Ergómetro de Brazos',
+  'weighted': 'Con Lastre / Peso',
+  'wheel roller': 'Rueda Abdominal',
+  'body weight': 'Peso Corporal',
 };
 
 // Helper to build MuscleWiki CDN video URLs
@@ -1107,8 +1137,118 @@ export const LOCAL_EXERCISES: MuscleWikiExercise[] = [
   },
 ];
 
+// Helper function to capitalize words
+function capitalize(s: string): string {
+  if (!s) return '';
+  return s.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+// Maps target muscle & body part to MuscleWiki key names
+function mapTargetToMuscleWiki(target: string, bodyPart: string): string {
+  const t = target.toLowerCase();
+  const bp = bodyPart.toLowerCase();
+
+  if (t.includes('biceps')) return 'Biceps';
+  if (t.includes('triceps')) return 'Triceps';
+  if (t.includes('forearm') || t.includes('brachioradialis') || t.includes('wrist')) return 'Forearms';
+  if (t.includes('delt') || t.includes('shoulder')) return 'Shoulders';
+  if (t.includes('pectoral') || t.includes('chest')) return 'Chest';
+  if (t.includes('lat')) return 'Lats';
+  if (t.includes('trapezius') || t.includes('trap')) return 'Traps';
+  if (t.includes('glute')) return 'Glutes';
+  if (t.includes('quad') || t.includes('rectus femoris') || t.includes('vastus')) return 'Quadriceps';
+  if (t.includes('hamstring')) return 'Hamstrings';
+  if (t.includes('calf') || t.includes('gastrocnemius') || t.includes('soleus')) return 'Calves';
+  if (t.includes('abs') || t.includes('rectus abdominis')) return 'Abs';
+  if (t.includes('oblique')) return 'Obliques';
+  if (t.includes('cardio') || bp === 'cardio') return 'Cardio';
+  if (t.includes('spine') || t.includes('erector spinae')) return 'Lower Back';
+  if (t.includes('upper back')) return 'Middle Back';
+
+  // Fallback based on body part
+  if (bp === 'back') return 'Lats';
+  if (bp === 'chest') return 'Chest';
+  if (bp === 'shoulders') return 'Shoulders';
+  if (bp === 'lower arms') return 'Forearms';
+  if (bp === 'lower legs') return 'Calves';
+  if (bp === 'neck') return 'Neck';
+  if (bp === 'waist') return 'Abs';
+  if (bp === 'upper legs') {
+    if (t.includes('adductor') || t.includes('abductor')) return 'Glutes';
+    return 'Quadriceps';
+  }
+  if (bp === 'upper arms') return 'Biceps';
+
+  return capitalize(target);
+}
+
+// Maps equipment strings to MuscleWiki category keys
+function mapEquipmentToMuscleWiki(equipment: string): string {
+  const eq = equipment.toLowerCase();
+  if (eq.includes('barbell')) {
+    if (eq.includes('ez')) return 'ez barbell';
+    return 'Barbell';
+  }
+  if (eq.includes('dumbbell')) return 'Dumbbell';
+  if (eq.includes('kettlebell')) return 'Kettlebells';
+  if (eq.includes('cable')) return 'Cables';
+  if (eq.includes('band')) return 'Band';
+  if (eq.includes('plate')) return 'Plate';
+  if (eq.includes('body weight') || eq.includes('bodyweight')) return 'Bodyweight';
+  if (eq.includes('machine') || eq.includes('roller') || eq.includes('sled')) return 'Machine';
+  if (eq.includes('stretch')) return 'Stretch';
+  
+  return equipment; // Keep original if not matched directly
+}
+
 // ─── SERVICE CLASS ─────────────────────────────────────────────────────────
 export class MuscleWikiService {
+  private static _datasetCache: MuscleWikiExercise[] | null = null;
+
+  static async loadDataset(): Promise<MuscleWikiExercise[]> {
+    if (this._datasetCache && this._datasetCache.length > 0) return this._datasetCache;
+    try {
+      const res = await fetch('/data/exercises.json');
+      if (!res.ok) throw new Error('Failed to fetch exercises.json');
+      const data = await res.json();
+      
+      this._datasetCache = data.map((item: any) => {
+        const primaryMuscle = mapTargetToMuscleWiki(item.target, item.body_part);
+        const category = mapEquipmentToMuscleWiki(item.equipment);
+        
+        // Use Spanish instructions if available, fallback to English
+        const steps = item.instruction_steps && item.instruction_steps.es && item.instruction_steps.es.length > 0
+          ? item.instruction_steps.es
+          : (item.instruction_steps && item.instruction_steps.en ? item.instruction_steps.en : []);
+          
+        return {
+          id: `mw-${item.id}`,
+          name: capitalize(item.name),
+          primary_muscles: [primaryMuscle],
+          secondary_muscles: item.secondary_muscles ? item.secondary_muscles.map((m: string) => capitalize(m)) : [],
+          category,
+          difficulty: 'Beginner',
+          force: null,
+          grips: [],
+          mechanic: null,
+          steps,
+          videos: [
+            {
+              angle: 'front',
+              gender: 'male' as const,
+              og_image: `/${item.image}`,
+              url: `/${item.gif_url}`
+            }
+          ]
+        };
+      });
+      return this._datasetCache || [];
+    } catch (e) {
+      console.error('Error loading exercises.json, falling back to LOCAL_EXERCISES', e);
+      return [];
+    }
+  }
+
   static getApiKey(): string {
     const key = localStorage.getItem(STORAGE_KEY_API_KEY);
     return key !== null ? key : DEFAULT_API_KEY;
@@ -1223,6 +1363,9 @@ export class MuscleWikiService {
     query: string,
     filters: { muscle?: string; category?: string; difficulty?: string } = {}
   ): Promise<MuscleWikiExercise[]> {
+    // Ensure dataset is loaded
+    await this.loadDataset();
+
     // Offline mode: always use local data immediately
     if (this.isOfflineModeActive()) {
       return this._searchLocal(query, filters);
@@ -1281,10 +1424,14 @@ export class MuscleWikiService {
 
   /** Get single exercise details */
   static async getExerciseDetails(id: string | number): Promise<MuscleWikiExercise | null> {
-    const numericId = typeof id === 'string' ? parseInt(id.replace('mw-', '')) : id;
-    const localEx = LOCAL_EXERCISES.find(e => e.id === numericId);
+    await this.loadDataset();
+    const cleanId = String(id).replace('mw-', '');
+    const numericId = parseInt(cleanId);
+    
+    const pool = this._datasetCache && this._datasetCache.length > 0 ? this._datasetCache : LOCAL_EXERCISES;
+    const localEx = pool.find(e => String(e.id) === String(id) || String(e.id) === `mw-${cleanId}` || e.id === numericId);
 
-    if (this.isOfflineModeActive() || numericId >= 1000) {
+    if (this.isOfflineModeActive() || String(id).startsWith('mw-') || numericId >= 1000) {
       return localEx || null;
     }
 
@@ -1319,14 +1466,15 @@ export class MuscleWikiService {
   static getCachedExerciseInfo(id: string | number): { name: string; muscleGroup: string } {
     const cleanId = String(id).replace('mw-', '');
     const numericId = parseInt(cleanId);
-    const ex = LOCAL_EXERCISES.find(e => String(e.id) === cleanId || e.id === numericId);
+    const pool = this._datasetCache && this._datasetCache.length > 0 ? this._datasetCache : LOCAL_EXERCISES;
+    const ex = pool.find(e => String(e.id) === String(id) || String(e.id) === `mw-${cleanId}` || e.id === numericId);
     if (ex) {
       return {
         name: ex.name,
         muscleGroup: TRANSLATE_MUSCLE[ex.primary_muscles[0]] || ex.primary_muscles[0],
       };
     }
-    return { name: `Ejercicio MuscleWiki #${cleanId}`, muscleGroup: 'MuscleWiki' };
+    return { name: `Ejercicio #${cleanId}`, muscleGroup: 'MuscleWiki' };
   }
 
   /** Local filtering with full-text support */
@@ -1335,8 +1483,11 @@ export class MuscleWikiService {
     filters: { muscle?: string; category?: string; difficulty?: string }
   ): MuscleWikiExercise[] {
     const q = query.toLowerCase().trim();
-    return LOCAL_EXERCISES.filter(ex => {
-      if (ex.category === 'Stretch' && !filters.category) return false; // Hide stretches by default
+    const pool = this._datasetCache && this._datasetCache.length > 0 ? this._datasetCache : LOCAL_EXERCISES;
+
+    return pool.filter(ex => {
+      // Hide stretches by default unless category filter is active
+      if (ex.category === 'Stretch' && !filters.category) return false;
 
       const matchesQuery =
         !q ||
@@ -1349,7 +1500,7 @@ export class MuscleWikiService {
         ex.primary_muscles.includes(filters.muscle) ||
         (ex.secondary_muscles || []).includes(filters.muscle);
 
-      const matchesCategory = !filters.category || ex.category === filters.category;
+      const matchesCategory = !filters.category || ex.category.toLowerCase() === filters.category.toLowerCase();
       const matchesDifficulty = !filters.difficulty || ex.difficulty === filters.difficulty;
 
       return matchesQuery && matchesMuscle && matchesCategory && matchesDifficulty;
