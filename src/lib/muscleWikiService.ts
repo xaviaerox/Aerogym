@@ -1208,7 +1208,8 @@ export class MuscleWikiService {
   static async loadDataset(): Promise<MuscleWikiExercise[]> {
     if (this._datasetCache && this._datasetCache.length > 0) return this._datasetCache;
     try {
-      const res = await fetch('/data/exercises.json');
+      const baseUrl = import.meta.env.BASE_URL || '/';
+      const res = await fetch(`${baseUrl}data/exercises.json`);
       if (!res.ok) throw new Error('Failed to fetch exercises.json');
       const data = await res.json();
       
@@ -1236,8 +1237,8 @@ export class MuscleWikiService {
             {
               angle: 'front',
               gender: 'male' as const,
-              og_image: `/${item.image}`,
-              url: `/${item.gif_url}`
+              og_image: `${baseUrl}${item.image}`,
+              url: `${baseUrl}${item.gif_url}`
             }
           ]
         };
