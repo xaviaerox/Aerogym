@@ -5,6 +5,7 @@ import { Session, WorkoutExercise } from '../types';
  * Formula: weight / (1.0278 - (0.0278 * reps)) or weight * (1 + reps / 30)
  */
 export const calculateE1RM = (weight: number, reps: number): number => {
+  if (!weight || !reps || weight <= 0 || reps <= 0) return 0;
   if (reps === 1) return weight;
   return weight * (1 + reps / 30);
 };

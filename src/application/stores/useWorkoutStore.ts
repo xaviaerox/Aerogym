@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../../infrastructure/supabase/client';
+import { supabaseWorkoutRepository } from '../../infrastructure/repositories/SupabaseWorkoutRepository';
 import type { WorkoutSession, WorkoutSet, Routine, RoutineExercise } from '../../infrastructure/supabase/types';
 import { BASE_EXERCISES } from '../../constants/exercises';
 
@@ -64,27 +65,22 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
   fetchSessions: async (userId) => {
     set({ isLoading: true });
-    const { data, error } = await supabase
-      .from('workout_sessions')
-      .select('*')
-      .eq('user_id', userId)
-      .order('started_at', { ascending: false })
-      .limit(100);
-
-    if (!error && data) set({ sessions: data });
-    set({ isLoading: false });
+    try {
+      const data = await supabaseWorkoutRepository.fetchSessions(userId);
+      set({ sessions: data });
+    } catch (e) {
+      console.error('Error fetching sessions:', e);
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   fetchWorkoutHistory: async (userId) => {
-    const { data, error } = await supabase
-      .from('workout_sets')
-      .select('*, workout_sessions!inner(user_id)')
-      .eq('workout_sessions.user_id', userId);
-
-    if (!error && data) {
-      // Map out the joined session data to fit the WorkoutSet type
-      const sets = data.map(({ workout_sessions, ...set }) => set) as WorkoutSet[];
+    try {
+      const sets = await supabaseWorkoutRepository.fetchWorkoutHistory(userId);
       set({ workoutSetsHistory: sets });
+    } catch (e) {
+      console.error('Error fetching workout history:', e);
     }
   },
 

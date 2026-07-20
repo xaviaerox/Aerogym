@@ -29,6 +29,12 @@ jobs:
       - name: Verify Vite
         run: ./node_modules/.bin/vite --version
         
+      - name: Type Check (TypeScript)
+        run: npm run lint
+
+      - name: Run Unit Tests
+        run: npm run test
+
       - name: Build
         run: npm run build
         env:

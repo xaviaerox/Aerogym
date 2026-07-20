@@ -13,16 +13,25 @@ import { useAuthStore } from './application/stores/useAuthStore';
 import { useWorkoutStore } from './application/stores/useWorkoutStore';
 import { useHealthStore } from './application/stores/useHealthStore';
 
-// Views
-import AuthView from './views/AuthView';
-import Dashboard from './views/Dashboard';
-import RoutinesList from './views/RoutinesList';
-import TrainingSession from './views/TrainingSession';
-import Analytics from './views/Analytics';
-import ProfileSettings from './views/ProfileSettings';
-import OnboardingView from './views/OnboardingView';
-import CoachView from './views/CoachView';
+// Views (Lazy Loaded for performance & code splitting)
+const AuthView = React.lazy(() => import('./views/AuthView'));
+const Dashboard = React.lazy(() => import('./views/Dashboard'));
+const RoutinesList = React.lazy(() => import('./views/RoutinesList'));
+const TrainingSession = React.lazy(() => import('./views/TrainingSession'));
+const Analytics = React.lazy(() => import('./views/Analytics'));
+const ProfileSettings = React.lazy(() => import('./views/ProfileSettings'));
+const OnboardingView = React.lazy(() => import('./views/OnboardingView'));
+const CoachView = React.lazy(() => import('./views/CoachView'));
 import PWAReloadPrompt from './components/PWAReloadPrompt';
+
+function ViewLoader() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
+      <Loader2 size={28} className="text-brand-blue animate-spin" />
+      <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Cargando módulo...</span>
+    </div>
+  );
+}
 
 type Tab = 'home' | 'workouts' | 'coach' | 'analytics' | 'profile';
 
@@ -91,14 +100,20 @@ export default function App() {
 
     // ── Auth guard ───────────────────────────────────────────────
     if (!isAuthenticated) {
-      return <AuthView />;
+      return (
+        <React.Suspense fallback={<ViewLoader />}>
+          <AuthView />
+        </React.Suspense>
+      );
     }
 
     // ── Onboarding ───────────────────────────────────────────────
     if (profile && !profile.onboarding_complete) {
       return (
         <div className="min-h-screen max-w-md mx-auto px-4 pt-6 pb-10">
-          <OnboardingView profile={profile} />
+          <React.Suspense fallback={<ViewLoader />}>
+            <OnboardingView profile={profile} />
+          </React.Suspense>
         </div>
       );
     }
@@ -107,7 +122,9 @@ export default function App() {
     if (activeSession) {
       return (
         <div className="min-h-screen max-w-md mx-auto px-4 pt-6 pb-10">
-          <TrainingSession />
+          <React.Suspense fallback={<ViewLoader />}>
+            <TrainingSession />
+          </React.Suspense>
         </div>
       );
     }
@@ -124,7 +141,9 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
-              {renderContent()}
+              <React.Suspense fallback={<ViewLoader />}>
+                {renderContent()}
+              </React.Suspense>
             </motion.div>
           </AnimatePresence>
         </main>

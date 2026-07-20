@@ -27,13 +27,8 @@ export interface MuscleWikiExercise {
   bodymap_female?: string | null;
 }
 
-// Default key provided by the user
-const DEFAULT_API_KEY = 'mw_rJ7RFufexI5drONWeYvc3ANy3HwnfgL8Sw8KpUHtdNk';
-const STORAGE_KEY_API_KEY = 'aerogym_musclewiki_api_key';
+// Offline Local Exercises Storage Keys
 const STORAGE_KEY_OFFLINE_MODE = 'aerogym_musclewiki_offline_mode';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://ualgaluxhznwavksguuu.supabase.co';
-const SUPABASE_PROXY_URL = `${SUPABASE_URL}/functions/v1/musclewiki-proxy`;
 
 // Translations English -> Spanish for UI consistency
 export const TRANSLATE_MUSCLE: Record<string, string> = {
@@ -1290,34 +1285,17 @@ export class MuscleWikiService {
     }
   }
 
-  static getApiKey(): string {
-    const key = localStorage.getItem(STORAGE_KEY_API_KEY);
-    return key !== null ? key : DEFAULT_API_KEY;
-  }
-
-  static setApiKey(key: string): void {
-    if (key.trim()) {
-      localStorage.setItem(STORAGE_KEY_API_KEY, key.trim());
-    } else {
-      localStorage.removeItem(STORAGE_KEY_API_KEY);
-    }
-  }
-
-  /** Returns true when we should use the local exercise database */
   static isOfflineModeActive(): boolean {
-    const mode = localStorage.getItem(STORAGE_KEY_OFFLINE_MODE);
-    if (mode === 'false') return false; // Explicitly disabled by user
-    if (mode === 'true') return true;   // Explicitly enabled
-    return true; // Default: use local data (safe)
+    return true; // 100% local database
   }
 
   /** @deprecated Use isOfflineModeActive() */
   static isMockModeActive(): boolean {
-    return this.isOfflineModeActive();
+    return true;
   }
 
-  static setOfflineMode(active: boolean): void {
-    localStorage.setItem(STORAGE_KEY_OFFLINE_MODE, String(active));
+  static setOfflineMode(_active: boolean): void {
+    // Mode is locked to offline local database
   }
 
   /** @deprecated Use setOfflineMode() */
@@ -1325,145 +1303,16 @@ export class MuscleWikiService {
     this.setOfflineMode(active);
   }
 
-  /** Try the Supabase Edge Function proxy first, then direct, then offline */
-  static async verifyConnection(key: string): Promise<{
-    success: boolean;
-    message: string;
-    tier: 'BASIC' | 'TESTING+' | 'INVALID' | 'OFFLINE';
-  }> {
-    // 1. Try Supabase proxy
-    if (SUPABASE_PROXY_URL) {
-      try {
-        const proxyRes = await fetch(`${SUPABASE_PROXY_URL}?path=/muscles`, {
-          method: 'GET',
-          headers: {
-            'x-musclewiki-key': key.trim(),
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || ''}`,
-          },
-        });
-
-        if (proxyRes.ok) {
-          this.setOfflineMode(false);
-          return {
-            success: true,
-            tier: 'TESTING+',
-            message: '✅ Conexión API exitosa vía proxy seguro. Datos reales activados.',
-          };
-        }
-
-        if (proxyRes.status === 403) {
-          return {
-            success: true,
-            tier: 'BASIC',
-            message: '⚠️ Clave BASIC detectada. El plan gratuito no permite acceso API. Base de datos local (50+ ejercicios) activada.',
-          };
-        }
-      } catch {
-        // Proxy not deployed or offline – continue to local mode
-      }
-    }
-
-    // 2. Try direct API call (will fail CORS from browser, but try anyway)
-    try {
-      const response = await fetch('https://api.musclewiki.com/muscles', {
-        method: 'GET',
-        headers: { 'X-API-Key': key.trim(), Accept: 'application/json' },
-      });
-
-      if (response.ok) {
-        this.setOfflineMode(false);
-        return {
-          success: true,
-          tier: 'TESTING+',
-          message: '✅ Conexión directa exitosa. Datos reales de MuscleWiki activados.',
-        };
-      }
-
-      if (response.status === 403) {
-        return {
-          success: true,
-          tier: 'BASIC',
-          message: '⚠️ Plan gratuito (BASIC). Base de datos local de 50+ ejercicios activada.',
-        };
-      }
-
-      return { success: false, tier: 'INVALID', message: `Error ${response.status}: Clave no válida.` };
-    } catch {
-      // CORS block or network error → use local database
-      return {
-        success: true,
-        tier: 'BASIC',
-        message: '📚 Modo sin conexión. Base de datos local con 50+ ejercicios reales disponible.',
-      };
-    }
-  }
-
-  /** Search exercises – tries proxy, then direct, then local */
+  /** Fast local search from memory dataset */
   static async searchExercises(
     query: string,
     filters: { muscle?: string; category?: string; difficulty?: string } = {}
   ): Promise<MuscleWikiExercise[]> {
-    // Ensure dataset is loaded
     await this.loadDataset();
-
-    // Offline mode: always use local data immediately
-    if (this.isOfflineModeActive()) {
-      return this._searchLocal(query, filters);
-    }
-
-    // Try proxy
-    if (SUPABASE_PROXY_URL) {
-      try {
-        const params = new URLSearchParams({ path: '/search' });
-        if (query) params.set('q', query);
-        if (filters.category) params.set('category', filters.category);
-        if (filters.difficulty) params.set('difficulty', filters.difficulty);
-        if (filters.muscle) params.set('muscles', filters.muscle);
-
-        const res = await fetch(`${SUPABASE_PROXY_URL}?${params}`, {
-          headers: {
-            'x-musclewiki-key': this.getApiKey(),
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || ''}`,
-          },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          return data as MuscleWikiExercise[];
-        }
-
-        if (res.status === 403) {
-          this.setOfflineMode(true);
-        }
-      } catch {
-        // Proxy failed, fall through to direct
-      }
-    }
-
-    // Try direct API
-    try {
-      const params = new URLSearchParams();
-      if (query) params.append('q', query);
-      if (filters.category) params.append('category', filters.category);
-      if (filters.difficulty) params.append('difficulty', filters.difficulty);
-      if (filters.muscle) params.append('muscles', filters.muscle);
-
-      const res = await fetch(`https://api.musclewiki.com/search?${params}`, {
-        headers: { 'X-API-Key': this.getApiKey(), Accept: 'application/json' },
-      });
-
-      if (res.ok) return (await res.json()) as MuscleWikiExercise[];
-      if (res.status === 403) this.setOfflineMode(true);
-    } catch {
-      // Network/CORS blocked
-    }
-
     return this._searchLocal(query, filters);
   }
 
-  /** Get single exercise details */
+  /** Get single exercise details from local dataset */
   static async getExerciseDetails(id: string | number): Promise<MuscleWikiExercise | null> {
     await this.loadDataset();
     const cleanId = String(id).replace('mw-', '');
@@ -1471,35 +1320,6 @@ export class MuscleWikiService {
     
     const pool = this._datasetCache && this._datasetCache.length > 0 ? this._datasetCache : LOCAL_EXERCISES;
     const localEx = pool.find(e => String(e.id) === String(id) || String(e.id) === `mw-${cleanId}` || e.id === numericId);
-
-    if (this.isOfflineModeActive() || String(id).startsWith('mw-') || numericId >= 1000) {
-      return localEx || null;
-    }
-
-    // Try proxy
-    if (SUPABASE_PROXY_URL) {
-      try {
-        const res = await fetch(`${SUPABASE_PROXY_URL}?path=/exercises/${numericId}&detail=true`, {
-          headers: {
-            'x-musclewiki-key': this.getApiKey(),
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || ''}`,
-          },
-        });
-        if (res.ok) return (await res.json()) as MuscleWikiExercise;
-        if (res.status === 403) this.setOfflineMode(true);
-      } catch { /* continue */ }
-    }
-
-    // Try direct
-    try {
-      const res = await fetch(`https://api.musclewiki.com/exercises/${numericId}?detail=true`, {
-        headers: { 'X-API-Key': this.getApiKey(), Accept: 'application/json' },
-      });
-      if (res.ok) return (await res.json()) as MuscleWikiExercise;
-      if (res.status === 403) this.setOfflineMode(true);
-    } catch { /* continue */ }
-
     return localEx || null;
   }
 
@@ -1515,7 +1335,7 @@ export class MuscleWikiService {
         muscleGroup: TRANSLATE_MUSCLE[ex.primary_muscles[0]] || ex.primary_muscles[0],
       };
     }
-    return { name: `Ejercicio #${cleanId}`, muscleGroup: 'MuscleWiki' };
+    return { name: `Ejercicio #${cleanId}`, muscleGroup: 'Local' };
   }
 
   /** Local filtering with full-text support */

@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Scale, Target, Trophy, Download, RotateCcw, Calendar, Utensils, Activity, LogOut, ChefHat, Loader2, Key, HelpCircle, Dumbbell, Shield, Zap, Award } from 'lucide-react';
+import { User, Scale, Target, Trophy, Download, RotateCcw, Calendar, Utensils, Activity, LogOut, ChefHat, Loader2, Key, HelpCircle, Dumbbell, Shield, Zap, Award, BookOpen } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useAuthStore } from '../application/stores/useAuthStore';
 import { useWorkoutStore } from '../application/stores/useWorkoutStore';
@@ -68,38 +68,12 @@ export default function ProfileSettings() {
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [mealIdea, setMealIdea] = React.useState<string | null>(null);
 
-  // MuscleWiki API State
-  const [mwKey, setMwKey] = React.useState(() => MuscleWikiService.getApiKey());
-  const [isTestingMw, setIsTestingMw] = React.useState(false);
-  const [mwTestResult, setMwTestResult] = React.useState<{ success: boolean; message: string; tier: 'BASIC' | 'TESTING+' | 'INVALID' } | null>(null);
-  const [mwMockMode, setMwMockMode] = React.useState(() => MuscleWikiService.isMockModeActive());
-
-  const handleTestMw = async () => {
-    setIsTestingMw(true);
-    setMwTestResult(null);
-    const res = await MuscleWikiService.verifyConnection(mwKey);
-    setMwTestResult(res);
-    if (res.tier === 'BASIC') {
-      MuscleWikiService.setMockMode(true);
-      setMwMockMode(true);
-    } else if (res.tier === 'TESTING+') {
-      MuscleWikiService.setMockMode(false);
-      setMwMockMode(false);
-    }
-    setIsTestingMw(false);
-  };
-
-  const handleSaveMwKey = (val: string) => {
-    MuscleWikiService.setApiKey(val);
-    setMwKey(val);
-    setMwTestResult(null);
-  };
-
-  const handleToggleMock = () => {
-    const nextVal = !mwMockMode;
-    MuscleWikiService.setMockMode(nextVal);
-    setMwMockMode(nextVal);
-  };
+  // Local Exercise Database Info State
+  const [offlineDbStatus] = React.useState({
+    active: true,
+    totalExercises: '1,300+',
+    mode: 'Base de datos local 100% offline'
+  });
 
   React.useEffect(() => {
     if (user?.id) {
@@ -425,92 +399,22 @@ export default function ProfileSettings() {
       {/* MuscleWiki API Integration */}
       <section className="space-y-4">
         <h3 className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
-          <Key size={14} className="text-brand-blue" /> Integración de MuscleWiki
+          <BookOpen size={14} className="text-brand-blue" /> Base de Datos de Ejercicios
         </h3>
         <div className="glass p-6 rounded-3xl space-y-4 border border-white/5">
-          <div className="space-y-2">
-            <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest block">
-              Clave de API de MuscleWiki
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={mwKey}
-                onChange={(e) => setMwKey(e.target.value)}
-                placeholder="mw_xxxxxxxxxxxxxxxxxxxxxxxx..."
-                className="flex-1 bg-slate-800/80 border border-white/10 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-600 font-mono text-slate-200"
-              />
-              <button
-                onClick={() => handleSaveMwKey(mwKey)}
-                className="px-3 bg-brand-blue text-slate-950 rounded-xl font-bold text-xs hover:bg-brand-blue/80 transition-all"
-              >
-                Guardar
-              </button>
+          <div className="flex justify-between items-center bg-white/[0.02] p-4 rounded-2xl border border-white/5">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                Modo 100% Offline Privado
+                <span className="bg-brand-green/20 text-brand-green text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
+                  Activo
+                </span>
+              </span>
+              <span className="text-[10px] text-slate-400">
+                {offlineDbStatus.totalExercises} ejercicios integrados localmente sin APIs externas ni cuotas.
+              </span>
             </div>
           </div>
-
-          <div className="flex flex-col gap-2 pt-1">
-            <div className="flex justify-between items-center bg-white/[0.02] p-3 rounded-2xl border border-white/5">
-              <div className="flex flex-col">
-                <span className="text-xs font-bold text-slate-200 flex items-center gap-1">
-                  Modo Simulación / Demo
-                  <span className="text-[10px] text-slate-500 hover:text-brand-blue cursor-pointer" title="Recomendado si usas un plan BASIC para evitar bloqueos CORS o de red en navegador.">
-                    <HelpCircle size={12} />
-                  </span>
-                </span>
-                <span className="text-[9px] text-slate-505">
-                  {mwMockMode ? 'Usando base de datos local detallada' : 'Realizando llamadas directas a MuscleWiki'}
-                </span>
-              </div>
-              <button
-                onClick={handleToggleMock}
-                className={cn(
-                  "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border",
-                  mwMockMode
-                    ? "bg-brand-green/10 border-brand-green/20 text-brand-green"
-                    : "bg-white/5 border-white/10 text-slate-400"
-                )}
-              >
-                {mwMockMode ? 'Activo' : 'Inactivo'}
-              </button>
-            </div>
-
-            <button
-              onClick={handleTestMw}
-              disabled={isTestingMw || !mwKey.trim()}
-              className="w-full py-3 bg-slate-800/60 hover:bg-slate-800 text-slate-200 rounded-xl text-xs font-bold border border-white/5 transition-all flex items-center justify-center gap-2"
-            >
-              {isTestingMw ? (
-                <>
-                  <Loader2 className="animate-spin" size={14} />
-                  Verificando...
-                </>
-              ) : (
-                'Probar Conexión con la API'
-              )}
-            </button>
-          </div>
-
-          {mwTestResult && (
-            <div className={cn(
-              "p-3 rounded-2xl text-xs border leading-relaxed",
-              mwTestResult.success
-                ? mwTestResult.tier === 'BASIC'
-                  ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
-                  : "bg-brand-green/10 border-brand-green/20 text-brand-green"
-                : "bg-red-500/10 border-red-500/20 text-red-400"
-            )}>
-              <p className="font-bold flex items-center gap-1">
-                {mwTestResult.success ? '✓ Conectado' : '⚠️ Error'}
-                {mwTestResult.success && (
-                  <span className="text-[9px] uppercase font-black bg-white/10 px-1 rounded">
-                    Plan {mwTestResult.tier}
-                  </span>
-                )}
-              </p>
-              <p className="text-[11px] mt-0.5 opacity-90">{mwTestResult.message}</p>
-            </div>
-          )}
         </div>
       </section>
 

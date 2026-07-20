@@ -9,6 +9,7 @@ import { useWorkoutStore, type ActiveSet } from '../application/stores/useWorkou
 import { useGamificationStore } from '../application/stores/useGamificationStore';
 import { MuscleWikiService, TRANSLATE_MUSCLE, TRANSLATE_CATEGORY } from '../lib/muscleWikiService';
 import ExerciseMedia from '../components/ExerciseMedia';
+import { vibrateSuccess, vibrateTimerAlert } from '../lib/haptics';
 
 const playBeep = (freq: number, duration: number) => {
   try {
@@ -108,7 +109,9 @@ export default function TrainingSession() {
     const willComplete = !set.is_completed;
     if (willComplete) {
       setTimerStart(Date.now());
+      vibrateSuccess();
       if (set.reps && set.weight_kg && isPR(exerciseId, set.weight_kg, set.reps)) {
+        vibrateTimerAlert();
         playBeep(880, 0.1);
         setTimeout(() => playBeep(1108.73, 0.1), 100);
         setTimeout(() => playBeep(1318.51, 0.2), 200);
@@ -414,14 +417,15 @@ export default function TrainingSession() {
                     {/* Complete toggle */}
                     <button
                       onClick={() => handleToggleSet(ex.exercise_id, sIdx, set)}
+                      aria-label="Completar serie"
                       className={cn(
-                        'w-10 h-10 rounded-lg flex items-center justify-center transition-all ml-auto',
+                        'w-12 h-12 min-w-[48px] min-h-[48px] rounded-xl flex items-center justify-center transition-all ml-auto active:scale-95 shadow-md',
                         set.is_completed
-                          ? 'bg-brand-blue text-slate-950'
-                          : 'bg-slate-800 text-slate-500'
+                          ? 'bg-brand-blue text-slate-950 shadow-brand-blue/20'
+                          : 'bg-slate-800 text-slate-500 hover:bg-slate-700'
                       )}
                     >
-                      <Check size={20} strokeWidth={3} />
+                      <Check size={22} strokeWidth={3} />
                     </button>
                   </div>
                 );

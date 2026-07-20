@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../../infrastructure/supabase/client';
+import { supabaseHealthRepository } from '../../infrastructure/repositories/SupabaseHealthRepository';
 import type { DailyHealth, BodyMeasurement } from '../../infrastructure/supabase/types';
 
 interface HealthState {
@@ -23,34 +24,27 @@ export const useHealthStore = create<HealthState>((set, get) => ({
 
   fetchHealth: async (userId, days = 90) => {
     set({ isLoading: true });
-    const since = new Date();
-    since.setDate(since.getDate() - days);
-
-    const { data, error } = await supabase
-      .from('daily_health')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('date', since.toISOString().split('T')[0])
-      .order('date', { ascending: false });
-
-    if (!error && data) {
+    try {
+      const data = await supabaseHealthRepository.fetchHealth(userId, days);
       const today = new Date().toISOString().split('T')[0];
       set({
         dailyHealth: data,
         todayHealth: data.find((h) => h.date === today) || null,
       });
+    } catch (e) {
+      console.error('Error fetching health data:', e);
+    } finally {
+      set({ isLoading: false });
     }
-    set({ isLoading: false });
   },
 
   fetchMeasurements: async (userId) => {
-    const { data, error } = await supabase
-      .from('body_measurements')
-      .select('*')
-      .eq('user_id', userId)
-      .order('measured_at', { ascending: false });
-
-    if (!error && data) set({ measurements: data });
+    try {
+      const data = await supabaseHealthRepository.fetchMeasurements(userId);
+      set({ measurements: data });
+    } catch (e) {
+      console.error('Error fetching measurements:', e);
+    }
   },
 
   upsertDailyHealth: async (userId, date, updates) => {

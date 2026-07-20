@@ -61,6 +61,21 @@ export interface UserContextForAI {
   lastSessionVolume?: number;
 }
 
+import { z } from 'zod';
+
+const GeneratedRoutineSchema = z.object({
+  name: z.string().default('Rutina Personalizada IA'),
+  description: z.string().default('Diseñada específicamente para tu objetivo'),
+  exercises: z.array(
+    z.object({
+      exerciseId: z.string(),
+      defaultSets: z.number().default(3),
+      defaultReps: z.string().default('8-12'),
+      defaultWeight: z.number().default(0),
+    })
+  ).min(1),
+});
+
 /**
  * Genera una rutina personalizada usando IA (via proxy seguro)
  */
@@ -108,7 +123,8 @@ Selecciona 5-7 ejercicios coherentes. Sin texto antes/después del JSON.`,
   });
 
   const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-  return JSON.parse(jsonStr);
+  const rawData = JSON.parse(jsonStr);
+  return GeneratedRoutineSchema.parse(rawData);
 }
 
 /**
