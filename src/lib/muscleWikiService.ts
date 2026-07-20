@@ -97,15 +97,34 @@ export const TRANSLATE_CATEGORY: Record<string, string> = {
   'body weight': 'Peso Corporal',
 };
 
-// Helper to build MuscleWiki CDN video URLs
-function mwVideo(category: string, slug: string, angles: string[] = ['front', 'side']): MuscleWikiVideo[] {
-  const cat = category.charAt(0).toUpperCase() + category.slice(1);
-  return angles.map(angle => ({
-    angle,
+// Helper to build local media URLs
+function mwVideo(category: string, slug: string, angles: string[] = ['front']): MuscleWikiVideo[] {
+  const baseUrl = import.meta.env.BASE_URL || '/';
+  const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+
+  // Map known exercise slugs to local asset IDs
+  const slugToId: Record<string, string> = {
+    'barbell-curl': '0001-2gPfomN',
+    'hammer-curl': '0002-Hy9D21L',
+    'burpee': '0006-qaZVsGk',
+    'bench-press': '0007-4IKbhHV',
+    'squat': '0009-PAgTVaK',
+    'push-up': '0010-8K0w2yA',
+    'pull-up': '0011-03lzqwk',
+    'deadlift': '0012-UGhRD1A',
+    'lunge': '0013-VX5YKR5',
+    'plank': '0014-r7cT9YD',
+    'crunch': '0015-vrhHa6D',
+  };
+
+  const id = slugToId[slug] || '0001-2gPfomN';
+
+  return [{
+    angle: 'front',
     gender: 'male' as const,
-    og_image: `https://images.musclewiki.com/media/images/og-male-${cat}-${slug}-${angle}.jpg`,
-    url: `https://media.musclewiki.com/media/videos/unbranded/male-${cat}-${slug}-${angle}.mp4`,
-  }));
+    og_image: `${cleanBase}images/${id}.jpg`,
+    url: `${cleanBase}videos/${id}.gif`,
+  }];
 }
 
 // ─── COMPREHENSIVE LOCAL EXERCISE DATABASE ─────────────────────────────────

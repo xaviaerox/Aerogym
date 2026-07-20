@@ -309,11 +309,18 @@ export default function RoutinesList() {
                       <p className="text-xs text-slate-500 font-semibold mt-0.5">
                         {format(new Date(session.started_at), "PPPP, HH:mm", { locale: es })}
                       </p>
-                      {session.perceived_difficulty && (
-                        <span className="inline-block mt-2 text-[9px] bg-slate-800 text-brand-blue border border-brand-blue/10 px-2 py-0.5 rounded font-black uppercase">
-                          Dificultad: {session.perceived_difficulty}/10
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        {session.duration_minutes !== null && session.duration_minutes !== undefined && (
+                          <span className="inline-flex items-center gap-1 text-[9px] bg-slate-800 text-slate-300 border border-white/10 px-2 py-0.5 rounded font-black uppercase">
+                            ⏱️ {session.duration_minutes} min
+                          </span>
+                        )}
+                        {session.perceived_difficulty && (
+                          <span className="inline-block text-[9px] bg-slate-800 text-brand-blue border border-brand-blue/10 px-2 py-0.5 rounded font-black uppercase">
+                            Dificultad: {session.perceived_difficulty}/10
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <button

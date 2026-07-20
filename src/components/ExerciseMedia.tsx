@@ -146,14 +146,14 @@ export default function ExerciseMedia({ exerciseName, primaryMuscle, className =
                 loop
                 muted
                 playsInline
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain p-2"
                 onError={handleMediaError}
               />
             ) : (
               <img
                 src={currentSource.url}
                 alt={exerciseName}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain p-2"
                 onError={handleMediaError}
               />
             )}

@@ -27,6 +27,45 @@ const playBeep = (freq: number, duration: number) => {
   }
 };
 
+const playMultipleBeeps = (count: number, freq = 600, duration = 0.12, delayBetween = 180) => {
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      playBeep(freq, duration);
+    }, i * delayBetween);
+  }
+};
+
+function ActiveSessionTimer({ startedAt }: { startedAt: string }) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const startMs = new Date(startedAt).getTime();
+    const updateTimer = () => {
+      const seconds = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+      setElapsed(seconds);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [startedAt]);
+
+  const hrs = Math.floor(elapsed / 3600);
+  const mins = Math.floor((elapsed % 3600) / 60);
+  const secs = elapsed % 60;
+
+  const formattedTime = hrs > 0
+    ? `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    : `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+  return (
+    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-blue/10 border border-brand-blue/30 text-brand-blue rounded-full font-mono text-xs font-bold shadow-lg shadow-brand-blue/5">
+      <Timer size={14} className="animate-pulse text-brand-blue" />
+      <span>{formattedTime}</span>
+    </div>
+  );
+}
+
 export default function TrainingSession() {
   const { user } = useAuthStore();
   const { activeSession, sessions, finishSession, cancelSession, addSetToActive, toggleSetComplete, updateActiveExercise, addExerciseToActive, workoutSetsHistory } = useWorkoutStore();
@@ -133,9 +172,12 @@ export default function TrainingSession() {
       <div className="flex justify-between items-start sticky top-0 bg-slate-900/80 backdrop-blur-md pt-2 pb-4 z-40">
         <div>
           <h1 className="text-2xl font-bold text-slate-50">{activeSession.name}</h1>
-          <div className="status-badge mt-1 inline-block">En Progreso</div>
+          <div className="flex items-center gap-2 mt-1.5">
+            <div className="status-badge inline-block">En Progreso</div>
+            <ActiveSessionTimer startedAt={activeSession.started_at} />
+          </div>
         </div>
-        <button onClick={cancelSession} className="p-2 glass rounded-full text-slate-400">
+        <button onClick={cancelSession} className="p-2 glass rounded-full text-slate-400 hover:text-slate-200 transition-colors">
           <X size={20} />
         </button>
       </div>
@@ -537,14 +579,39 @@ export default function TrainingSession() {
 
 function RestTimer({ startTime, onClear }: { startTime: number | null; onClear: () => void }) {
   const [elapsed, setElapsed] = useState(0);
+  const playedMilestonesRef = React.useRef<Set<number>>(new Set());
 
   useEffect(() => {
-    if (!startTime) { setElapsed(0); return; }
+    if (!startTime) {
+      setElapsed(0);
+      playedMilestonesRef.current.clear();
+      return;
+    }
+
+    playedMilestonesRef.current.clear();
+
     const interval = setInterval(() => {
       const newElapsed = Math.floor((Date.now() - startTime) / 1000);
       setElapsed(newElapsed);
-      if (newElapsed > 0 && newElapsed % 60 === 0) playBeep(523, 0.2);
+
+      // Alarmas progresivas sin interrumpir el contador:
+      // 2 minutos (120 s) -> 1 bip
+      if (newElapsed >= 120 && !playedMilestonesRef.current.has(120)) {
+        playedMilestonesRef.current.add(120);
+        playMultipleBeeps(1, 650, 0.15);
+      }
+      // 3 minutos (180 s) -> 2 bips
+      else if (newElapsed >= 180 && !playedMilestonesRef.current.has(180)) {
+        playedMilestonesRef.current.add(180);
+        playMultipleBeeps(2, 650, 0.15, 200);
+      }
+      // 5 minutos (300 s) -> 3 bips
+      else if (newElapsed >= 300 && !playedMilestonesRef.current.has(300)) {
+        playedMilestonesRef.current.add(300);
+        playMultipleBeeps(3, 650, 0.15, 200);
+      }
     }, 1000);
+
     return () => clearInterval(interval);
   }, [startTime]);
 

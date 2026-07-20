@@ -24,8 +24,38 @@ const MUSCLE_MAP: Record<string, string[]> = {
   Traps:        ['traps', 'upper back'],
 };
 
+// Spanish term to English mapping for fallback search
+const ES_TO_EN_KEYWORDS: Record<string, string> = {
+  'burpee': 'burpee',
+  'sentadilla': 'squat',
+  'sentadillas': 'squat',
+  'zancada': 'lunge',
+  'zancadas': 'lunge',
+  'flexion': 'push up',
+  'flexiones': 'push up',
+  'dominada': 'pull up',
+  'dominadas': 'pull up',
+  'peso muerto': 'deadlift',
+  'remo': 'row',
+  'pres': 'press',
+  'press': 'press',
+  'pecho': 'chest',
+  'hombro': 'shoulder',
+  'hombros': 'shoulder',
+  'espalda': 'back',
+  'biceps': 'biceps',
+  'triceps': 'triceps',
+  'gemelos': 'calves',
+  'elevacion': 'raise',
+  'elevaciones': 'raise',
+  'encogimiento': 'crunch',
+  'encogimientos': 'crunch',
+  'plancha': 'plank',
+  'curl': 'curl',
+};
+
 // Keywords to skip when doing name-based matching (stop words)
-const STOP_WORDS = new Set(['with', 'the', 'and', 'for', 'from', 'using', 'on', 'in', 'at', 'of', 'a']);
+const STOP_WORDS = new Set(['with', 'the', 'and', 'for', 'from', 'using', 'on', 'in', 'at', 'of', 'a', 'de', 'con', 'para', 'del', 'las', 'los', 'un', 'una']);
 
 interface ExerciseDBItem {
   exerciseId: string;
@@ -68,26 +98,48 @@ function scoreMatch(exerciseName: string, candidate: ExerciseDBItem): number {
   const nameLower = exerciseName.toLowerCase();
   const candidateLower = candidate.name.toLowerCase();
 
-  // Exact match → perfect score
+  // 1. Extract English name inside parens if any, e.g. "Curl de Bíceps (Barbell Curl)" -> "barbell curl"
+  const parensMatch = nameLower.match(/\(([^)]+)\)/);
+  const englishInParens = parensMatch ? parensMatch[1].trim() : '';
+
+  if (englishInParens && englishInParens === candidateLower) return 1000;
   if (nameLower === candidateLower) return 1000;
 
-  let score = 0;
+  const targetName = englishInParens || nameLower;
 
-  // Keyword overlap
-  const keywords = nameLower
+  // 2. Extract keywords
+  const rawKeywords = targetName
     .split(/[\s,()\/]+/)
-    .filter(w => w.length > 3 && !STOP_WORDS.has(w));
+    .filter(w => w.length >= 3 && !STOP_WORDS.has(w));
 
-  for (const kw of keywords) {
-    if (candidateLower.includes(kw)) score += 10;
+  const translatedKeywords: string[] = [];
+  for (const kw of rawKeywords) {
+    translatedKeywords.push(kw);
+    if (ES_TO_EN_KEYWORDS[kw]) {
+      translatedKeywords.push(ES_TO_EN_KEYWORDS[kw]);
+    }
   }
 
-  // Equipment hint from exercise name
-  if (nameLower.includes('barbell') && candidate.equipments.includes('barbell')) score += 5;
-  if (nameLower.includes('dumbbell') && candidate.equipments.includes('dumbbell')) score += 5;
-  if (nameLower.includes('cable') && candidate.equipments.includes('cable')) score += 5;
+  let matchedKeywords = 0;
+  let score = 0;
+
+  for (const kw of translatedKeywords) {
+    if (candidateLower.includes(kw)) {
+      score += 10;
+      matchedKeywords++;
+    }
+  }
+
+  // Must match at least ONE non-stopword keyword in name
+  if (matchedKeywords === 0) {
+    return 0;
+  }
+
+  // Equipment hint bonuses
+  if ((nameLower.includes('barbell') || nameLower.includes('barra')) && candidate.equipments.includes('barbell')) score += 5;
+  if ((nameLower.includes('dumbbell') || nameLower.includes('mancuerna')) && candidate.equipments.includes('dumbbell')) score += 5;
+  if ((nameLower.includes('cable') || nameLower.includes('polea')) && candidate.equipments.includes('cable')) score += 5;
   if (nameLower.includes('machine') && (candidate.equipments.includes('leverage machine') || candidate.equipments.includes('smith machine'))) score += 5;
-  if ((nameLower.includes('bodyweight') || nameLower.includes('flexion') || nameLower.includes('push up') || nameLower.includes('pull up')) && candidate.equipments.includes('body weight')) score += 5;
   if (nameLower.includes('kettlebell') && candidate.equipments.includes('kettlebell')) score += 5;
 
   return score;
@@ -96,6 +148,7 @@ function scoreMatch(exerciseName: string, candidate: ExerciseDBItem): number {
 /**
  * Finds the best matching GIF URL from ExerciseDB for a given exercise.
  * Caches results per exercise name to avoid repeated network calls.
+ * Returns null if no relevant keyword match is found (score <= 0).
  */
 export async function findGifForExercise(
   exerciseName: string,
@@ -109,7 +162,7 @@ export async function findGifForExercise(
 
   const targetMuscles = MUSCLE_MAP[primaryMuscle] || [];
 
-  // Filter candidates: must target the right muscle group
+  // Filter candidates by target muscle group if known
   let candidates = targetMuscles.length
     ? all.filter(ex =>
         ex.targetMuscles.some(m => targetMuscles.includes(m)) ||
@@ -117,11 +170,10 @@ export async function findGifForExercise(
       )
     : all;
 
-  if (!candidates.length) candidates = all; // fallback: no muscle filter
+  if (!candidates.length) candidates = all;
 
-  // Score each candidate by name similarity
   let best: ExerciseDBItem | null = null;
-  let bestScore = -1;
+  let bestScore = 0; // MUST be > 0 (require a real keyword match!)
 
   for (const ex of candidates) {
     const s = scoreMatch(exerciseName, ex);
@@ -131,7 +183,7 @@ export async function findGifForExercise(
     }
   }
 
-  const gifUrl = best?.gifUrl ?? null;
+  const gifUrl = (best && bestScore > 0) ? best.gifUrl : null;
   if (gifUrl) gifCache.set(cacheKey, gifUrl);
   return gifUrl;
 }

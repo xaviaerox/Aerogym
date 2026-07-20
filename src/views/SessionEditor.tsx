@@ -43,6 +43,7 @@ export default function SessionEditor({ session, onBack }: SessionEditorProps) {
   });
   const [notes, setNotes] = useState(session.notes || '');
   const [difficulty, setDifficulty] = useState<number | null>(session.perceived_difficulty);
+  const [durationMinutes, setDurationMinutes] = useState<number | null>(session.duration_minutes);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
@@ -201,6 +202,7 @@ export default function SessionEditor({ session, onBack }: SessionEditorProps) {
       const updates = {
         name: name.trim(),
         started_at: new Date(date).toISOString(),
+        duration_minutes: durationMinutes !== null && !isNaN(Number(durationMinutes)) ? Math.max(0, Number(durationMinutes)) : null,
         notes: notes.trim() || null,
         perceived_difficulty: difficulty,
       };
@@ -281,7 +283,7 @@ export default function SessionEditor({ session, onBack }: SessionEditorProps) {
             className="w-full bg-slate-800/80 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500 font-bold"
           />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest block mb-1">Fecha / Hora</label>
             <input
@@ -289,6 +291,20 @@ export default function SessionEditor({ session, onBack }: SessionEditorProps) {
               value={date}
               onChange={(e) => setDate(e.target.value)}
               className="w-full bg-slate-800/80 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 ring-brand-blue/30 text-slate-100"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest block mb-1">Duración (Minutos)</label>
+            <input
+              type="number"
+              min="0"
+              placeholder="0 min"
+              value={durationMinutes !== null ? durationMinutes : ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                setDurationMinutes(val === '' ? null : parseInt(val) || 0);
+              }}
+              className="w-full bg-slate-800/80 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 ring-brand-blue/30 text-slate-100 font-bold"
             />
           </div>
           <div>

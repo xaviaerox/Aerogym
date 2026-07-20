@@ -61,7 +61,7 @@ function ExerciseImage({ src, alt }: { src: string; alt: string }) {
     <img
       src={currentSrc}
       alt={alt}
-      className="w-full h-full object-cover"
+      className="w-full h-full object-contain p-1"
       onError={handleError}
     />
   );
