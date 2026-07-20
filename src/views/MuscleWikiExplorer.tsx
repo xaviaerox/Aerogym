@@ -31,7 +31,27 @@ const DIFFICULTIES = [
 ];
 
 function ExerciseImage({ src, alt }: { src: string; alt: string }) {
+  const [currentSrc, setCurrentSrc] = useState(src);
   const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setCurrentSrc(src);
+    setError(false);
+  }, [src]);
+
+  const handleError = () => {
+    const baseUrl = import.meta.env.BASE_URL || '/';
+    if (currentSrc.startsWith('/Aerogym/')) {
+      const altSrc = currentSrc.replace('/Aerogym/', '/');
+      setCurrentSrc(altSrc);
+    } else if (currentSrc.startsWith('/') && baseUrl !== '/' && !currentSrc.startsWith(baseUrl)) {
+      const baseUrlClean = baseUrl.replace(/\/$/, '');
+      const altSrc = `${baseUrlClean}${currentSrc}`;
+      setCurrentSrc(altSrc);
+    } else {
+      setError(true);
+    }
+  };
 
   if (error) {
     return <Dumbbell size={20} className="text-brand-blue" />;
@@ -39,10 +59,10 @@ function ExerciseImage({ src, alt }: { src: string; alt: string }) {
 
   return (
     <img
-      src={src}
+      src={currentSrc}
       alt={alt}
       className="w-full h-full object-cover"
-      onError={() => setError(true)}
+      onError={handleError}
     />
   );
 }

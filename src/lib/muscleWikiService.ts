@@ -1209,8 +1209,26 @@ export class MuscleWikiService {
     if (this._datasetCache && this._datasetCache.length > 0) return this._datasetCache;
     try {
       const baseUrl = import.meta.env.BASE_URL || '/';
-      const res = await fetch(`${baseUrl}data/exercises.json`);
-      if (!res.ok) throw new Error('Failed to fetch exercises.json');
+      const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+
+      let res: Response | null = null;
+      try {
+        res = await fetch(`${cleanBase}data/exercises.json`);
+      } catch (e) {}
+
+      if (!res || !res.ok) {
+        try {
+          res = await fetch('/data/exercises.json');
+        } catch (e) {}
+      }
+
+      if (!res || !res.ok) {
+        try {
+          res = await fetch('data/exercises.json');
+        } catch (e) {}
+      }
+
+      if (!res || !res.ok) throw new Error('Failed to fetch exercises.json');
       const data = await res.json();
       
       this._datasetCache = data.map((item: any) => {
@@ -1222,6 +1240,9 @@ export class MuscleWikiService {
           ? item.instruction_steps.es
           : (item.instruction_steps && item.instruction_steps.en ? item.instruction_steps.en : []);
           
+        const imagePath = item.image ? item.image.replace(/^\//, '') : '';
+        const gifPath = item.gif_url ? item.gif_url.replace(/^\//, '') : '';
+
         return {
           id: `mw-${item.id}`,
           name: capitalize(item.name),
@@ -1237,8 +1258,8 @@ export class MuscleWikiService {
             {
               angle: 'front',
               gender: 'male' as const,
-              og_image: `${baseUrl}${item.image}`,
-              url: `${baseUrl}${item.gif_url}`
+              og_image: imagePath ? `${cleanBase}${imagePath}` : '',
+              url: gifPath ? `${cleanBase}${gifPath}` : ''
             }
           ]
         };

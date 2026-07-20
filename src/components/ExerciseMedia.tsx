@@ -12,39 +12,102 @@ interface ExerciseMediaProps {
 
 type State = 'loading' | 'loaded' | 'error';
 
+interface MediaSource {
+  url: string;
+  isLocal: boolean;
+  isVideo: boolean;
+}
+
+function isVideoUrl(url: string): boolean {
+  const clean = url.toLowerCase().split('?')[0];
+  return clean.endsWith('.mp4') || clean.endsWith('.webm') || clean.endsWith('.mov') || clean.endsWith('.ogg');
+}
+
 export default function ExerciseMedia({ exerciseName, primaryMuscle, className = '', localGifUrl = null }: ExerciseMediaProps) {
-  const [gifUrl, setGifUrl] = useState<string | null>(null);
+  const [sources, setSources] = useState<MediaSource[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [state, setState] = useState<State>('loading');
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
-    
-    if (localGifUrl) {
-      setGifUrl(localGifUrl);
-      setState('loaded');
-      return;
-    }
-
     setState('loading');
-    setGifUrl(null);
+    setCurrentIndex(0);
 
-    findGifForExercise(exerciseName, primaryMuscle)
-      .then(url => {
-        if (!mountedRef.current) return;
-        if (url) {
-          setGifUrl(url);
-          setState('loaded');
-        } else {
-          setState('error');
-        }
-      })
-      .catch(() => {
-        if (mountedRef.current) setState('error');
+    const initialSources: MediaSource[] = [];
+
+    if (localGifUrl) {
+      const isVid = isVideoUrl(localGifUrl);
+      initialSources.push({
+        url: localGifUrl,
+        isLocal: true,
+        isVideo: isVid,
       });
 
-    return () => { mountedRef.current = false; };
+      // Add path variations as fallback candidates for local files
+      const baseUrl = import.meta.env.BASE_URL || '/';
+      if (localGifUrl.startsWith('/Aerogym/')) {
+        const rootUrl = localGifUrl.replace('/Aerogym/', '/');
+        initialSources.push({
+          url: rootUrl,
+          isLocal: true,
+          isVideo: isVid,
+        });
+      } else if (localGifUrl.startsWith('/') && baseUrl !== '/') {
+        const baseUrlClean = baseUrl.replace(/\/$/, '');
+        const altUrl = `${baseUrlClean}${localGifUrl}`;
+        initialSources.push({
+          url: altUrl,
+          isLocal: true,
+          isVideo: isVid,
+        });
+      }
+    }
+
+    setSources(initialSources);
+
+    // Fetch online fallback from ExerciseDB OSS
+    findGifForExercise(exerciseName, primaryMuscle)
+      .then((remoteGif) => {
+        if (!mountedRef.current) return;
+        if (remoteGif) {
+          setSources((prev) => {
+            if (prev.some((s) => s.url === remoteGif)) return prev;
+            return [...prev, { url: remoteGif, isLocal: false, isVideo: isVideoUrl(remoteGif) }];
+          });
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      mountedRef.current = false;
+    };
   }, [exerciseName, primaryMuscle, localGifUrl]);
+
+  useEffect(() => {
+    if (sources.length > 0 && currentIndex < sources.length) {
+      setState('loaded');
+    } else if (sources.length === 0) {
+      const timeout = setTimeout(() => {
+        if (mountedRef.current && sources.length === 0) {
+          setState('error');
+        }
+      }, 3000);
+      return () => clearTimeout(timeout);
+    } else {
+      setState('error');
+    }
+  }, [sources, currentIndex]);
+
+  const handleMediaError = () => {
+    if (currentIndex + 1 < sources.length) {
+      setCurrentIndex((prev) => prev + 1);
+    } else {
+      setState('error');
+    }
+  };
+
+  const currentSource = sources[currentIndex];
 
   return (
     <div className={`relative aspect-video rounded-3xl overflow-hidden border border-white/5 bg-slate-950 ${className}`}>
@@ -57,8 +120,8 @@ export default function ExerciseMedia({ exerciseName, primaryMuscle, className =
             exit={{ opacity: 0 }}
             className="absolute inset-0 flex flex-col items-center justify-center gap-3"
           >
-            {/* Skeleton shimmer */}
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-800/60 to-slate-900 animate-[shimmer_1.5s_infinite]"
+            <div
+              className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-800/60 to-slate-900 animate-[shimmer_1.5s_infinite]"
               style={{ backgroundSize: '200% 100%' }}
             />
             <div className="relative z-10 flex flex-col items-center gap-2">
@@ -68,23 +131,35 @@ export default function ExerciseMedia({ exerciseName, primaryMuscle, className =
           </motion.div>
         )}
 
-        {state === 'loaded' && gifUrl && (
+        {state === 'loaded' && currentSource && (
           <motion.div
-            key="gif"
+            key={`${currentSource.url}-${currentIndex}`}
             initial={{ opacity: 0, scale: 1.04 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, ease: 'easeOut' }}
             className="absolute inset-0"
           >
-            <img
-              src={gifUrl}
-              alt={exerciseName}
-              className="w-full h-full object-cover"
-              onError={() => setState('error')}
-            />
+            {currentSource.isVideo ? (
+              <video
+                src={currentSource.url}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full h-full object-cover"
+                onError={handleMediaError}
+              />
+            ) : (
+              <img
+                src={currentSource.url}
+                alt={exerciseName}
+                className="w-full h-full object-cover"
+                onError={handleMediaError}
+              />
+            )}
             {/* Source badge */}
             <div className="absolute bottom-2 right-3 bg-slate-900/70 backdrop-blur-sm border border-white/10 rounded-full px-2 py-0.5 text-[9px] text-slate-400 font-bold tracking-widest uppercase">
-              {localGifUrl ? 'Base de Datos Local' : 'ExerciseDB'}
+              {currentSource.isLocal ? 'Base de Datos Local' : 'ExerciseDB'}
             </div>
           </motion.div>
         )}
