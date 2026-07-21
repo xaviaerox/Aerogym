@@ -45,3 +45,28 @@ export function parseExportedRoutineJSON(jsonString: string): Omit<ExportedRouti
     throw new Error(`Error al leer archivo de rutina: ${e?.message || 'JSON inválido'}`);
   }
 }
+
+/**
+ * Convierte la rutina en una cadena Base64 comprimida para compartir por enlace o código QR.
+ */
+export function exportRoutineToBase64(routine: Routine & { exercises: RoutineExercise[] }): string {
+  const json = exportRoutineToJSON(routine);
+  return btoa(encodeURIComponent(json));
+}
+
+/**
+ * Descomprime y valida una rutina codificada en Base64.
+ */
+export function parseExportedRoutineBase64(base64Str: string): Omit<ExportedRoutine, 'exportedAt'> {
+  const json = decodeURIComponent(atob(base64Str));
+  return parseExportedRoutineJSON(json);
+}
+
+/**
+ * Genera la URL compartible para importar la rutina directamente.
+ */
+export function generateShareableURL(routine: Routine & { exercises: RoutineExercise[] }): string {
+  const code = exportRoutineToBase64(routine);
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://aerogym.app/';
+  return `${baseUrl}?importRoutine=${code}`;
+}

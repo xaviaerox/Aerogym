@@ -10,6 +10,7 @@ import { useGamificationStore } from '../application/stores/useGamificationStore
 import { MuscleWikiService, TRANSLATE_MUSCLE, TRANSLATE_CATEGORY } from '../lib/muscleWikiService';
 import ExerciseMedia from '../components/ExerciseMedia';
 import { vibrateSuccess, vibrateTimerAlert } from '../lib/haptics';
+import { sendRestTimerNotification, requestNotificationPermission } from '../lib/notificationService';
 
 const playBeep = (freq: number, duration: number) => {
   try {
@@ -593,26 +594,30 @@ function RestTimer({ startTime, onClear }: { startTime: number | null; onClear: 
     }
 
     playedMilestonesRef.current.clear();
+    requestNotificationPermission();
 
     const interval = setInterval(() => {
       const newElapsed = Math.floor((Date.now() - startTime) / 1000);
       setElapsed(newElapsed);
 
       // Alarmas progresivas sin interrumpir el contador:
-      // 2 minutos (120 s) -> 1 bip
+      // 2 minutos (120 s) -> 1 bip + Notificación Web Push
       if (newElapsed >= 120 && !playedMilestonesRef.current.has(120)) {
         playedMilestonesRef.current.add(120);
         playMultipleBeeps(1, 650, 0.15);
+        sendRestTimerNotification('Ejercicio', 120);
       }
-      // 3 minutos (180 s) -> 2 bips
+      // 3 minutos (180 s) -> 2 bips + Notificación Web Push
       else if (newElapsed >= 180 && !playedMilestonesRef.current.has(180)) {
         playedMilestonesRef.current.add(180);
         playMultipleBeeps(2, 650, 0.15, 200);
+        sendRestTimerNotification('Ejercicio', 180);
       }
-      // 5 minutos (300 s) -> 3 bips
+      // 5 minutos (300 s) -> 3 bips + Notificación Web Push
       else if (newElapsed >= 300 && !playedMilestonesRef.current.has(300)) {
         playedMilestonesRef.current.add(300);
         playMultipleBeeps(3, 650, 0.15, 200);
+        sendRestTimerNotification('Ejercicio', 300);
       }
     }, 1000);
 

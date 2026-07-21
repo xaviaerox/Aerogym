@@ -22,16 +22,23 @@ import { motion, AnimatePresence } from 'motion/react';
 import { calculateLocalInsights } from '../lib/insightsEngine';
 import { cn } from '../lib/utils';
 
+import { calculateMuscleFatigue } from '../lib/fatigueEngine';
+
 type TimeFilter = 'week' | 'month' | 'all';
 type ViewTab = 'performance' | 'composition';
 
 export default function Analytics() {
-  const { sessions } = useWorkoutStore();
+  const { sessions, workoutSetsHistory } = useWorkoutStore();
   const { dailyHealth, measurements, addMeasurement } = useHealthStore();
   const { user } = useAuthStore();
 
   const [activeTab, setActiveTab] = useState<ViewTab>('performance');
   const [filter, setFilter] = useState<TimeFilter>('month');
+
+  // Calcular informe de fatiga muscular (Analytics 2.0)
+  const fatigueReport = useMemo(() => {
+    return calculateMuscleFatigue(sessions, workoutSetsHistory);
+  }, [sessions, workoutSetsHistory]);
 
   // Calcular insights de IA locales
   const localInsights = useMemo(() => {
@@ -270,6 +277,53 @@ export default function Analytics() {
               Registra entrenamientos para ver tu progresión
             </div>
           )}
+
+          {/* Muscle Fatigue & Deload Engine (Analytics 2.0) */}
+          <section className="space-y-4">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] flex items-center justify-between px-1">
+              <span className="flex items-center gap-2">
+                <Activity size={16} className="text-brand-green" /> Fatiga Muscular & Deload Engine
+              </span>
+              <span className={cn(
+                'text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-wider',
+                fatigueReport.isDeloadRecommended ? 'bg-red-500/20 text-red-400' : 'bg-brand-green/20 text-brand-green'
+              )}>
+                {fatigueReport.isDeloadRecommended ? 'Descarga Recomendada' : 'Fatiga Balanceada'}
+              </span>
+            </h2>
+
+            <div className="glass p-5 rounded-3xl space-y-4 border border-white/5 bg-slate-900/40">
+              <p className="text-xs text-slate-300 font-medium">
+                {fatigueReport.recommendation}
+              </p>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                {fatigueReport.muscleFatigueList.slice(0, 6).map((m) => (
+                  <div key={m.muscleGroup} className="space-y-1 bg-white/[0.02] p-2.5 rounded-2xl border border-white/5">
+                    <div className="flex justify-between text-[10px] font-bold text-slate-300">
+                      <span>{m.muscleGroup}</span>
+                      <span className={cn(
+                        m.status === 'overtrained' ? 'text-red-400' :
+                        m.status === 'high' ? 'text-amber-400' : 'text-slate-400'
+                      )}>
+                        {m.fatiguePercent}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all duration-500',
+                          m.status === 'overtrained' ? 'bg-red-500' :
+                          m.status === 'high' ? 'bg-amber-400' : 'bg-brand-blue'
+                        )}
+                        style={{ width: `${m.fatiguePercent}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
 
           {/* Consistencia semanal */}
           <section className="space-y-4">

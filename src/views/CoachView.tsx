@@ -8,6 +8,7 @@ import { sendChatMessage, generateWeeklyReport, type UserContextForAI } from '..
 import MuscleWikiExplorer from './MuscleWikiExplorer';
 import { subDays } from 'date-fns';
 import { cn } from '../lib/utils';
+import { vectorMemoryEngine } from '../lib/vectorMemory';
 
 interface Message {
   role: 'user' | 'model';
@@ -22,7 +23,7 @@ const SUGGESTED_PROMPTS = [
 
 export default function CoachView() {
   const { profile } = useAuthStore();
-  const { sessions } = useWorkoutStore();
+  const { sessions, workoutSetsHistory } = useWorkoutStore();
   const { dailyHealth, measurements } = useHealthStore();
 
   const [activeSubTab, setActiveSubTab] = useState<'chat' | 'musclewiki'>('chat');
@@ -43,7 +44,7 @@ export default function CoachView() {
   }, [messages, isTyping]);
 
   // Generar contexto de historial (RAG) para alimentar a la IA
-  const buildRAGContext = () => {
+  const buildRAGContext = (queryMsg?: string) => {
     // 1. Resumen de las últimas 5 sesiones
     const last5 = sessions.slice(0, 5);
     const recentSessionsSummary = last5.map(s => {
@@ -56,9 +57,15 @@ export default function CoachView() {
       return `- Fecha: ${h.date}, Pasos: ${h.steps || 0}, Sueño: ${h.sleep_hours || 'N/A'}h (Calidad: ${h.sleep_quality || 'N/A'}/5), Energía: ${h.energy_level || 'N/A'}/10`;
     }).join('\n');
 
+    // 3. Memoria RAG semántica recuperada por el motor vectorial
+    const ragMemorySnippets = queryMsg
+      ? vectorMemoryEngine.searchRelevantHistory(queryMsg, sessions, workoutSetsHistory)
+      : [];
+
     return {
       recentSessionsSummary: recentSessionsSummary || 'Ningún entrenamiento registrado recientemente.',
       recentHealthSummary: recentHealthSummary || 'Ningún log de salud registrado en la última semana.',
+      ragMemorySnippets,
     };
   };
 
@@ -132,7 +139,7 @@ export default function CoachView() {
 
     try {
       const context = buildUserContext();
-      const ragContext = buildRAGContext();
+      const ragContext = buildRAGContext(msg);
       const history = messages.slice(1); // Excluye el mensaje inicial
       
       const response = await sendChatMessage(context, history, msg, ragContext);

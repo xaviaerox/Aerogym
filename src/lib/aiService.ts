@@ -174,6 +174,7 @@ export async function sendChatMessage(
   extraContext?: {
     recentSessionsSummary?: string;
     recentHealthSummary?: string;
+    ragMemorySnippets?: string[];
   }
 ): Promise<string> {
   // Convertir historial de Gemini (role: 'model') a OpenAI (role: 'assistant')
@@ -182,9 +183,13 @@ export async function sendChatMessage(
     content: m.content,
   }));
 
+  const ragText = extraContext?.ragMemorySnippets && extraContext.ragMemorySnippets.length > 0
+    ? `\nMEMORIA RAG RELEVANTE RECUPERADA:\n${extraContext.ragMemorySnippets.map((s) => `- ${s}`).join('\n')}\n`
+    : '';
+
   const userMessageContent = `[CONTEXTO DE ${profile.name}: Nivel ${profile.level}, objetivo ${profile.goal}.
 Historial total: ${profile.sessionsCount} entrenamientos.
-${extraContext?.recentSessionsSummary ? `Entrenamientos recientes:\n${extraContext.recentSessionsSummary}\n` : ''}${extraContext?.recentHealthSummary ? `Métricas de salud y descanso recientes:\n${extraContext.recentHealthSummary}\n` : ''}]
+${extraContext?.recentSessionsSummary ? `Entrenamientos recientes:\n${extraContext.recentSessionsSummary}\n` : ''}${extraContext?.recentHealthSummary ? `Métricas de salud y descanso recientes:\n${extraContext.recentHealthSummary}\n` : ''}${ragText}]
 
 Pregunta: ${newMessage}`;
 
@@ -197,7 +202,7 @@ Pregunta: ${newMessage}`;
 - Sé directo, motivador y científico.
 - No uses emojis en tus respuestas, mantén un tono profesional, limpio y minimalista.
 - Ofrece respuestas breves optimizadas para móvil.
-- Utiliza la información del contexto RAG del usuario para dar respuestas personalizadas y precisas sobre su progreso.
+- Utiliza la información de la MEMORIA RAG y contexto del usuario para responder con datos precisos e históricos del atleta.
 - Basa tus respuestas en evidencia científica (ACSM, NIH, ISSN).`,
       },
       ...historyMessages,
