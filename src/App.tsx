@@ -132,7 +132,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-transparent flex flex-col max-w-md mx-auto relative overflow-hidden">
         {/* Main Content */}
-        <main className="flex-1 pb-24 overflow-y-auto px-4 pt-6">
+        <main className="flex-1 pb-28 overflow-y-auto px-4 pt-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -149,7 +149,7 @@ export default function App() {
         </main>
 
         {/* Bottom Nav */}
-        <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-dark h-20 px-6 flex items-center justify-between z-50 rounded-t-3xl border-t border-white/5">
+        <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-dark h-20 pb-safe px-6 flex items-center justify-between z-50 rounded-t-3xl border-t border-white/5">
           <NavBtn
             icon={<LayoutDashboard size={24} />}
             active={activeTab === 'home'}

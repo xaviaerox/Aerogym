@@ -10,6 +10,7 @@ import { calculateNutrition } from '../lib/engine';
 import { cn } from '../lib/utils';
 import type { Profile } from '../infrastructure/supabase/types';
 import { MuscleWikiService } from '../lib/muscleWikiService';
+import { exportUserData, downloadJSONFile, parseImportJSON } from '../lib/exportService';
 
 const ALL_ACHIEVEMENTS = [
   {
@@ -119,21 +120,38 @@ export default function ProfileSettings() {
     }
   };
 
-  const handleExport = () => {
-    const exportData = {
+  const { workoutSetsHistory } = useWorkoutStore();
+  const { dailyHealth } = useHealthStore();
+
+  const handleExport = async () => {
+    if (!user?.id) return;
+    const data = await exportUserData(
+      user.id,
       profile,
       sessions,
-      measurements,
-      exportedAt: new Date().toISOString(),
-      version: '2.0.0',
+      workoutSetsHistory,
+      dailyHealth,
+      measurements
+    );
+    const dateStr = new Date().toISOString().split('T')[0];
+    downloadJSONFile(data, `aerogym_backup_${dateStr}.json`);
+  };
+
+  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const importedData = parseImportJSON(text);
+        alert(`Respaldo importado correctamente (v${importedData.version}). ${importedData.sessions.length} sesiones encontradas.`);
+      } catch (err) {
+        alert(`Error al importar el respaldo: ${(err as Error).message}`);
+      }
     };
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(exportData, null, 2));
-    const a = document.createElement('a');
-    a.setAttribute('href', dataStr);
-    a.setAttribute('download', `aerogym_backup_${new Date().toISOString().split('T')[0]}.json`);
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    reader.readAsText(file);
   };
 
   return (
@@ -418,21 +436,30 @@ export default function ProfileSettings() {
         </div>
       </section>
 
-      {/* Data Management */}
+      {/* Data Management & GDPR */}
       <section className="space-y-4">
         <h3 className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
-          <RotateCcw size={14} /> Gestión de Datos
+          <RotateCcw size={14} /> Gestión de Datos & Privacidad (GDPR)
         </h3>
         <div className="space-y-2">
           <button
             onClick={handleExport}
-            className="w-full py-4 glass rounded-xl flex items-center justify-center gap-2 text-sm font-bold"
+            className="w-full py-4 glass rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-brand-blue hover:bg-brand-blue/10 transition-colors"
           >
-            <Download size={18} /> Exportar Backup JSON
+            <Download size={18} /> Exportar Backup JSON (Portabilidad GDPR)
           </button>
+          <label className="w-full py-4 glass rounded-xl flex items-center justify-center gap-2 text-sm font-bold cursor-pointer text-slate-300 hover:bg-white/5 transition-colors">
+            <RotateCcw size={18} /> Importar Restauración Backup JSON
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleImportFile}
+              className="hidden"
+            />
+          </label>
           <button
             onClick={() => confirm('¿Cerrar sesión?') && signOut()}
-            className="w-full py-4 glass border-red-500/20 text-red-400 rounded-xl flex items-center justify-center gap-2 text-sm font-bold"
+            className="w-full py-4 glass border-red-500/20 text-red-400 rounded-xl flex items-center justify-center gap-2 text-sm font-bold hover:bg-red-500/10 transition-colors"
           >
             <LogOut size={18} /> Cerrar Sesión
           </button>

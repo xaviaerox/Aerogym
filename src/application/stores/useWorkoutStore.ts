@@ -152,35 +152,26 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       });
     });
 
-    // Crear sesión en Supabase
-    const { data: session, error: sessionError } = await supabase
-      .from('workout_sessions')
-      .insert({
-        user_id: userId,
-        routine_id: activeSession.routine_id,
-        name: activeSession.name,
-        started_at: activeSession.started_at,
-        finished_at: finishedAt.toISOString(),
-        duration_minutes: durationMinutes,
-        total_volume_kg: totalVolume,
-        notes: notes || null,
-        perceived_difficulty: difficulty || null,
-      })
-      .select()
-      .single();
-
-    if (sessionError) throw sessionError;
+    const sessionPayload = {
+      user_id: userId,
+      routine_id: activeSession.routine_id,
+      name: activeSession.name,
+      started_at: activeSession.started_at,
+      finished_at: finishedAt.toISOString(),
+      duration_minutes: durationMinutes,
+      total_volume_kg: totalVolume,
+      notes: notes || null,
+      perceived_difficulty: difficulty || null,
+    };
 
     // Calcular PRs y preparar sets para insertar
     const setsToInsert = activeSession.exercises.flatMap((ex) => {
-      // Buscar el mejor e1rm histórico para este ejercicio
       const historicBest = workoutSetsHistory
         .filter((s) => s.exercise_id === ex.exercise_id && s.is_completed)
         .reduce((max, s) => Math.max(max, Number(s.e1rm_kg) || 0), 0);
 
       const completedSets = ex.sets.filter((s) => s.is_completed);
 
-      // Encontrar la mejor serie en esta sesión actual para este ejercicio
       let bestSetIdx = -1;
       let bestSessionE1RM = 0;
       completedSets.forEach((s, idx) => {
@@ -200,7 +191,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         const isPR = idx === bestSetIdx && e1rm !== null && e1rm > historicBest;
 
         return {
-          session_id: session.id,
+          session_id: '',
           exercise_id: ex.exercise_id,
           set_number: idx + 1,
           reps: set.reps,
@@ -217,18 +208,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       });
     });
 
-    if (setsToInsert.length > 0) {
-      const { data: insertedSets, error: setsError } = await supabase
-        .from('workout_sets')
-        .insert(setsToInsert)
-        .select();
-
-      if (!setsError && insertedSets) {
-        set((state) => ({
-          workoutSetsHistory: [...state.workoutSetsHistory, ...insertedSets],
-        }));
-      }
-    }
+    const session = await supabaseWorkoutRepository.saveSession(sessionPayload, setsToInsert);
 
     set((state) => ({
       sessions: [session, ...state.sessions],
@@ -351,26 +331,16 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   fetchRoutines: async (userId) => {
-    const { data: routines, error } = await supabase
-      .from('routines')
-      .select('*, exercises:routine_exercises(*)')
-      .eq('user_id', userId)
-      .eq('is_archived', false)
-      .order('created_at', { ascending: false });
-
-    if (!error && routines) {
-      set({ routines: routines as (Routine & { exercises: RoutineExercise[] })[] });
+    try {
+      const routines = await supabaseWorkoutRepository.fetchRoutines(userId);
+      set({ routines });
+    } catch (e) {
+      console.error('Error fetching routines:', e);
     }
   },
 
   createRoutine: async (userId, name, description) => {
-    const { data, error } = await supabase
-      .from('routines')
-      .insert({ user_id: userId, name, description })
-      .select()
-      .single();
-
-    if (error) throw error;
+    const data = await supabaseWorkoutRepository.createRoutine(userId, name, description);
     set((state) => ({
       routines: [{ ...data, exercises: [] }, ...state.routines],
     }));
@@ -378,49 +348,33 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   deleteRoutine: async (routineId) => {
-    await supabase.from('routines').delete().eq('id', routineId);
+    await supabaseWorkoutRepository.deleteRoutine(routineId);
     set((state) => ({
       routines: state.routines.filter((r) => r.id !== routineId),
     }));
   },
 
   updateRoutineExercises: async (routineId, exercises) => {
-    await supabase.from('routine_exercises').delete().eq('routine_id', routineId);
-    if (exercises.length > 0) {
-      await supabase.from('routine_exercises').insert(
-        exercises.map((ex, i) => ({ ...ex, routine_id: routineId, order_index: i }))
-      );
+    await supabaseWorkoutRepository.updateRoutineExercises(routineId, exercises);
+    const userId = get().sessions[0]?.user_id;
+    if (userId) {
+      await get().fetchRoutines(userId);
     }
-    await get().fetchRoutines(get().routines[0]?.user_id);
   },
 
   updatePastSession: async (sessionId, updates) => {
-    const { error } = await supabase
-      .from('workout_sessions')
-      .update(updates)
-      .eq('id', sessionId);
-
-    if (!error) {
-      set((state) => ({
-        sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, ...updates } : s)),
-      }));
-    } else {
-      throw error;
-    }
+    await supabaseWorkoutRepository.updatePastSession(sessionId, updates);
+    set((state) => ({
+      sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, ...updates } : s)),
+    }));
   },
 
   deletePastSession: async (sessionId) => {
-    await supabase.from('workout_sets').delete().eq('session_id', sessionId);
-    const { error } = await supabase.from('workout_sessions').delete().eq('id', sessionId);
-
-    if (!error) {
-      set((state) => ({
-        sessions: state.sessions.filter((s) => s.id !== sessionId),
-        workoutSetsHistory: state.workoutSetsHistory.filter((s) => s.session_id !== sessionId),
-      }));
-    } else {
-      throw error;
-    }
+    await supabaseWorkoutRepository.deletePastSession(sessionId);
+    set((state) => ({
+      sessions: state.sessions.filter((s) => s.id !== sessionId),
+      workoutSetsHistory: state.workoutSetsHistory.filter((s) => s.session_id !== sessionId),
+    }));
   },
 
   saveSessionEdits: async (sessionId, sessionUpdates, exercises) => {

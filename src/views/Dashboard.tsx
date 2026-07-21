@@ -29,6 +29,9 @@ import { useGamificationStore } from '../application/stores/useGamificationStore
 import type { Routine, RoutineExercise } from '../infrastructure/supabase/types';
 import HealthLoggerModal from '../components/HealthLoggerModal';
 import { Trophy, Shield, Award, Zap } from 'lucide-react';
+import { useUserXP } from '../hooks/useUserXP';
+import { useWorkoutStreak } from '../hooks/useWorkoutStreak';
+import XPProgressBar from '../components/dashboard/XPProgressBar';
 
 interface DashboardProps {
   nextRoutine?: Routine & { exercises: RoutineExercise[] };
@@ -65,51 +68,9 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
     }
   }, [newUnlockedAchievement, clearNewAchievement]);
 
-  // Calcular XP del usuario
-  const userXP = useMemo(() => {
-    const sessionsXP = sessions.length * 100;
-    const setsXP = (workoutSetsHistory || []).length * 10;
-    const healthXP = dailyHealth.length * 20;
-    const prsCount = (workoutSetsHistory || []).filter(s => s.is_pr).length;
-    const prsXP = prsCount * 50;
-
-    const totalXP = sessionsXP + setsXP + healthXP + prsXP;
-    const level = Math.floor(Math.sqrt(totalXP / 100)) + 1;
-    
-    const currentLevelBaseXP = Math.pow(level - 1, 2) * 100;
-    const nextLevelXP = Math.pow(level, 2) * 100;
-    
-    const levelProgressXP = totalXP - currentLevelBaseXP;
-    const levelRequiredXP = nextLevelXP - currentLevelBaseXP;
-    const progressPercent = Math.min(100, Math.round((levelProgressXP / levelRequiredXP) * 100));
-
-    return {
-      total: totalXP,
-      level,
-      progressPercent
-    };
-  }, [sessions, workoutSetsHistory, dailyHealth]);
-
-  // Calcular racha actual de entrenamientos seguidos (días activos)
-  const streak = useMemo(() => {
-    if (!sessions.length) return 0;
-    let count = 0;
-    const today = new Date();
-    const uniqueDays = [...new Set(sessions.map((s) => s.started_at.split('T')[0]))];
-    
-    for (let i = 0; i < uniqueDays.length; i++) {
-      const expectedDate = new Date(today);
-      expectedDate.setDate(today.getDate() - i);
-      const expectedStr = expectedDate.toISOString().split('T')[0];
-      if (uniqueDays.includes(expectedStr)) {
-        count++;
-      } else {
-        // Permitir romper racha solo si no es hoy o ayer (ventana de gracia)
-        if (i > 1) break;
-      }
-    }
-    return count;
-  }, [sessions]);
+  // Custom Hooks desacoplados
+  const userXP = useUserXP(sessions, workoutSetsHistory, dailyHealth);
+  const streak = useWorkoutStreak(sessions);
 
   // Algoritmo de Readiness Score avanzado
   const readiness = useMemo(() => {
@@ -251,27 +212,7 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
         </div>
 
         {/* XP Level Bar */}
-        <div className="glass p-4 rounded-3xl border border-white/5 bg-slate-900/40 space-y-2">
-          <div className="flex justify-between items-center text-xs">
-            <div className="flex items-center gap-1.5 font-bold text-slate-200">
-              <Trophy size={14} className="text-amber-400" />
-              <span>Nivel {userXP.level}</span>
-            </div>
-            <span className="text-slate-400 font-medium">{userXP.total} XP total</span>
-          </div>
-          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden relative">
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: `${userXP.progressPercent}%` }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="bg-gradient-to-r from-amber-400 to-amber-500 h-full rounded-full" 
-            />
-          </div>
-          <div className="flex justify-between text-[9px] text-slate-500 font-bold uppercase tracking-wider">
-            <span>Lvl {userXP.level}</span>
-            <span>{userXP.progressPercent}% para Lvl {userXP.level + 1}</span>
-          </div>
-        </div>
+        <XPProgressBar userXP={userXP} />
       </div>
 
       {/* Stats Row */}
