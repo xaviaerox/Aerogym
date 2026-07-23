@@ -23,6 +23,7 @@ import { calculateLocalInsights } from '../lib/insightsEngine';
 import { cn } from '../lib/utils';
 
 import { calculateMuscleFatigue } from '../lib/fatigueEngine';
+import BodyFatigueVisualizer from '../components/health/BodyFatigueVisualizer';
 
 type TimeFilter = 'week' | 'month' | 'all';
 type ViewTab = 'performance' | 'composition';
@@ -292,37 +293,14 @@ export default function Analytics() {
               </span>
             </h2>
 
-            <div className="glass p-5 rounded-3xl space-y-4 border border-white/5 bg-slate-900/40">
-              <p className="text-xs text-slate-300 font-medium">
-                {fatigueReport.recommendation}
-              </p>
+            <p className="text-xs text-slate-300 font-medium px-1">
+              {fatigueReport.recommendation}
+            </p>
 
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                {fatigueReport.muscleFatigueList.slice(0, 6).map((m) => (
-                  <div key={m.muscleGroup} className="space-y-1 bg-white/[0.02] p-2.5 rounded-2xl border border-white/5">
-                    <div className="flex justify-between text-[10px] font-bold text-slate-300">
-                      <span>{m.muscleGroup}</span>
-                      <span className={cn(
-                        m.status === 'overtrained' ? 'text-red-400' :
-                        m.status === 'high' ? 'text-amber-400' : 'text-slate-400'
-                      )}>
-                        {m.fatiguePercent}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className={cn(
-                          'h-full rounded-full transition-all duration-500',
-                          m.status === 'overtrained' ? 'bg-red-500' :
-                          m.status === 'high' ? 'bg-amber-400' : 'bg-brand-blue'
-                        )}
-                        style={{ width: `${m.fatiguePercent}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <BodyFatigueVisualizer
+              muscleFatigueList={fatigueReport.muscleFatigueList}
+              overallFatiguePercent={fatigueReport.overallFatiguePercent}
+            />
           </section>
 
           {/* Consistencia semanal */}

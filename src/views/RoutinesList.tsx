@@ -49,9 +49,10 @@ export default function RoutinesList() {
       // Create the routine in Supabase
       const routine = await createRoutine(user.id, generated.name, generated.description);
       
-      // Add exercises to routine (Sprint 3)
+      // Add exercises to routine
       if (generated.exercises && generated.exercises.length > 0) {
         const exercisesToInsert = generated.exercises.map((ex, idx) => ({
+          routine_id: routine.id,
           exercise_id: ex.exerciseId,
           default_sets: ex.defaultSets || 3,
           default_reps: ex.defaultReps || '8-12',

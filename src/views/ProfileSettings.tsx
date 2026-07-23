@@ -11,6 +11,7 @@ import { cn } from '../lib/utils';
 import type { Profile } from '../infrastructure/supabase/types';
 import { MuscleWikiService } from '../lib/muscleWikiService';
 import { exportUserData, downloadJSONFile, parseImportJSON } from '../lib/exportService';
+import { backupService } from '../lib/backupService';
 
 const ALL_ACHIEVEMENTS = [
   {
@@ -120,21 +121,20 @@ export default function ProfileSettings() {
     }
   };
 
-  const { workoutSetsHistory } = useWorkoutStore();
+  const { workoutSetsHistory, routines } = useWorkoutStore();
   const { dailyHealth } = useHealthStore();
 
   const handleExport = async () => {
     if (!user?.id) return;
-    const data = await exportUserData(
-      user.id,
+    const backup = backupService.generateBackup({
       profile,
       sessions,
       workoutSetsHistory,
+      routines,
       dailyHealth,
-      measurements
-    );
-    const dateStr = new Date().toISOString().split('T')[0];
-    downloadJSONFile(data, `aerogym_backup_${dateStr}.json`);
+      bodyMeasurements: measurements,
+    });
+    backupService.downloadBackupFile(backup);
   };
 
   const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {

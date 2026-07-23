@@ -23,6 +23,9 @@ const ProfileSettings = React.lazy(() => import('./views/ProfileSettings'));
 const OnboardingView = React.lazy(() => import('./views/OnboardingView'));
 const CoachView = React.lazy(() => import('./views/CoachView'));
 import PWAReloadPrompt from './components/PWAReloadPrompt';
+import AchievementModal from './components/gamification/AchievementModal';
+import NetworkStatusIndicator from './components/NetworkStatusIndicator';
+import { useGamificationStore } from './application/stores/useGamificationStore';
 
 function ViewLoader() {
   return (
@@ -185,10 +188,17 @@ export default function App() {
     );
   };
 
+  const { newUnlockedAchievement, clearNewAchievement } = useGamificationStore();
+
   return (
     <>
+      <NetworkStatusIndicator />
       {renderMain()}
       <PWAReloadPrompt />
+      <AchievementModal
+        achievement={newUnlockedAchievement}
+        onClose={clearNewAchievement}
+      />
     </>
   );
 }

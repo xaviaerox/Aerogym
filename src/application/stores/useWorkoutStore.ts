@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import { supabase } from '../../infrastructure/supabase/client';
 import { supabaseWorkoutRepository } from '../../infrastructure/repositories/SupabaseWorkoutRepository';
 import type { WorkoutSession, WorkoutSet, Routine, RoutineExercise } from '../../infrastructure/supabase/types';
 import { BASE_EXERCISES } from '../../constants/exercises';
+import { useAuthStore } from './useAuthStore';
 
 // Tipos internos del store (enriquecidos para la UI)
 export interface ActiveSet extends WorkoutSet {
@@ -22,7 +22,7 @@ export interface ActiveSession {
   exercises: ActiveExercise[];
 }
 
-interface WorkoutState {
+export interface WorkoutState {
   sessions: WorkoutSession[];
   routines: (Routine & { exercises: RoutineExercise[] })[];
   activeSession: ActiveSession | null;
@@ -50,8 +50,8 @@ interface WorkoutState {
   updatePastSession: (sessionId: string, updates: Partial<WorkoutSession>) => Promise<void>;
   deletePastSession: (sessionId: string) => Promise<void>;
   saveSessionEdits: (
-    sessionId: string, 
-    sessionUpdates: Partial<WorkoutSession>, 
+    sessionId: string,
+    sessionUpdates: Partial<WorkoutSession>,
     exercises: { exercise_id: string; sets: Partial<WorkoutSet>[] }[]
   ) => Promise<void>;
 }
@@ -356,7 +356,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
   updateRoutineExercises: async (routineId, exercises) => {
     await supabaseWorkoutRepository.updateRoutineExercises(routineId, exercises);
-    const userId = get().sessions[0]?.user_id;
+    const userId = useAuthStore.getState().user?.id || get().sessions[0]?.user_id;
     if (userId) {
       await get().fetchRoutines(userId);
     }
@@ -378,64 +378,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   saveSessionEdits: async (sessionId, sessionUpdates, exercises) => {
-    const { error: deleteError } = await supabase
-      .from('workout_sets')
-      .delete()
-      .eq('session_id', sessionId);
-
-    if (deleteError) throw deleteError;
-
-    let totalVolume = 0;
-    const setsToInsert = exercises.flatMap((ex) => {
-      return (ex.sets || []).map((set, idx) => {
-        const isCardio = BASE_EXERCISES.find(e => e.id === ex.exercise_id)?.muscleGroup === 'Cardio';
-        const reps = isCardio ? null : (Number(set.reps) || 0);
-        const weight = isCardio ? 0 : (Number(set.weight_kg) || 0);
-        const e1rm = reps && weight ? weight * (1 + reps / 30) : null;
-
-        if (!isCardio && set.is_completed && reps && weight) {
-          totalVolume += reps * weight;
-        }
-
-        return {
-          session_id: sessionId,
-          exercise_id: ex.exercise_id,
-          set_number: idx + 1,
-          reps: isCardio ? null : set.reps || null,
-          weight_kg: isCardio ? 0 : set.weight_kg || 0,
-          rpe: set.rpe || null,
-          rir: set.rir !== null && set.rir !== undefined ? set.rir : null,
-          is_completed: set.is_completed ?? true,
-          is_warmup: set.is_warmup ?? false,
-          is_pr: set.is_pr ?? false,
-          e1rm_kg: e1rm,
-          duration_seconds: isCardio ? (set.duration_seconds || null) : null,
-          distance_meters: isCardio ? (set.distance_meters || null) : null,
-        };
-      });
-    });
-
-    if (setsToInsert.length > 0) {
-      const { error: insertError } = await supabase
-        .from('workout_sets')
-        .insert(setsToInsert);
-
-      if (insertError) throw insertError;
-    }
-
-    const finalUpdates = {
-      ...sessionUpdates,
-      total_volume_kg: totalVolume,
-    };
-
-    const { data: updatedSession, error: updateError } = await supabase
-      .from('workout_sessions')
-      .update(finalUpdates)
-      .eq('id', sessionId)
-      .select()
-      .single();
-
-    if (updateError) throw updateError;
+    await supabaseWorkoutRepository.saveSessionEdits(sessionId, sessionUpdates, exercises);
 
     const userId = get().sessions[0]?.user_id;
     if (userId) {

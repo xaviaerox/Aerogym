@@ -27,6 +27,15 @@ export class SyncEngine {
     return true;
   }
 
+  public async getQueueLength(): Promise<number> {
+    try {
+      const queue = await getSyncQueue();
+      return queue.length;
+    } catch {
+      return 0;
+    }
+  }
+
   public async processQueue(): Promise<{ processed: number; failed: number }> {
     if (this.isProcessing || !this.isOnline()) {
       return { processed: 0, failed: 0 };

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Save, Trash2, Plus, Trash, Clock, Dumbbell, ChevronRight, X } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Plus, Trash, Clock, Dumbbell, ChevronRight, X, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useWorkoutStore } from '../application/stores/useWorkoutStore';
 import { BASE_EXERCISES } from '../constants/exercises';
-import { cn, getMuscleWikiUrl } from '../lib/utils';
+import { cn } from '../lib/utils';
 import { MuscleWikiService, TRANSLATE_MUSCLE } from '../lib/muscleWikiService';
 import MuscleWikiExplorer from './MuscleWikiExplorer';
+import ExerciseGuideModal from '../components/ExerciseGuideModal';
 import { calculateE1RM } from '../lib/engine';
 import type { WorkoutSession, WorkoutSet } from '../infrastructure/supabase/types';
 
@@ -42,7 +43,7 @@ export default function SessionEditor({ session, onBack }: SessionEditorProps) {
     return localISOTime;
   });
   const [notes, setNotes] = useState(session.notes || '');
-  const [difficulty, setDifficulty] = useState<number | null>(session.perceived_difficulty);
+  const [difficulty, setDifficulty] = useState<number | null>(session.perceived_difficulty || null);
   const [durationMinutes, setDurationMinutes] = useState<number | null>(session.duration_minutes);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -50,6 +51,7 @@ export default function SessionEditor({ session, onBack }: SessionEditorProps) {
   const [search, setSearch] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const [activeSelectorTab, setActiveSelectorTab] = useState<'aerogym' | 'musclewiki'>('aerogym');
+  const [guideExId, setGuideExId] = useState<string | null>(null);
 
   // Group sets by exercise
   const [exercises, setExercises] = useState<EditableExercise[]>([]);
@@ -351,22 +353,13 @@ export default function SessionEditor({ session, onBack }: SessionEditorProps) {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-slate-50">{exerciseInfo?.name || ex.exercise_id}</h3>
-                    {ex.exercise_id.startsWith('mw-') ? (
-                      <span className="text-[8px] text-brand-blue font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-brand-blue/10 border border-brand-blue/20">
-                        MuscleWiki
-                      </span>
-                    ) : (
-                      exerciseInfo?.muscleGroup && (
-                        <a
-                          href={getMuscleWikiUrl(exerciseInfo.muscleGroup)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[9px] text-slate-500 hover:text-brand-blue font-bold px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 hover:border-brand-blue/30 transition-all"
-                        >
-                          Wiki ↗
-                        </a>
-                      )
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setGuideExId(ex.exercise_id)}
+                      className="text-[9px] text-brand-blue hover:text-slate-950 font-bold px-2 py-0.5 rounded-full bg-brand-blue/10 border border-brand-blue/20 hover:bg-brand-blue transition-all inline-flex items-center gap-1"
+                    >
+                      Guía <BookOpen size={9} />
+                    </button>
                   </div>
                   <p className="text-[9px] text-slate-500 uppercase tracking-widest font-black mt-0.5">
                     {exerciseInfo?.muscleGroup || 'Musculación'} · {(exerciseInfo as any)?.type || 'Compuesto'}
@@ -659,6 +652,12 @@ export default function SessionEditor({ session, onBack }: SessionEditorProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Internal Exercise Guide Modal */}
+      <ExerciseGuideModal
+        exerciseId={guideExId}
+        onClose={() => setGuideExId(null)}
+      />
     </div>
   );
 }

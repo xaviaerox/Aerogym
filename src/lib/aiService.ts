@@ -76,6 +76,63 @@ const GeneratedRoutineSchema = z.object({
   ).min(1),
 });
 
+function generateFallbackRoutine(
+  profile: UserContextForAI,
+  availableExercises: { id: string; name: string; type: string; muscle_group: string }[]
+) {
+  const goal = (profile.goal || '').toLowerCase();
+  let routineName = 'Rutina FullBody Aero';
+  let description = 'Rutina equilibrada de cuerpo completo optimizada para tu nivel.';
+  
+  if (goal.includes('hypertrophy') || goal.includes('hipertrofia') || goal.includes('músculo')) {
+    routineName = 'Rutina Push & Pull Hipertrofia';
+    description = 'Enfoque en estímulo y volumen optimizado para ganancia muscular.';
+  } else if (goal.includes('strength') || goal.includes('fuerza')) {
+    routineName = 'Fuerza & Potencia Base';
+    description = 'Construcción de fuerza máxima con ejercicios compuestos principales.';
+  } else if (goal.includes('endurance') || goal.includes('definicion') || goal.includes('grasa')) {
+    routineName = 'Acondicionamiento & Definición';
+    description = 'Alta densidad con combinación de ejercicios compuestos y aislados.';
+  }
+
+  const validExercises = availableExercises.length > 0 ? availableExercises : [
+    { id: 'press-banca', name: 'Press de Banca con Barra', type: 'compound', muscle_group: 'Pecho' },
+    { id: 'sentadilla-trasera', name: 'Sentadilla con Barra', type: 'compound', muscle_group: 'Cuádriceps' },
+    { id: 'remon-barra', name: 'Remo con Barra', type: 'compound', muscle_group: 'Espalda' },
+    { id: 'press-militar', name: 'Press Militar de Pie', type: 'compound', muscle_group: 'Hombros' },
+    { id: 'curl-biceps-mancuernas', name: 'Curl de Bíceps', type: 'isolation', muscle_group: 'Bíceps' },
+  ];
+
+  const selected: string[] = [];
+  const groupsSeen = new Set<string>();
+
+  for (const ex of validExercises) {
+    if (!groupsSeen.has(ex.muscle_group) && selected.length < 6) {
+      groupsSeen.add(ex.muscle_group);
+      selected.push(ex.id);
+    }
+  }
+
+  if (selected.length < 4) {
+    for (const ex of validExercises) {
+      if (!selected.includes(ex.id) && selected.length < 5) {
+        selected.push(ex.id);
+      }
+    }
+  }
+
+  return {
+    name: routineName,
+    description,
+    exercises: selected.map((id) => ({
+      exerciseId: id,
+      defaultSets: 3,
+      defaultReps: '8-12',
+      defaultWeight: 0,
+    })),
+  };
+}
+
 /**
  * Genera una rutina personalizada usando IA (via proxy seguro)
  */
@@ -83,20 +140,21 @@ export async function generateRoutineWithAI(
   profile: UserContextForAI,
   availableExercises: { id: string; name: string; type: string; muscle_group: string }[]
 ): Promise<{ name: string; description: string; exercises: { exerciseId: string; defaultSets: number; defaultReps: string; defaultWeight: number }[] }> {
-  const exercisesContext = availableExercises
-    .map((e) => `- ID: ${e.id}, Nombre: ${e.name}, Tipo: ${e.type}, Músculo: ${e.muscle_group}`)
-    .join('\n');
+  try {
+    const exercisesContext = availableExercises
+      .map((e) => `- ID: ${e.id}, Nombre: ${e.name}, Tipo: ${e.type}, Músculo: ${e.muscle_group}`)
+      .join('\n');
 
-  const text = await callGroqProxy({
-    model: 'llama-3.3-70b-versatile',
-    messages: [
-      {
-        role: 'system',
-        content: 'Eres un experto en diseño de rutinas de entrenamiento. Responde EXCLUSIVAMENTE con JSON válido, sin texto adicional antes ni después.',
-      },
-      {
-        role: 'user',
-        content: `Diseña UNA rutina de entrenamiento óptima para este perfil:
+    const text = await callGroqProxy({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: 'Eres un experto en diseño de rutinas de entrenamiento. Responde EXCLUSIVAMENTE con JSON válido, sin texto adicional antes ni después.',
+        },
+        {
+          role: 'user',
+          content: `Diseña UNA rutina de entrenamiento óptima para este perfil:
 
 PERFIL:
 - Nombre: ${profile.name}
@@ -116,15 +174,41 @@ Responde EXCLUSIVAMENTE con JSON válido:
 }
 
 Selecciona 5-7 ejercicios coherentes. Sin texto antes/después del JSON.`,
-      },
-    ],
-    max_tokens: 1024,
-    temperature: 0.7,
-  });
+        },
+      ],
+      max_tokens: 1024,
+      temperature: 0.7,
+    });
 
-  const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-  const rawData = JSON.parse(jsonStr);
-  return GeneratedRoutineSchema.parse(rawData);
+    const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const rawData = JSON.parse(jsonStr);
+    const parsed = GeneratedRoutineSchema.parse(rawData);
+
+    // Mapear y asegurar que los IDs de ejercicios sean válidos
+    const validIds = new Set(availableExercises.map((e) => e.id));
+    const sanitizedExercises = parsed.exercises
+      .map((ex) => {
+        if (validIds.has(ex.exerciseId)) return ex;
+        // Mapeo difuso si el ID devuelto por IA difiere levemente
+        const matched = availableExercises.find(
+          (e) => e.id.includes(ex.exerciseId) || ex.exerciseId.includes(e.id)
+        );
+        return matched ? { ...ex, exerciseId: matched.id } : null;
+      })
+      .filter((ex): ex is NonNullable<typeof ex> => ex !== null);
+
+    if (sanitizedExercises.length === 0) {
+      return generateFallbackRoutine(profile, availableExercises);
+    }
+
+    return {
+      ...parsed,
+      exercises: sanitizedExercises,
+    };
+  } catch (err) {
+    console.warn('generateRoutineWithAI failed or offline, returning fallback routine:', err);
+    return generateFallbackRoutine(profile, availableExercises);
+  }
 }
 
 /**

@@ -12,7 +12,8 @@ import {
   Clock,
   Dumbbell,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  BookOpen
 } from 'lucide-react';
 import {
   DndContext,
@@ -33,9 +34,10 @@ import { BASE_EXERCISES } from '../constants/exercises';
 import { useWorkoutStore } from '../application/stores/useWorkoutStore';
 import type { Routine, RoutineExercise } from '../infrastructure/supabase/types';
 import { supabase } from '../infrastructure/supabase/client';
-import { cn, getMuscleWikiUrl } from '../lib/utils';
+import { cn } from '../lib/utils';
 import { MuscleWikiService, TRANSLATE_MUSCLE } from '../lib/muscleWikiService';
 import MuscleWikiExplorer from './MuscleWikiExplorer';
+import ExerciseGuideModal from '../components/ExerciseGuideModal';
 
 interface RoutineEditorProps {
   routine: Routine & { exercises: RoutineExercise[] };
@@ -64,6 +66,7 @@ export default function RoutineEditor({ routine, onBack }: RoutineEditorProps) {
   const [search, setSearch] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const [activeSelectorTab, setActiveSelectorTab] = useState<'aerogym' | 'musclewiki'>('aerogym');
+  const [guideExId, setGuideExId] = useState<string | null>(null);
 
   // Mapear los ejercicios iniciales de la rutina al estado editable local
   const [exercises, setExercises] = useState<EditableExercise[]>(() =>
@@ -292,6 +295,7 @@ export default function RoutineEditor({ routine, onBack }: RoutineEditorProps) {
                     onMove={(dir) => moveExercise(idx, dir)}
                     onRemove={() => handleRemoveExercise(ex.tempId)}
                     onUpdateField={(field, val) => handleUpdateField(ex.tempId, field, val)}
+                    onOpenGuide={() => setGuideExId(ex.exercise_id)}
                   />
                 ))}
               </div>
@@ -436,6 +440,12 @@ export default function RoutineEditor({ routine, onBack }: RoutineEditorProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Internal Exercise Guide Modal */}
+      <ExerciseGuideModal
+        exerciseId={guideExId}
+        onClose={() => setGuideExId(null)}
+      />
     </div>
   );
 }
@@ -449,9 +459,10 @@ interface SortableItemProps {
   onMove: (direction: 'up' | 'down') => void;
   onRemove: () => void;
   onUpdateField: (field: keyof EditableExercise, val: any) => void;
+  onOpenGuide: () => void;
 }
 
-function SortableItem({ item, index, isFirst, isLast, onMove, onRemove, onUpdateField }: SortableItemProps) {
+function SortableItem({ item, index, isFirst, isLast, onMove, onRemove, onUpdateField, onOpenGuide }: SortableItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.tempId,
   });
@@ -507,21 +518,16 @@ function SortableItem({ item, index, isFirst, isLast, onMove, onRemove, onUpdate
           <div>
             <div className="flex items-center gap-2">
               <h4 className="font-bold text-slate-100 text-sm">{item.name}</h4>
-              {item.exercise_id.startsWith('mw-') ? (
-                <span className="text-[8px] text-brand-blue font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-brand-blue/10 border border-brand-blue/20">
-                  MuscleWiki
-                </span>
-              ) : (
-                <a
-                  href={getMuscleWikiUrl(item.muscleGroup)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[9px] text-slate-500 hover:text-brand-blue font-bold px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 hover:border-brand-blue/30 transition-all"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  Wiki ↗
-                </a>
-              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenGuide();
+                }}
+                className="text-[9px] text-brand-blue hover:text-slate-950 font-bold px-2 py-0.5 rounded-full bg-brand-blue/10 border border-brand-blue/20 hover:bg-brand-blue transition-all inline-flex items-center gap-1"
+              >
+                Guía <BookOpen size={9} />
+              </button>
             </div>
             <p className="text-[9px] text-slate-500 uppercase tracking-widest font-black mt-0.5">
               {item.muscleGroup}

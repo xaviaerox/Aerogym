@@ -9,7 +9,12 @@ export interface IWorkoutRepository {
   ): Promise<WorkoutSession>;
   updatePastSession(sessionId: string, updates: Partial<WorkoutSession>): Promise<void>;
   deletePastSession(sessionId: string): Promise<void>;
-  
+  saveSessionEdits(
+    sessionId: string,
+    sessionUpdates: Partial<WorkoutSession>,
+    exercises: { exercise_id: string; sets: Partial<WorkoutSet>[] }[]
+  ): Promise<void>;
+
   fetchRoutines(userId: string): Promise<(Routine & { exercises: RoutineExercise[] })[]>;
   createRoutine(userId: string, name: string, description?: string): Promise<Routine>;
   deleteRoutine(routineId: string): Promise<void>;

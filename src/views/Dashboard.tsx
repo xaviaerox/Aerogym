@@ -16,7 +16,8 @@ import {
   Calendar,
   X,
   Check,
-  ChevronRight
+  ChevronRight,
+  RotateCw
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -32,6 +33,8 @@ import { Trophy, Shield, Award, Zap } from 'lucide-react';
 import { useUserXP } from '../hooks/useUserXP';
 import { useWorkoutStreak } from '../hooks/useWorkoutStreak';
 import XPProgressBar from '../components/dashboard/XPProgressBar';
+import { getDailyStoicQuote, getRandomStoicQuote, type StoicQuote } from '../constants/stoicQuotes';
+import { strengthScoreEngine } from '../lib/strengthScoreEngine';
 
 interface DashboardProps {
   nextRoutine?: Routine & { exercises: RoutineExercise[] };
@@ -48,6 +51,11 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
   const [isRoutineSelectorOpen, setIsRoutineSelectorOpen] = useState(false);
+  const [stoicQuote, setStoicQuote] = useState<StoicQuote>(() => getDailyStoicQuote());
+
+  const handleNextQuote = () => {
+    setStoicQuote((prev) => getRandomStoicQuote(prev.id));
+  };
 
   const lastSession = sessions[0];
 
@@ -177,6 +185,16 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
     };
   }, [todayHealth, dailyHealth, sessions]);
 
+  // Cálculo de Coeficiente de Fuerza Relativa DOTS
+  const dotsScore = useMemo(() => {
+    const totalVolume = workoutSetsHistory
+      .filter((s) => s.is_completed)
+      .reduce((acc, s) => acc + (Number(s.weight_kg) || 0) * (Number(s.reps) || 0), 0);
+    const bw = Number(profile?.weight_kg) || 70;
+    const gender = (profile?.gender as 'male' | 'female') || 'male';
+    return strengthScoreEngine.calculateDots(totalVolume / 10, bw, gender);
+  }, [workoutSetsHistory, profile]);
+
   // Nombres descriptivos de los widgets para el panel de ajustes
   const widgetLabels: Record<keyof DashboardWidgets, string> = {
     sessionsCount: 'Contador de Sesiones',
@@ -243,6 +261,22 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
             />
           </div>
         )}
+      </div>
+
+      {/* DOTS Relative Strength Card */}
+      <div className="glass border border-brand-blue/20 bg-brand-blue/5 p-4 rounded-3xl flex items-center justify-between shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-brand-blue/20 flex items-center justify-center text-brand-blue border border-brand-blue/30">
+            <Trophy size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider font-extrabold text-brand-blue">Fuerza Relativa (DOTS)</p>
+            <p className="text-lg font-black text-slate-50">{dotsScore.dotsPoints} pts <span className="text-xs font-bold text-brand-green">· {dotsScore.strengthCategory}</span></p>
+          </div>
+        </div>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right max-w-[100px] leading-tight">
+          {dotsScore.percentileText}
+        </span>
       </div>
 
       {/* Siguiente Sesión */}
@@ -373,20 +407,32 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
       {/* Sabiduría Estoica */}
       {visibleWidgets.stoicQuote && (
         <section className="animate-in fade-in slide-in-from-bottom-4 duration-1000">
-          <div className="glass p-6 rounded-3xl border-brand-blue/10 relative overflow-hidden bg-brand-blue/[0.02]">
-            <div className="flex items-center gap-2 mb-3">
-              <BookOpen size={16} className="text-brand-blue" />
-              <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                Sabiduría de Aero
-              </h3>
+          <div className="glass p-6 rounded-3xl border-brand-blue/15 relative overflow-hidden bg-brand-blue/[0.03] space-y-3">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <BookOpen size={16} className="text-brand-blue" />
+                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                  Sabiduría Estoica del Día
+                </h3>
+              </div>
+              <button
+                onClick={handleNextQuote}
+                className="p-1.5 glass rounded-xl text-slate-400 hover:text-brand-blue transition-colors flex items-center gap-1 text-[10px] font-bold"
+                title="Siguiente frase estoica"
+              >
+                <RotateCw size={12} />
+                <span>Nueva frase</span>
+              </button>
             </div>
-            <p className="text-slate-300 leading-relaxed font-serif italic text-lg">
-              {readiness.score < 50 
-                ? `"El descanso también es una acción del sabio. No exijas al cuerpo lo que la mente sabe que hoy necesita recuperar."`
-                : readiness.score >= 85
-                ? `"La fortuna sonríe a la preparación. Hoy tu Readiness es óptimo. No postergues la oportunidad de superarte."`
-                : `"El obstáculo es el camino. Lo que hoy te cuesta esfuerzo mañana será tu fortaleza. Haz tu parte."`}
+            <p className="text-slate-200 leading-relaxed font-serif italic text-base sm:text-lg">
+              "{stoicQuote.quote}"
             </p>
+            <div className="flex justify-between items-center pt-1 text-[10px] text-slate-400 font-bold border-t border-white/5">
+              <span>— {stoicQuote.author} {stoicQuote.work ? `(${stoicQuote.work})` : ''}</span>
+              <span className="text-[9px] px-2 py-0.5 rounded bg-brand-blue/10 text-brand-blue border border-brand-blue/20 uppercase tracking-wider">
+                {stoicQuote.category}
+              </span>
+            </div>
           </div>
         </section>
       )}

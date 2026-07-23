@@ -3,6 +3,7 @@ import type { WorkoutSession, WorkoutSet, Routine, RoutineExercise } from '../su
 import type { IWorkoutRepository } from './IWorkoutRepository';
 import { syncEngine } from '../sync/SyncEngine';
 import { enqueueSyncAction, getItemIndexedDB, setItemIndexedDB, STORE_SESSIONS } from '../../lib/storageIndexedDB';
+import { BASE_EXERCISES } from '../../constants/exercises';
 
 export class SupabaseWorkoutRepository implements IWorkoutRepository {
   async fetchSessions(userId: string, limit = 100): Promise<WorkoutSession[]> {
@@ -221,11 +222,67 @@ export class SupabaseWorkoutRepository implements IWorkoutRepository {
     if (exercises.length > 0) {
       const { error: insertError } = await supabase
         .from('routine_exercises')
-        .insert(exercises.map((e, index) => ({ ...e, order_index: index })));
+        .insert(exercises.map((e, index) => ({ ...e, routine_id: routineId, order_index: index })));
 
       if (insertError) throw insertError;
     }
   }
+
+  async saveSessionEdits(
+    sessionId: string,
+    sessionUpdates: Partial<WorkoutSession>,
+    exercises: { exercise_id: string; sets: Partial<WorkoutSet>[] }[]
+  ): Promise<void> {
+    const { error: deleteError } = await supabase
+      .from('workout_sets')
+      .delete()
+      .eq('session_id', sessionId);
+
+    if (deleteError) throw deleteError;
+
+    let totalVolume = 0;
+    const setsToInsert = exercises.flatMap((ex) =>
+      (ex.sets || []).map((set, idx) => {
+        const isCardio = BASE_EXERCISES.find((e) => e.id === ex.exercise_id)?.muscleGroup === 'Cardio';
+        const reps = isCardio ? null : (Number(set.reps) || 0);
+        const weight = isCardio ? 0 : (Number(set.weight_kg) || 0);
+        const e1rm = reps && weight ? weight * (1 + reps / 30) : null;
+
+        if (!isCardio && set.is_completed && reps && weight) {
+          totalVolume += reps * weight;
+        }
+
+        return {
+          session_id: sessionId,
+          exercise_id: ex.exercise_id,
+          set_number: idx + 1,
+          reps: isCardio ? null : set.reps || null,
+          weight_kg: isCardio ? 0 : set.weight_kg || 0,
+          rpe: set.rpe || null,
+          rir: set.rir !== null && set.rir !== undefined ? set.rir : null,
+          is_completed: set.is_completed ?? true,
+          is_warmup: set.is_warmup ?? false,
+          is_pr: set.is_pr ?? false,
+          e1rm_kg: e1rm,
+          duration_seconds: isCardio ? (set.duration_seconds || null) : null,
+          distance_meters: isCardio ? (set.distance_meters || null) : null,
+        };
+      })
+    );
+
+    if (setsToInsert.length > 0) {
+      const { error: insertError } = await supabase.from('workout_sets').insert(setsToInsert);
+      if (insertError) throw insertError;
+    }
+
+    const { error: updateError } = await supabase
+      .from('workout_sessions')
+      .update({ ...sessionUpdates, total_volume_kg: totalVolume })
+      .eq('id', sessionId);
+
+    if (updateError) throw updateError;
+  }
 }
 
 export const supabaseWorkoutRepository = new SupabaseWorkoutRepository();
+

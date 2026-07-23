@@ -184,14 +184,14 @@ export default function CoachView() {
   };
 
   return (
-    <div className="h-[78vh] flex flex-col -mx-4 relative overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-10rem)] max-h-[820px] min-h-[500px] relative overflow-hidden rounded-3xl border border-white/10 glass-dark shadow-2xl">
       {/* Background Glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-brand-blue/10 blur-[100px] pointer-events-none" />
 
       {/* Header */}
-      <div className="px-4 pb-3 pt-1 flex justify-between items-center border-b border-white/5 bg-slate-900/50 backdrop-blur-md">
+      <div className="px-4 py-3 flex justify-between items-center border-b border-white/5 bg-slate-900/80 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-brand-blue/20 rounded-2xl flex items-center justify-center">
+          <div className="w-10 h-10 bg-brand-blue/20 rounded-2xl flex items-center justify-center border border-brand-blue/30">
             <Zap size={20} className="text-brand-blue animate-pulse" />
           </div>
           <div>
@@ -206,7 +206,7 @@ export default function CoachView() {
         <button
           onClick={handleGenerateReport}
           disabled={isTyping}
-          className="flex items-center gap-1.5 px-3.5 py-2.5 bg-brand-blue/20 border border-brand-blue/30 rounded-xl text-brand-blue text-[10px] font-black uppercase tracking-wider hover:bg-brand-blue/30 disabled:opacity-50 transition-all"
+          className="flex items-center gap-1.5 px-3 py-2 bg-brand-blue/20 border border-brand-blue/30 rounded-xl text-brand-blue text-[10px] font-black uppercase tracking-wider hover:bg-brand-blue/30 disabled:opacity-50 transition-all shadow-sm"
         >
           <FileText size={12} />
           Reporte Semanal
@@ -214,12 +214,12 @@ export default function CoachView() {
       </div>
 
       {/* Sub-tab Navigation */}
-      <div className="px-4 py-3 border-b border-white/5">
-        <div className="flex bg-slate-800/80 p-1.5 rounded-2xl border border-white/5">
+      <div className="px-4 py-2 border-b border-white/5 bg-slate-950/40 shrink-0">
+        <div className="flex bg-slate-800/80 p-1 rounded-2xl border border-white/5">
           <button
             onClick={() => setActiveSubTab('chat')}
             className={cn(
-              'flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all',
+              'flex-1 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all',
               activeSubTab === 'chat'
                 ? 'bg-brand-blue text-slate-950 shadow-md font-black'
                 : 'text-slate-400 hover:text-slate-200 font-bold'
@@ -230,7 +230,7 @@ export default function CoachView() {
           <button
             onClick={() => setActiveSubTab('musclewiki')}
             className={cn(
-              'flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all',
+              'flex-1 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all',
               activeSubTab === 'musclewiki'
                 ? 'bg-brand-blue text-slate-950 shadow-md font-black'
                 : 'text-slate-400 hover:text-slate-200 font-bold'
@@ -242,11 +242,11 @@ export default function CoachView() {
       </div>
 
       {activeSubTab === 'chat' ? (
-        <>
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {/* Messages */}
           <div
             ref={scrollRef}
-            className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scroll-smooth"
+            className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4 scroll-smooth"
           >
             {messages.map((msg, i) => (
               <motion.div
@@ -285,13 +285,13 @@ export default function CoachView() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar"
+                className="px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar shrink-0"
               >
                 {SUGGESTED_PROMPTS.map((prompt, i) => (
                   <button
                     key={i}
                     onClick={() => handleSend(prompt.text)}
-                    className="flex items-center gap-1.5 px-4 py-2.5 glass border-white/5 hover:border-brand-blue/20 rounded-xl text-xs font-bold text-slate-300 hover:text-brand-blue transition-all whitespace-nowrap"
+                    className="flex items-center gap-1.5 px-3.5 py-2 glass border-white/5 hover:border-brand-blue/20 rounded-xl text-xs font-bold text-slate-300 hover:text-brand-blue transition-all whitespace-nowrap"
                   >
                     <prompt.icon size={14} className="text-brand-blue" />
                     {prompt.text}
@@ -302,14 +302,14 @@ export default function CoachView() {
           </AnimatePresence>
 
           {/* Input bar */}
-          <div className="p-4 bg-slate-950/80 backdrop-blur-md border-t border-white/5 flex gap-2">
+          <div className="p-3 bg-slate-950/90 backdrop-blur-md border-t border-white/10 flex gap-2 shrink-0">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder="Pregúntale a Aero sobre tu progreso o dudas..."
-              className="flex-1 bg-slate-800/80 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500"
+              className="flex-1 bg-slate-800/80 border border-white/10 rounded-2xl px-4 py-2.5 text-sm outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500"
             />
             <button
               onClick={() => handleSend()}
@@ -319,9 +319,9 @@ export default function CoachView() {
               <Send size={18} />
             </button>
           </div>
-        </>
+        </div>
       ) : (
-        <div className="flex-1 overflow-y-auto px-4 pt-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3">
           <MuscleWikiExplorer />
         </div>
       )}
