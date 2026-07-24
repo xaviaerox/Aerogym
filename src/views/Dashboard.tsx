@@ -33,6 +33,10 @@ import { Trophy, Shield, Award, Zap } from 'lucide-react';
 import { useUserXP } from '../hooks/useUserXP';
 import { useWorkoutStreak } from '../hooks/useWorkoutStreak';
 import XPProgressBar from '../components/dashboard/XPProgressBar';
+import DashboardHeader from '../components/dashboard/DashboardHeader';
+import NextRoutineCard from '../components/dashboard/NextRoutineCard';
+import QuickHealthStats from '../components/dashboard/QuickHealthStats';
+import StoicQuoteCard from '../components/dashboard/StoicQuoteCard';
 import { getDailyStoicQuote, getRandomStoicQuote, type StoicQuote } from '../constants/stoicQuotes';
 import { strengthScoreEngine } from '../lib/strengthScoreEngine';
 
@@ -211,27 +215,11 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
   return (
     <div className="space-y-8">
       {/* Header & Level Progress */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-slate-400 text-sm font-medium">
-              {format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}
-            </p>
-            <h1 className="text-3xl font-bold text-slate-50 mt-1">
-              Hola, {profile?.name?.split(' ')[0] || 'atleta'}
-            </h1>
-          </div>
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-3 glass rounded-2xl text-slate-400 hover:text-slate-200 transition-colors"
-          >
-            <Settings size={20} />
-          </button>
-        </div>
-
-        {/* XP Level Bar */}
-        <XPProgressBar userXP={userXP} />
-      </div>
+      <DashboardHeader
+        userName={profile?.name}
+        userXP={userXP}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+      />
 
       {/* Stats Row */}
       <div className="grid grid-cols-3 gap-3">
@@ -281,86 +269,19 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
 
       {/* Siguiente Sesión */}
       {visibleWidgets.nextRoutine && (
-        <section className="space-y-4">
-          <div className="flex justify-between items-center px-1">
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em]">
-              Siguiente Sesión
-            </h2>
-            <button
-              onClick={() => setIsRoutineSelectorOpen(true)}
-              className="text-[10px] text-brand-blue font-bold uppercase tracking-wider hover:underline transition-all"
-            >
-              Elegir otra ⇄
-            </button>
-          </div>
-          <motion.button
-            whileTap={{ scale: 0.98 }}
-            onClick={() => startSession(nextRoutine)}
-            className="w-full glass bg-brand-blue/20 border-brand-blue/30 rounded-3xl p-6 text-left relative overflow-hidden group"
-          >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-brand-blue/10 blur-3xl -mr-16 -mt-16 rounded-full group-hover:bg-brand-blue/20 transition-all" />
-
-            <div className="relative z-10 flex justify-between items-center">
-              <div className="space-y-2">
-                <h3 className="text-2xl font-black text-slate-50">
-                  {nextRoutine?.name || 'Entrenamiento Libre'}
-                </h3>
-                <p className="text-slate-400 font-medium text-sm line-clamp-1 max-w-[200px]">
-                  {nextRoutine?.description || 'Sesión sin rutina fija'}
-                </p>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[10px] bg-brand-blue text-slate-950 px-2 py-0.5 rounded font-black uppercase tracking-tighter">
-                    TURNO ACTUAL
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                    {nextRoutine?.exercises?.length || 0} Ejercicios
-                  </span>
-                </div>
-              </div>
-
-              <div className="w-14 h-14 bg-brand-blue rounded-2xl flex items-center justify-center shadow-lg shadow-brand-blue/20 group-hover:scale-110 transition-transform">
-                <Play className="text-white fill-white ml-1" size={28} />
-              </div>
-            </div>
-          </motion.button>
-        </section>
+        <NextRoutineCard
+          nextRoutine={nextRoutine}
+          onStartSession={startSession}
+          onOpenSelector={() => setIsRoutineSelectorOpen(true)}
+        />
       )}
 
       {/* Registro Diario Rápido Trigger Card */}
       {visibleWidgets.quickLogger && (
-        <section className="space-y-4">
-          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] px-1">
-            Log del Día
-          </h2>
-          <button
-            onClick={() => setIsLoggerOpen(true)}
-            className="w-full p-5 glass border-white/5 hover:border-brand-blue/20 rounded-3xl text-left flex justify-between items-center transition-all group"
-          >
-            <div className="space-y-1">
-              <h3 className="font-bold text-slate-100 flex items-center gap-2">
-                Registrar métricas diarias
-                <Plus size={16} className="text-brand-blue group-hover:rotate-90 transition-transform" />
-              </h3>
-              <p className="text-xs text-slate-500 font-medium">
-                {todayHealth 
-                  ? "Actualiza tu agua, pasos, sueño o peso corporal" 
-                  : "Registra agua, pasos, sueño y energía en 10 seg"}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {todayHealth?.water_ml ? (
-                <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400">
-                  <Droplets size={16} />
-                </div>
-              ) : null}
-              {todayHealth?.steps ? (
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-                  <Footprints size={16} />
-                </div>
-              ) : null}
-            </div>
-          </button>
-        </section>
+        <QuickHealthStats
+          todayHealth={todayHealth}
+          onOpenLogger={() => setIsLoggerOpen(true)}
+        />
       )}
 
       {/* Water & Steps Quick Progress Widgets */}
@@ -406,35 +327,10 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
 
       {/* Sabiduría Estoica */}
       {visibleWidgets.stoicQuote && (
-        <section className="animate-in fade-in slide-in-from-bottom-4 duration-1000">
-          <div className="glass p-6 rounded-3xl border-brand-blue/15 relative overflow-hidden bg-brand-blue/[0.03] space-y-3">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <BookOpen size={16} className="text-brand-blue" />
-                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                  Sabiduría Estoica del Día
-                </h3>
-              </div>
-              <button
-                onClick={handleNextQuote}
-                className="p-1.5 glass rounded-xl text-slate-400 hover:text-brand-blue transition-colors flex items-center gap-1 text-[10px] font-bold"
-                title="Siguiente frase estoica"
-              >
-                <RotateCw size={12} />
-                <span>Nueva frase</span>
-              </button>
-            </div>
-            <p className="text-slate-200 leading-relaxed font-serif italic text-base sm:text-lg">
-              "{stoicQuote.quote}"
-            </p>
-            <div className="flex justify-between items-center pt-1 text-[10px] text-slate-400 font-bold border-t border-white/5">
-              <span>— {stoicQuote.author} {stoicQuote.work ? `(${stoicQuote.work})` : ''}</span>
-              <span className="text-[9px] px-2 py-0.5 rounded bg-brand-blue/10 text-brand-blue border border-brand-blue/20 uppercase tracking-wider">
-                {stoicQuote.category}
-              </span>
-            </div>
-          </div>
-        </section>
+        <StoicQuoteCard
+          quote={stoicQuote}
+          onNextQuote={handleNextQuote}
+        />
       )}
 
       {/* Último Registro */}

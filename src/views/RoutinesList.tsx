@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Play, Trash2, Sparkles, ChevronRight, Loader2, X, Dumbbell, Edit2, Calendar } from 'lucide-react';
 import { useAuthStore } from '../application/stores/useAuthStore';
@@ -21,6 +22,14 @@ export default function RoutinesList() {
   const [editingRoutine, setEditingRoutine] = useState<(Routine & { exercises: RoutineExercise[] }) | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<'routines' | 'history'>('routines');
   const [editingSession, setEditingSession] = useState<WorkoutSession | null>(null);
+
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: sessions.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 160,
+    overscan: 5,
+  });
 
   const handleGenerateAI = async () => {
     if (!profile || !user?.id) return;
@@ -272,94 +281,100 @@ export default function RoutinesList() {
               </div>
             </div>
           ) : (
-            sessions.map((session) => {
-              const sessionSets = workoutSetsHistory.filter((s) => s.session_id === session.id);
-              
-              const exerciseCounts = new Map<string, { count: number; isCardio: boolean; duration: number }>();
-              sessionSets.forEach((set) => {
-                const exerciseInfo = BASE_EXERCISES.find((e) => e.id === set.exercise_id);
-                const name = exerciseInfo?.name || set.exercise_id;
-                const isCardio = exerciseInfo?.muscleGroup === 'Cardio';
-                const duration = set.duration_seconds ? Math.round(set.duration_seconds / 60) : 0;
+            <div ref={parentRef} className="space-y-4">
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const session = sessions[virtualRow.index];
+                if (!session) return null;
+                const sessionSets = workoutSetsHistory.filter((s) => s.session_id === session.id);
                 
-                if (!exerciseCounts.has(name)) {
-                  exerciseCounts.set(name, { count: 0, isCardio, duration: 0 });
-                }
-                const item = exerciseCounts.get(name)!;
-                item.count += 1;
-                item.duration += duration;
-              });
+                const exerciseCounts = new Map<string, { count: number; isCardio: boolean; duration: number }>();
+                sessionSets.forEach((set) => {
+                  const exerciseInfo = BASE_EXERCISES.find((e) => e.id === set.exercise_id);
+                  const name = exerciseInfo?.name || set.exercise_id;
+                  const isCardio = exerciseInfo?.muscleGroup === 'Cardio';
+                  const duration = set.duration_seconds ? Math.round(set.duration_seconds / 60) : 0;
+                  
+                  if (!exerciseCounts.has(name)) {
+                    exerciseCounts.set(name, { count: 0, isCardio, duration: 0 });
+                  }
+                  const item = exerciseCounts.get(name)!;
+                  item.count += 1;
+                  item.duration += duration;
+                });
 
-              const summaryStrings: string[] = [];
-              exerciseCounts.forEach((info, name) => {
-                if (info.isCardio) {
-                  summaryStrings.push(`${name} (${info.duration} min)`);
-                } else {
-                  summaryStrings.push(`${info.count}x ${name}`);
-                }
-              });
+                const summaryStrings: string[] = [];
+                exerciseCounts.forEach((info, name) => {
+                  if (info.isCardio) {
+                    summaryStrings.push(`${name} (${info.duration} min)`);
+                  } else {
+                    summaryStrings.push(`${info.count}x ${name}`);
+                  }
+                });
 
-              return (
-                <div
-                  key={session.id}
-                  className="glass p-5 rounded-3xl border border-white/5 space-y-4"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-bold text-slate-50 text-base">{session.name}</h3>
-                      <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                        {format(new Date(session.started_at), "PPPP, HH:mm", { locale: es })}
-                      </p>
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        {session.duration_minutes !== null && session.duration_minutes !== undefined && (
-                          <span className="inline-flex items-center gap-1 text-[9px] bg-slate-800 text-slate-300 border border-white/10 px-2 py-0.5 rounded font-black uppercase">
-                            ⏱️ {session.duration_minutes} min
-                          </span>
-                        )}
-                        {session.perceived_difficulty && (
-                          <span className="inline-block text-[9px] bg-slate-800 text-brand-blue border border-brand-blue/10 px-2 py-0.5 rounded font-black uppercase">
-                            Dificultad: {session.perceived_difficulty}/10
-                          </span>
-                        )}
+                return (
+                  <div
+                    key={session.id}
+                    ref={rowVirtualizer.measureElement}
+                    data-index={virtualRow.index}
+                    className="glass p-5 rounded-3xl border border-white/5 space-y-4"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-bold text-slate-50 text-base">{session.name}</h3>
+                        <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                          {format(new Date(session.started_at), "PPPP, HH:mm", { locale: es })}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          {session.duration_minutes !== null && session.duration_minutes !== undefined && (
+                            <span className="inline-flex items-center gap-1 text-[9px] bg-slate-800 text-slate-300 border border-white/10 px-2 py-0.5 rounded font-black uppercase">
+                              ⏱️ {session.duration_minutes} min
+                            </span>
+                          )}
+                          {session.perceived_difficulty && (
+                            <span className="inline-block text-[9px] bg-slate-800 text-brand-blue border border-brand-blue/10 px-2 py-0.5 rounded font-black uppercase">
+                              Dificultad: {session.perceived_difficulty}/10
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setEditingSession(session)}
+                          className="p-2 text-slate-400 hover:text-brand-blue transition-colors rounded-xl bg-white/5 border border-white/5"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm('¿Eliminar esta sesión de entrenamiento de forma permanente?')) {
+                              await deletePastSession(session.id);
+                            }
+                          }}
+                          className="p-2 text-slate-500 hover:text-rose-400 transition-colors rounded-xl bg-white/5 border border-white/5"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setEditingSession(session)}
-                        className="p-2 text-slate-400 hover:text-brand-blue transition-colors rounded-xl bg-white/5 border border-white/5"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (confirm('¿Eliminar esta sesión de entrenamiento de forma permanente?')) {
-                            await deletePastSession(session.id);
-                          }
-                        }}
-                        className="p-2 text-slate-500 hover:text-rose-400 transition-colors rounded-xl bg-white/5 border border-white/5"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
 
-                  {summaryStrings.length > 0 && (
-                    <div className="pt-3 border-t border-white/5 space-y-1">
-                      <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest">Ejercicios Realizados</p>
-                      <p className="text-xs text-slate-300 font-semibold leading-relaxed">
-                        {summaryStrings.join(' · ')}
+                    {summaryStrings.length > 0 && (
+                      <div className="pt-3 border-t border-white/5 space-y-1">
+                        <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest">Ejercicios Realizados</p>
+                        <p className="text-xs text-slate-300 font-semibold leading-relaxed">
+                          {summaryStrings.join(' · ')}
+                        </p>
+                      </div>
+                    )}
+
+                    {session.notes && (
+                      <p className="text-xs text-slate-400 bg-white/5 p-3 rounded-xl border border-white/5 italic">
+                        "{session.notes}"
                       </p>
-                    </div>
-                  )}
-
-                  {session.notes && (
-                    <p className="text-xs text-slate-400 bg-white/5 p-3 rounded-xl border border-white/5 italic">
-                      "{session.notes}"
-                    </p>
-                  )}
-                </div>
-              );
-            })
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}

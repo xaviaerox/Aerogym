@@ -18,6 +18,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@supabase/supabase-js": "^2.108.2",
     "@tailwindcss/vite": "^4.1.14",
+    "@tanstack/react-virtual": "^3.13.0",
     "@types/jszip": "^3.4.0",
     "@vitejs/plugin-react": "^5.0.4",
     "clsx": "^2.1.1",
@@ -36,9 +37,11 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^22.14.0",
     "@types/pg": "^8.20.0",
     "autoprefixer": "^10.4.21",
+    "jsdom": "^29.1.1",
     "pg": "^8.22.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",

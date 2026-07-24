@@ -24,6 +24,8 @@ import { cn } from '../lib/utils';
 
 import { calculateMuscleFatigue } from '../lib/fatigueEngine';
 import BodyFatigueVisualizer from '../components/health/BodyFatigueVisualizer';
+import VolumeChartCard from '../components/analytics/VolumeChartCard';
+import HealthTrendsCard from '../components/analytics/HealthTrendsCard';
 
 type TimeFilter = 'week' | 'month' | 'all';
 type ViewTab = 'performance' | 'composition';
@@ -254,24 +256,7 @@ export default function Analytics() {
 
           {/* Volumen Chart */}
           {volumeData.length > 0 ? (
-            <section className="space-y-4">
-              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 px-1">
-                <TrendingUp size={16} className="text-brand-blue" /> Volumen Total (kg)
-              </h2>
-              <div className="h-64 glass p-4 rounded-3xl border border-white/5">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={volumeData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10 }} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '10px' }}
-                      formatter={(v) => [`${v}kg`, 'Volumen']}
-                    />
-                    <Line type="monotone" dataKey="vol" stroke="#38bdf8" strokeWidth={3} dot={{ fill: '#38bdf8', r: 4 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
+            <VolumeChartCard volumeData={volumeData} />
           ) : (
             <div className="glass p-12 rounded-3xl text-center text-slate-500 italic text-sm border border-white/5">
               <Dumbbell size={32} className="mx-auto mb-3 text-slate-700" />

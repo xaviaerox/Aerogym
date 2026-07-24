@@ -69,6 +69,7 @@ export default defineConfig(({ mode }) => {
     },
     // @ts-ignore
     test: {
+      environment: 'jsdom',
       exclude: ['**/node_modules/**', '**/e2e/**'],
     },
   };

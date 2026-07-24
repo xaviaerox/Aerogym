@@ -1,14 +1,7 @@
 import { Session, WorkoutExercise } from '../types';
+import { calculateE1RM } from './math/formulas';
 
-/**
- * Calculates Estimated 1-Rep Max using the Brzycki formula.
- * Formula: weight / (1.0278 - (0.0278 * reps)) or weight * (1 + reps / 30)
- */
-export const calculateE1RM = (weight: number, reps: number): number => {
-  if (!weight || !reps || weight <= 0 || reps <= 0) return 0;
-  if (reps === 1) return weight;
-  return weight * (1 + reps / 30);
-};
+export { calculateE1RM };
 
 /**
  * Gets the best E1RM for a specific exercise across all sessions.

@@ -2,6 +2,7 @@ import type { WorkoutSession, WorkoutSet, Routine, RoutineExercise } from '../su
 
 export interface IWorkoutRepository {
   fetchSessions(userId: string, limit?: number): Promise<WorkoutSession[]>;
+  fetchSessionsPaginated(userId: string, cursor?: string, limit?: number): Promise<{ data: WorkoutSession[]; nextCursor?: string }>;
   fetchWorkoutHistory(userId: string): Promise<WorkoutSet[]>;
   saveSession(
     session: Omit<WorkoutSession, 'id' | 'created_at'>,

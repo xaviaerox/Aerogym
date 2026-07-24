@@ -4,7 +4,7 @@ import { Send, Loader2, Zap, Brain, Target, Dumbbell, Calendar, FileText } from 
 import { useAuthStore } from '../application/stores/useAuthStore';
 import { useWorkoutStore } from '../application/stores/useWorkoutStore';
 import { useHealthStore } from '../application/stores/useHealthStore';
-import { sendChatMessage, generateWeeklyReport, type UserContextForAI } from '../lib/aiService';
+import { sendChatMessage, sendChatMessageStream, generateWeeklyReport, type UserContextForAI } from '../lib/aiService';
 import MuscleWikiExplorer from './MuscleWikiExplorer';
 import { subDays } from 'date-fns';
 import { cn } from '../lib/utils';
@@ -134,16 +134,31 @@ export default function CoachView() {
 
     setInput('');
     const newMsg: Message = { role: 'user', content: msg };
-    setMessages((prev) => [...prev, newMsg]);
+    
+    // Añadir mensaje del usuario y un mensaje placeholder para la IA
+    setMessages((prev) => [...prev, newMsg, { role: 'model', content: '' }]);
     setIsTyping(true);
 
     try {
       const context = buildUserContext();
       const ragContext = buildRAGContext(msg);
       const history = messages.slice(1); // Excluye el mensaje inicial
-      
-      const response = await sendChatMessage(context, history, msg, ragContext);
-      setMessages((prev) => [...prev, { role: 'model', content: response }]);
+
+      await sendChatMessageStream(
+        context,
+        history,
+        msg,
+        (accumulatedText) => {
+          setMessages((prev) => {
+            const next = [...prev];
+            if (next.length > 0 && next[next.length - 1].role === 'model') {
+              next[next.length - 1] = { role: 'model', content: accumulatedText };
+            }
+            return next;
+          });
+        },
+        ragContext
+      );
     } catch (error: unknown) {
       console.error('sendChatMessage error:', error);
       const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
@@ -157,7 +172,15 @@ export default function CoachView() {
         friendlyMsg = 'El coach IA está siendo configurado. Disponible próximamente.';
       }
 
-      setMessages((prev) => [...prev, { role: 'model', content: friendlyMsg }]);
+      setMessages((prev) => {
+        const next = [...prev];
+        if (next.length > 0 && next[next.length - 1].role === 'model') {
+          next[next.length - 1] = { role: 'model', content: friendlyMsg };
+        } else {
+          next.push({ role: 'model', content: friendlyMsg });
+        }
+        return next;
+      });
     } finally {
       setIsTyping(false);
     }

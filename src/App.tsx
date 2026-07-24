@@ -25,6 +25,7 @@ const CoachView = React.lazy(() => import('./views/CoachView'));
 import PWAReloadPrompt from './components/PWAReloadPrompt';
 import AchievementModal from './components/gamification/AchievementModal';
 import NetworkStatusIndicator from './components/NetworkStatusIndicator';
+import ToastContainer from './components/ui/ToastContainer';
 import { useGamificationStore } from './application/stores/useGamificationStore';
 
 function ViewLoader() {
@@ -192,6 +193,7 @@ export default function App() {
 
   return (
     <>
+      <ToastContainer />
       <NetworkStatusIndicator />
       {renderMain()}
       <PWAReloadPrompt />

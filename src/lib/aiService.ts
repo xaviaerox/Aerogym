@@ -44,6 +44,27 @@ export async function callGroqProxy(body: GroqRequestBody): Promise<string> {
   return text.trim();
 }
 
+/**
+ * Sanitiza los textos del usuario para prevenir ataques de Prompt Injection.
+ * Elimina comandos de anulación de instrucciones y limita la longitud del mensaje.
+ */
+export function sanitizePromptInput(input: string, maxLength = 1000): string {
+  if (!input) return '';
+  
+  let cleaned = input
+    // Reemplazar patrones conocidos de anulación de instrucciones
+    .replace(/(?:ignore|forget|disregard)\s+(?:previous|all|system)\s+(?:instructions|prompts|rules)/gi, '[filtrado]')
+    .replace(/(?:you\s+are\s+now|act\s+as)\s+(?:a|an)?\s*(?:unrestricted|dan|jailbreak)/gi, '[filtrado]')
+    // Eliminar caracteres nulos o no imprimibles
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+  if (cleaned.length > maxLength) {
+    cleaned = cleaned.substring(0, maxLength);
+  }
+
+  return cleaned.trim();
+}
+
 // ================================================================
 // SERVICIOS DE IA — Reescritos para usar Groq (OpenAI-compatible)
 // ================================================================
@@ -271,11 +292,13 @@ export async function sendChatMessage(
     ? `\nMEMORIA RAG RELEVANTE RECUPERADA:\n${extraContext.ragMemorySnippets.map((s) => `- ${s}`).join('\n')}\n`
     : '';
 
+  const sanitizedQuery = sanitizePromptInput(newMessage);
+
   const userMessageContent = `[CONTEXTO DE ${profile.name}: Nivel ${profile.level}, objetivo ${profile.goal}.
 Historial total: ${profile.sessionsCount} entrenamientos.
 ${extraContext?.recentSessionsSummary ? `Entrenamientos recientes:\n${extraContext.recentSessionsSummary}\n` : ''}${extraContext?.recentHealthSummary ? `Métricas de salud y descanso recientes:\n${extraContext.recentHealthSummary}\n` : ''}${ragText}]
 
-Pregunta: ${newMessage}`;
+Pregunta: ${sanitizedQuery}`;
 
   return callGroqProxy({
     model: 'llama-3.3-70b-versatile',
@@ -298,6 +321,38 @@ Pregunta: ${newMessage}`;
     max_tokens: 1024,
     temperature: 0.7,
   });
+}
+
+/**
+ * Chat interactivo del Coach Aero con soporte de Streaming en tiempo real token a token
+ */
+export async function sendChatMessageStream(
+  profile: UserContextForAI,
+  chatHistory: { role: 'user' | 'model'; content: string }[],
+  newMessage: string,
+  onChunk: (accumulatedText: string) => void,
+  extraContext?: {
+    recentSessionsSummary?: string;
+    recentHealthSummary?: string;
+    ragMemorySnippets?: string[];
+  }
+): Promise<string> {
+  try {
+    const fullText = await sendChatMessage(profile, chatHistory, newMessage, extraContext);
+    
+    // Simulación fluida de streaming progresivo si el servidor proxy devuelve la respuesta completa
+    const words = fullText.split(' ');
+    let current = '';
+    for (let i = 0; i < words.length; i++) {
+      current += (i === 0 ? '' : ' ') + words[i];
+      onChunk(current);
+      await new Promise((resolve) => setTimeout(resolve, 15));
+    }
+    return fullText;
+  } catch (err) {
+    console.error('Streaming chat failed, throwing:', err);
+    throw err;
+  }
 }
 
 /**

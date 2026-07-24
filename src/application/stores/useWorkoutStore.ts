@@ -4,6 +4,8 @@ import type { WorkoutSession, WorkoutSet, Routine, RoutineExercise } from '../..
 import { BASE_EXERCISES } from '../../constants/exercises';
 import { useAuthStore } from './useAuthStore';
 
+import { calculateE1RM, calculateSetVolume, isPersonalRecord } from '../../lib/math/formulas';
+
 // Tipos internos del store (enriquecidos para la UI)
 export interface ActiveSet extends WorkoutSet {
   isNew?: boolean; // Marcado si se acaba de añadir en la sesión
@@ -147,7 +149,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     activeSession.exercises.forEach((ex) => {
       ex.sets.forEach((set) => {
         if (set.is_completed && set.reps && set.weight_kg) {
-          totalVolume += set.reps * set.weight_kg;
+          totalVolume += calculateSetVolume(set.weight_kg, set.reps);
         }
       });
     });
@@ -176,7 +178,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       let bestSessionE1RM = 0;
       completedSets.forEach((s, idx) => {
         if (s.reps && s.weight_kg) {
-          const e1rm = s.weight_kg * (1 + s.reps / 30);
+          const e1rm = calculateE1RM(s.weight_kg, s.reps);
           if (e1rm > bestSessionE1RM) {
             bestSessionE1RM = e1rm;
             bestSetIdx = idx;
@@ -187,8 +189,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       return completedSets.map((set, idx) => {
         const reps = set.reps || 0;
         const weight = set.weight_kg || 0;
-        const e1rm = reps && weight ? weight * (1 + reps / 30) : null;
-        const isPR = idx === bestSetIdx && e1rm !== null && e1rm > historicBest;
+        const e1rm = reps && weight ? calculateE1RM(weight, reps) : null;
+        const isPR = idx === bestSetIdx && e1rm !== null && isPersonalRecord(e1rm, historicBest);
 
         return {
           session_id: '',

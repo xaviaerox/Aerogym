@@ -4,6 +4,7 @@ import type { IWorkoutRepository } from './IWorkoutRepository';
 import { syncEngine } from '../sync/SyncEngine';
 import { enqueueSyncAction, getItemIndexedDB, setItemIndexedDB, STORE_SESSIONS } from '../../lib/storageIndexedDB';
 import { BASE_EXERCISES } from '../../constants/exercises';
+import { calculateE1RM, calculateSetVolume } from '../../lib/math/formulas';
 
 export class SupabaseWorkoutRepository implements IWorkoutRepository {
   async fetchSessions(userId: string, limit = 100): Promise<WorkoutSession[]> {
@@ -27,6 +28,41 @@ export class SupabaseWorkoutRepository implements IWorkoutRepository {
 
     const cached = await getItemIndexedDB<WorkoutSession[]>(STORE_SESSIONS, `user_${userId}`);
     return cached || [];
+  }
+
+  async fetchSessionsPaginated(
+    userId: string,
+    cursor?: string,
+    limit = 20
+  ): Promise<{ data: WorkoutSession[]; nextCursor?: string }> {
+    if (syncEngine.isOnline()) {
+      try {
+        let query = supabase
+          .from('workout_sessions')
+          .select('*')
+          .eq('user_id', userId)
+          .order('started_at', { ascending: false })
+          .limit(limit + 1);
+
+        if (cursor) {
+          query = query.lt('started_at', cursor);
+        }
+
+        const { data, error } = await query;
+        if (!error && data) {
+          const hasMore = data.length > limit;
+          const items = hasMore ? data.slice(0, limit) : data;
+          const nextCursor = hasMore ? items[items.length - 1].started_at : undefined;
+          return { data: items, nextCursor };
+        }
+      } catch (e) {
+        console.warn('Network error fetching paginated sessions, using full cache fallback:', e);
+      }
+    }
+
+    const cached = await getItemIndexedDB<WorkoutSession[]>(STORE_SESSIONS, `user_${userId}`);
+    const items = (cached || []).slice(0, limit);
+    return { data: items };
   }
 
   async fetchWorkoutHistory(userId: string): Promise<WorkoutSet[]> {
@@ -246,10 +282,10 @@ export class SupabaseWorkoutRepository implements IWorkoutRepository {
         const isCardio = BASE_EXERCISES.find((e) => e.id === ex.exercise_id)?.muscleGroup === 'Cardio';
         const reps = isCardio ? null : (Number(set.reps) || 0);
         const weight = isCardio ? 0 : (Number(set.weight_kg) || 0);
-        const e1rm = reps && weight ? weight * (1 + reps / 30) : null;
+        const e1rm = reps && weight ? calculateE1RM(weight, reps) : null;
 
         if (!isCardio && set.is_completed && reps && weight) {
-          totalVolume += reps * weight;
+          totalVolume += calculateSetVolume(weight, reps);
         }
 
         return {
