@@ -19,3 +19,8 @@ declare module 'virtual:pwa-register/react' {
     updateServiceWorker: (reloadPage?: boolean) => Promise<void>;
   };
 }
+
+declare module '*.json' {
+  const value: any;
+  export default value;
+}
