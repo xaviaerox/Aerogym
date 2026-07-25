@@ -125,7 +125,7 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
   return (
     <div className="space-y-6 pb-28">
       {/* Header */}
-      <div className="flex justify-between items-center sticky top-0 bg-slate-900/90 backdrop-blur-md pt-2 pb-4 z-40">
+      <div className="flex justify-between items-center pb-3 border-b border-white/5">
         <div className="flex items-center gap-3">
           {onBack && (
             <button onClick={onBack} className="p-2 glass rounded-xl text-slate-400">
@@ -297,11 +297,6 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
                     <ExerciseImage src={thumbUrl} alt={ex.name} />
                   ) : (
                     <Dumbbell size={20} className="text-brand-blue" />
-                  )}
-                  {ex.videos.length > 0 && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-70">
-                      <Play size={14} className="text-slate-50 fill-slate-50" />
-                    </div>
                   )}
                 </div>
 

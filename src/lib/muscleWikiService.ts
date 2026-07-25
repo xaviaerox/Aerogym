@@ -95,33 +95,129 @@ export const TRANSLATE_CATEGORY: Record<string, string> = {
   'body weight': 'Peso Corporal',
 };
 
+// Map Spanish muscle group names in BASE_EXERCISES to MuscleWiki muscle keys
+function mapSpanishMuscleToWikiKey(mg: string): string {
+  switch (mg) {
+    case 'Pecho': return 'Chest';
+    case 'Espalda': return 'Lats';
+    case 'Cuádriceps': return 'Quadriceps';
+    case 'Isquios': return 'Hamstrings';
+    case 'Glúteos': return 'Glutes';
+    case 'Gemelos': return 'Calves';
+    case 'Hombros': return 'Shoulders';
+    case 'Bíceps': return 'Biceps';
+    case 'Tríceps': return 'Triceps';
+    case 'Antebrazos': return 'Forearms';
+    case 'Abdominales': return 'Abs';
+    case 'Cardio': return 'Cardio';
+    default: return mg;
+  }
+}
+
+// Map exercise equipment category dynamically
+function mapCategoryFromExercise(id: string, type: string, name: string): string {
+  const lowerId = id.toLowerCase();
+  const lowerName = name.toLowerCase();
+
+  if (lowerId.includes('cable') || lowerId.includes('pulldown') || (lowerId.includes('row') && lowerId.includes('seated')) || lowerId.includes('kickback') || lowerId.includes('pushdown') || lowerId.includes('woodchopper') || lowerName.includes('polea')) {
+    return 'Cables';
+  }
+  if (lowerId.includes('pullup') || lowerId.includes('chinup') || lowerId.includes('dip') || lowerId.includes('pushup') || lowerId.includes('plank') || lowerId.includes('bodyweight') || lowerId.includes('burpee') || lowerName.includes('dominada') || lowerName.includes('flexion') || lowerName.includes('plancha')) {
+    return 'Bodyweight';
+  }
+  if (lowerId.includes('machine') || lowerId.includes('press-45') || lowerId.includes('extension') || (lowerId.includes('curl') && lowerId.includes('leg')) || lowerId.includes('pec-dec') || lowerId.includes('multipower') || lowerId.includes('smith') || lowerId.includes('abductor') || lowerId.includes('treadmill') || lowerId.includes('cycling') || lowerId.includes('rowing-machine') || lowerId.includes('elliptical') || lowerId.includes('stairmaster') || lowerName.includes('máquina') || lowerName.includes('prensa')) {
+    return 'Machine';
+  }
+  if (lowerId.includes('db-') || lowerId.includes('-db') || lowerId.includes('dumbbell') || lowerName.includes('mancuerna')) {
+    return 'Dumbbell';
+  }
+  if (lowerId.includes('bb-') || lowerId.includes('-bb') || lowerId.includes('barbell') || lowerId.includes('squat') || lowerId.includes('deadlift') || lowerId.includes('bench') || lowerName.includes('barra')) {
+    return 'Barbell';
+  }
+  return type === 'Compuesto' ? 'Barbell' : 'Dumbbell';
+}
+
+const SLUG_TO_MEDIA_ID: Record<string, string> = {
+  // Biceps
+  'bb-curls': '1001-y8bYM8w',
+  'barbell-curl': '1001-y8bYM8w',
+  'hammer-curls': '1051-pkSoCW9',
+  'hammer-curl': '1051-pkSoCW9',
+  'db-alt-curls': '1052-ZsiqXYa',
+  'concentration-curls': '1052-ZsiqXYa',
+  'cable-curls': '1053-1gFNTZV',
+  'incline-db-curls': '1054-t8iSghb',
+
+  // Triceps
+  'tricep-extensions': '1007-euq4pwp',
+  'tricep-overhead': '1055-EcaV7aL',
+  'close-grip-bench': '1056-HJ63mSO',
+  'dips': '1057-EMpUwRI',
+
+  // Chest
+  'bench-press': '0007-4IKbhHV',
+  'incline-bb-press': '1059-SYJ4Bkt',
+  'cable-flyes': '1060-h8LFzo9',
+  'incline-db-flyes': '1061-iZop9xO',
+  'pushup': '0010-8K0w2yA',
+
+  // Back / Lats
+  'lat-pulldown': '1003-w1NOByi',
+  'pullups': '0011-03lzqwk',
+  'pull-up': '0011-03lzqwk',
+  'chinups': '0011-03lzqwk',
+  'deadlift': '0012-UGhRD1A',
+  'bb-rows': '1063-gfk9kD4',
+  'barbell-row': '1063-gfk9kD4',
+  'db-rows': '1064-qOgPVf6',
+  'seated-row': '1065-wnEscH8',
+  't-bar-row': '1066-WLvTAv5',
+
+  // Shoulders
+  'lateral-raises': '1006-HJ63mSO',
+  'db-overhead-press': '1010-KUaoUV8',
+  'face-pulls': '1012-u4bAmKp',
+  'front-raises': '1067-za9Ni4z',
+  'bb-overhead-press': '1068-Ln9iTbU',
+
+  // Legs
+  'goblet-squat': '1004-TUZLh71',
+  'leg-press-45': '1009-kuMiR2T',
+  'squats': '0009-PAgTVaK',
+  'squat': '0009-PAgTVaK',
+  'leg-extensions': '1070-62Nw60O',
+  'lunges': '0013-VX5YKR5',
+  'lunge': '0013-VX5YKR5',
+  'bulgarian-split-squat': '1072-qDnGfDb',
+  'romanian-deadlift': '1005-Kzg30R7',
+  'leg-curls': '1073-xNrS20v',
+  'hip-thrust': '1074-4LIG9xr',
+  'cable-kickbacks': '1075-LsZkfU6',
+
+  // Core
+  'cable-crunch': '1076-Gxg9lDc',
+  'hanging-leg-raises': '1077-7M66AVi',
+  'plank': '0014-r7cT9YD',
+  'burpee': '0006-qaZVsGk',
+  'crunch': '0015-vrhHa6D',
+};
+
 // Helper to build local media URLs
-function mwVideo(category: string, slug: string, angles: string[] = ['front']): MuscleWikiVideo[] {
+function mwVideo(category: string, slug: string): MuscleWikiVideo[] {
   const baseUrl = import.meta.env.BASE_URL || '/';
   const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
 
-  // Map known exercise slugs to local asset IDs
-  const slugToId: Record<string, string> = {
-    'barbell-curl': '0001-2gPfomN',
-    'hammer-curl': '0002-Hy9D21L',
-    'burpee': '0006-qaZVsGk',
-    'bench-press': '0007-4IKbhHV',
-    'squat': '0009-PAgTVaK',
-    'push-up': '0010-8K0w2yA',
-    'pull-up': '0011-03lzqwk',
-    'deadlift': '0012-UGhRD1A',
-    'lunge': '0013-VX5YKR5',
-    'plank': '0014-r7cT9YD',
-    'crunch': '0015-vrhHa6D',
-  };
-
-  const id = slugToId[slug] || '0001-2gPfomN';
+  const mediaId = SLUG_TO_MEDIA_ID[slug];
+  if (!mediaId) {
+    // Return empty array if not mapped so we don't display a mismatched image!
+    return [];
+  }
 
   return [{
     angle: 'front',
     gender: 'male' as const,
-    og_image: `${cleanBase}images/${id}.jpg`,
-    url: `${cleanBase}videos/${id}.gif`,
+    og_image: `${cleanBase}images/${mediaId}.jpg`,
+    url: `${cleanBase}videos/${mediaId}.gif`,
   }];
 }
 
@@ -133,18 +229,21 @@ const buildInitialLocalExercises = (): MuscleWikiExercise[] => {
 
   // Add BASE_EXERCISES baseline
   BASE_EXERCISES.forEach((ex) => {
+    const wikiMuscle = mapSpanishMuscleToWikiKey(ex.muscleGroup);
+    const wikiCategory = mapCategoryFromExercise(ex.id, ex.type, ex.name);
+
     map.set(String(ex.id), {
       id: ex.id,
       name: ex.name,
-      primary_muscles: [ex.muscleGroup],
+      primary_muscles: [wikiMuscle],
       secondary_muscles: [],
-      category: ex.type === 'Compuesto' ? 'Barbell' : 'Dumbbell',
+      category: wikiCategory,
       difficulty: 'Beginner',
       force: null,
       grips: [],
       mechanic: ex.type === 'Compuesto' ? 'compound' : 'isolation',
       steps: [`Ejecuta ${ex.name} con forma técnica adecuada y rango completo de movimiento.`],
-      videos: mwVideo(ex.type === 'Compuesto' ? 'Barbell' : 'Dumbbell', ex.id),
+      videos: mwVideo(wikiCategory, ex.id),
     });
   });
 
