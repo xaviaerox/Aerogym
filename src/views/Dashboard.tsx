@@ -39,6 +39,7 @@ import QuickHealthStats from '../components/dashboard/QuickHealthStats';
 import StoicQuoteCard from '../components/dashboard/StoicQuoteCard';
 import { getDailyStoicQuote, getRandomStoicQuote, type StoicQuote } from '../constants/stoicQuotes';
 import { strengthScoreEngine } from '../lib/strengthScoreEngine';
+import { calculateE1RM } from '../lib/math/formulas';
 
 interface DashboardProps {
   nextRoutine?: Routine & { exercises: RoutineExercise[] };
@@ -189,14 +190,29 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
     };
   }, [todayHealth, dailyHealth, sessions]);
 
-  // Cálculo de Coeficiente de Fuerza Relativa DOTS
+  // Cálculo de Coeficiente de Fuerza Relativa DOTS (basado en los mejores e1RM históricos de los ejercicios principales)
   const dotsScore = useMemo(() => {
-    const totalVolume = workoutSetsHistory
-      .filter((s) => s.is_completed)
-      .reduce((acc, s) => acc + (Number(s.weight_kg) || 0) * (Number(s.reps) || 0), 0);
+    const maxE1RMByExercise = new Map<string, number>();
+
+    workoutSetsHistory.forEach((s) => {
+      if (!s.is_completed || !s.weight_kg || !s.reps) return;
+      const e1rm = calculateE1RM(Number(s.weight_kg), Number(s.reps));
+      const currentMax = maxE1RMByExercise.get(s.exercise_id) || 0;
+      if (e1rm > currentMax) {
+        maxE1RMByExercise.set(s.exercise_id, e1rm);
+      }
+    });
+
+    // Tomar la suma de los 3 mejores e1RM (equivalente al Total de Powerlifting: Sentadilla + Banca + Peso Muerto)
+    const topE1RMs = Array.from(maxE1RMByExercise.values())
+      .sort((a, b) => b - a)
+      .slice(0, 3);
+
+    const totalLiftedKg = topE1RMs.reduce((sum, val) => sum + val, 0);
     const bw = Number(profile?.weight_kg) || 70;
     const gender = (profile?.gender as 'male' | 'female') || 'male';
-    return strengthScoreEngine.calculateDots(totalVolume / 10, bw, gender);
+
+    return strengthScoreEngine.calculateDots(totalLiftedKg, bw, gender);
   }, [workoutSetsHistory, profile]);
 
   // Nombres descriptivos de los widgets para el panel de ajustes

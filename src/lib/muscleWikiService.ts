@@ -1,4 +1,7 @@
 // Service to communicate with the MuscleWiki API.
+import { BASE_EXERCISES } from '../constants/exercises';
+import localExercisesJson from '../../public/data/exercises-local.json';
+
 // Priority order:
 //   1. Supabase Edge Function proxy (bypasses CORS, works with any tier from server)
 //   2. Direct API call (only works on TESTING+ tier)
@@ -123,15 +126,47 @@ function mwVideo(category: string, slug: string, angles: string[] = ['front']): 
 }
 
 // ─── COMPREHENSIVE LOCAL EXERCISE DATABASE ─────────────────────────────────
-// Loaded asynchronously from /public/data/exercises-local.json to keep the
-// main JS bundle lean. Falls back to an empty array if the fetch fails.
-// NOTE: LOCAL_EXERCISES is kept as a mutable reference for backwards compat.
-export let LOCAL_EXERCISES: MuscleWikiExercise[] = [];
+// Synchronously populated with BASE_EXERCISES + exercises-local.json
+// to guarantee 100% availability offline, in dev, in prod and in unit tests.
+const buildInitialLocalExercises = (): MuscleWikiExercise[] => {
+  const map = new Map<string, MuscleWikiExercise>();
+
+  // Add BASE_EXERCISES baseline
+  BASE_EXERCISES.forEach((ex) => {
+    map.set(String(ex.id), {
+      id: ex.id,
+      name: ex.name,
+      primary_muscles: [ex.muscleGroup],
+      secondary_muscles: [],
+      category: ex.type === 'Compuesto' ? 'Barbell' : 'Dumbbell',
+      difficulty: 'Beginner',
+      force: null,
+      grips: [],
+      mechanic: ex.type === 'Compuesto' ? 'compound' : 'isolation',
+      steps: [`Ejecuta ${ex.name} con forma técnica adecuada y rango completo de movimiento.`],
+      videos: mwVideo(ex.type === 'Compuesto' ? 'Barbell' : 'Dumbbell', ex.id),
+    });
+  });
+
+  // Enrich with detailed local JSON exercises if available
+  if (Array.isArray(localExercisesJson)) {
+    (localExercisesJson as MuscleWikiExercise[]).forEach((ex) => {
+      map.set(String(ex.id), ex);
+    });
+  }
+
+  return Array.from(map.values());
+};
+
+export let LOCAL_EXERCISES: MuscleWikiExercise[] = buildInitialLocalExercises();
 
 let _localExercisesLoaded = false;
 let _localExercisesLoading: Promise<MuscleWikiExercise[]> | null = null;
 
 async function loadLocalExercises(): Promise<MuscleWikiExercise[]> {
+  if (LOCAL_EXERCISES.length === 0) {
+    LOCAL_EXERCISES = buildInitialLocalExercises();
+  }
   if (_localExercisesLoaded) return LOCAL_EXERCISES;
   if (_localExercisesLoading) return _localExercisesLoading;
 
@@ -139,23 +174,38 @@ async function loadLocalExercises(): Promise<MuscleWikiExercise[]> {
     try {
       const baseUrl = import.meta.env.BASE_URL || '/';
       const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-      const res = await fetch(`${cleanBase}data/exercises-local.json`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: MuscleWikiExercise[] = await res.json();
-      LOCAL_EXERCISES = data;
-      _localExercisesLoaded = true;
-      return data;
+      const candidatePaths = [
+        `${cleanBase}data/exercises-local.json`,
+        `data/exercises-local.json`,
+        `./data/exercises-local.json`
+      ];
+
+      for (const p of candidatePaths) {
+        try {
+          const res = await fetch(p);
+          if (res.ok) {
+            const data: MuscleWikiExercise[] = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+              const map = new Map<string, MuscleWikiExercise>();
+              LOCAL_EXERCISES.forEach(e => map.set(String(e.id), e));
+              data.forEach(e => map.set(String(e.id), e));
+              LOCAL_EXERCISES = Array.from(map.values());
+              break;
+            }
+          }
+        } catch (_) {}
+      }
     } catch (err) {
-      console.warn('[muscleWikiService] Could not load exercises-local.json:', err);
-      _localExercisesLoaded = true; // avoid retrying every call
-      return [];
+      console.warn('[muscleWikiService] Non-critical fetch warning for exercises-local.json:', err);
+    } finally {
+      _localExercisesLoaded = true;
     }
+    return LOCAL_EXERCISES;
   })();
 
   return _localExercisesLoading;
 }
 
-// Eagerly start loading in the background (non-blocking)
 if (typeof window !== 'undefined') {
   loadLocalExercises();
 }
@@ -324,12 +374,19 @@ export class MuscleWikiService {
   static getCachedExerciseInfo(id: string | number): { name: string; muscleGroup: string } {
     const cleanId = String(id).replace('mw-', '');
     const numericId = parseInt(cleanId);
-    const pool = this._datasetCache && this._datasetCache.length > 0 ? this._datasetCache : LOCAL_EXERCISES;
-    const ex = pool.find(e => String(e.id) === String(id) || String(e.id) === `mw-${cleanId}` || e.id === numericId);
+    const pool = (this._datasetCache && this._datasetCache.length > 0) ? this._datasetCache : LOCAL_EXERCISES;
+    const ex = pool.find(e => String(e.id) === String(id) || String(e.id) === `mw-${cleanId}` || e.id === numericId || String(e.id) === cleanId);
     if (ex) {
       return {
         name: ex.name,
         muscleGroup: TRANSLATE_MUSCLE[ex.primary_muscles[0]] || ex.primary_muscles[0],
+      };
+    }
+    const baseEx = BASE_EXERCISES.find(e => e.id === cleanId || e.id === String(id));
+    if (baseEx) {
+      return {
+        name: baseEx.name,
+        muscleGroup: baseEx.muscleGroup,
       };
     }
     return { name: `Ejercicio #${cleanId}`, muscleGroup: 'Local' };
