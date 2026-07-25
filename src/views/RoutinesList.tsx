@@ -1,5 +1,4 @@
-import React, { useState, useRef } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Play, Trash2, Sparkles, ChevronRight, Loader2, X, Dumbbell, Edit2, Calendar } from 'lucide-react';
 import { useAuthStore } from '../application/stores/useAuthStore';
@@ -15,7 +14,18 @@ import { es } from 'date-fns/locale';
 
 export default function RoutinesList() {
   const { profile, user } = useAuthStore();
-  const { routines, startSession, deleteRoutine, createRoutine, updateRoutineExercises, sessions, workoutSetsHistory, deletePastSession } = useWorkoutStore();
+  const {
+    routines,
+    startSession,
+    deleteRoutine,
+    createRoutine,
+    updateRoutineExercises,
+    sessions,
+    workoutSetsHistory,
+    deletePastSession,
+    fetchSessions,
+    fetchWorkoutHistory,
+  } = useWorkoutStore();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newRoutineName, setNewRoutineName] = useState('');
@@ -23,13 +33,12 @@ export default function RoutinesList() {
   const [activeSubTab, setActiveSubTab] = useState<'routines' | 'history'>('routines');
   const [editingSession, setEditingSession] = useState<WorkoutSession | null>(null);
 
-  const parentRef = useRef<HTMLDivElement>(null);
-  const rowVirtualizer = useVirtualizer({
-    count: sessions.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 160,
-    overscan: 5,
-  });
+  React.useEffect(() => {
+    if (user?.id) {
+      fetchSessions(user.id);
+      fetchWorkoutHistory(user.id);
+    }
+  }, [user?.id, fetchSessions, fetchWorkoutHistory]);
 
   const handleGenerateAI = async () => {
     if (!profile || !user?.id) return;
@@ -281,10 +290,8 @@ export default function RoutinesList() {
               </div>
             </div>
           ) : (
-            <div ref={parentRef} className="space-y-4">
-              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                const session = sessions[virtualRow.index];
-                if (!session) return null;
+            <div className="space-y-4">
+              {sessions.map((session) => {
                 const sessionSets = workoutSetsHistory.filter((s) => s.session_id === session.id);
                 
                 const exerciseCounts = new Map<string, { count: number; isCardio: boolean; duration: number }>();
@@ -314,9 +321,7 @@ export default function RoutinesList() {
                 return (
                   <div
                     key={session.id}
-                    ref={rowVirtualizer.measureElement}
-                    data-index={virtualRow.index}
-                    className="glass p-5 rounded-3xl border border-white/5 space-y-4"
+                    className="glass p-5 rounded-3xl border border-white/5 space-y-4 hover:border-brand-blue/20 transition-all"
                   >
                     <div className="flex justify-between items-start">
                       <div>
@@ -340,9 +345,10 @@ export default function RoutinesList() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => setEditingSession(session)}
-                          className="p-2 text-slate-400 hover:text-brand-blue transition-colors rounded-xl bg-white/5 border border-white/5"
+                          title="Editar entrenamiento"
+                          className="p-2 text-slate-400 hover:text-brand-blue transition-colors rounded-xl bg-white/5 border border-white/5 hover:bg-white/10"
                         >
-                          <Edit2 size={14} />
+                          <Edit2 size={16} />
                         </button>
                         <button
                           onClick={async () => {
@@ -350,9 +356,10 @@ export default function RoutinesList() {
                               await deletePastSession(session.id);
                             }
                           }}
-                          className="p-2 text-slate-500 hover:text-rose-400 transition-colors rounded-xl bg-white/5 border border-white/5"
+                          title="Eliminar entrenamiento"
+                          className="p-2 text-slate-500 hover:text-rose-400 transition-colors rounded-xl bg-white/5 border border-white/5 hover:bg-rose-500/10"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </div>
