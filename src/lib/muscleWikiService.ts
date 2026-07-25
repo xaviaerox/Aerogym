@@ -1,6 +1,6 @@
 // Service to communicate with the MuscleWiki API.
 import { BASE_EXERCISES } from '../constants/exercises';
-import localExercisesJson from '../../public/data/exercises-local.json';
+import localExercisesJson from '../data/exercises-local.json';
 
 // Priority order:
 //   1. Supabase Edge Function proxy (bypasses CORS, works with any tier from server)
