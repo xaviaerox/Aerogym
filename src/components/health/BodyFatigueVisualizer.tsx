@@ -21,17 +21,17 @@ export default function BodyFatigueVisualizer({
 
   const getMuscleColor = (muscleName: string) => {
     const data = fatigueMap.get(muscleName);
-    if (!data || data.fatiguePercent === 0) return 'rgba(30, 41, 59, 0.05)';
+    if (!data || data.fatiguePercent === 0) return 'rgba(30, 41, 59, 0.4)'; // Slate-800 translucent when 0%
     const pct = data.fatiguePercent;
-    if (pct > 80) return 'rgba(239, 68, 68, 0.6)'; // Red-500
-    if (pct > 60) return 'rgba(249, 115, 22, 0.6)'; // Orange-500
-    if (pct > 35) return 'rgba(234, 179, 8, 0.6)'; // Yellow-500
-    return 'rgba(16, 185, 129, 0.6)'; // Emerald-500
+    if (pct > 80) return 'rgba(239, 68, 68, 0.7)'; // Red-500
+    if (pct > 60) return 'rgba(249, 115, 22, 0.7)'; // Orange-500
+    if (pct > 35) return 'rgba(234, 179, 8, 0.7)'; // Yellow-500
+    return 'rgba(16, 185, 129, 0.7)'; // Emerald-500
   };
 
   const getMuscleStroke = (muscleName: string) => {
     const data = fatigueMap.get(muscleName);
-    if (!data || data.fatiguePercent === 0) return 'transparent';
+    if (!data || data.fatiguePercent === 0) return '#475569'; // Slate-600 outline
     const pct = data.fatiguePercent;
     if (pct > 80) return '#f87171';
     if (pct > 60) return '#fb923c';
@@ -43,7 +43,7 @@ export default function BodyFatigueVisualizer({
     const data = fatigueMap.get(muscleName);
     if (!data || data.fatiguePercent <= 35) return 'none';
     const stroke = getMuscleStroke(muscleName);
-    return `drop-shadow(0px 0px 8px ${stroke})`;
+    return `drop-shadow(0px 0px 6px ${stroke})`;
   };
 
   const handleMuscleClick = (muscleName: string) => {
@@ -58,7 +58,7 @@ export default function BodyFatigueVisualizer({
         <div className="flex items-center gap-2">
           <Activity size={18} className="text-brand-blue animate-pulse" />
           <span className="text-xs font-black text-slate-200 uppercase tracking-wider">
-            Mapa Anatómico 2D de Fatiga Muscular (Frontal & Posterior)
+            Mapa Anatómico 2D de Fatiga Muscular
           </span>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-800/90 rounded-full border border-white/10 text-[11px] font-mono text-slate-300">
@@ -78,235 +78,286 @@ export default function BodyFatigueVisualizer({
         </div>
       </div>
 
-      {/* Embedded 2D Anatomical Map Container */}
-      <div className="relative w-full max-w-[550px] mx-auto rounded-2xl border border-white/10 overflow-hidden bg-[#eef2f6] shadow-inner p-1">
+      {/* Pure High-Precision 2D Vector Anatomical Visualizer (Pure SVG - No External Files) */}
+      <div className="relative flex justify-center items-center py-4 px-2 bg-slate-950/80 rounded-2xl border border-white/5 overflow-hidden min-h-[350px]">
+        {/* Background Grid Accent */}
+        <div className="absolute inset-0 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px] opacity-10 pointer-events-none" />
+
         <svg
-          viewBox="0 0 1000 650"
-          className="w-full h-auto drop-shadow-2xl select-none"
+          viewBox="0 0 400 370"
+          className="w-full max-w-[480px] h-auto drop-shadow-2xl select-none"
         >
-          {/* Base Anatomical Line-Art Image (Embedded inside SVG coordinate space for 100% perfect lock) */}
-          <image
-            href="/Aerogym/images/body_map_2d.png"
-            x="0"
-            y="0"
-            width="1000"
-            height="650"
-            preserveAspectRatio="xMidYMid meet"
+          {/* Labels Front / Back */}
+          <text x="100" y="16" textAnchor="middle" fill="#94a3b8" fontSize="10" fontWeight="900" letterSpacing="1.5">
+            FRONTAL
+          </text>
+          <text x="300" y="16" textAnchor="middle" fill="#94a3b8" fontSize="10" fontWeight="900" letterSpacing="1.5">
+            POSTERIOR
+          </text>
+
+          {/* Central Vertical Divider */}
+          <line x1="200" y1="26" x2="200" y2="360" stroke="#334155" strokeWidth="1" strokeDasharray="3 3" opacity="0.4" />
+
+          {/* ═════════════════════════════════════════════════════════════════════ */}
+          {/* ─── VISTA FRONTAL (LEFT FIGURE: Center X = 100) ─── */}
+          {/* ═════════════════════════════════════════════════════════════════════ */}
+
+          {/* Body Outer Line Contour (Frontal Muscular Physique) */}
+          <path
+            d="M 100 24 C 108 24 114 30 114 42 C 114 52 108 58 103 62 C 116 65 138 74 144 94 L 160 156 C 162 162 153 167 148 162 L 138 122 L 130 182 L 124 250 L 120 344 C 119 350 108 350 106 344 L 97 242 L 91 242 L 82 344 C 80 350 69 350 68 344 L 64 250 L 58 182 L 50 122 L 40 162 C 35 167 26 162 28 156 L 44 94 C 50 74 72 65 85 62 C 80 58 74 52 74 42 C 74 30 80 24 100 24 Z"
+            fill="#0b1329"
+            stroke="#475569"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
 
-          {/* ─── VISTA FRONTAL (FRONT VIEW — LEFT SIDE) ─── */}
+          {/* Cabeza / Cuello */}
+          <ellipse cx="100" cy="42" rx="16" ry="19" fill="#1e293b" stroke="#475569" strokeWidth="1.3" />
+          <path d="M 90 60 C 90 68, 94 74, 94 78 M 110 60 C 110 68, 106 74, 106 78" fill="none" stroke="#475569" strokeWidth="1.2" />
 
-          {/* Hombros (Deltoides Izquierdo y Derecho) */}
-          <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Hombros')}>
+          {/* Hombros (Deltoides Frontales) */}
+          <g className="cursor-pointer transition-all hover:brightness-125" onClick={() => handleMuscleClick('Hombros')}>
             <path
-              d="M 175 145 C 150 152 135 180 138 215 C 155 220 178 205 185 180 Z"
+              d="M 62 82 C 48 86 40 98 42 116 C 46 120 54 114 60 102 Z"
               fill={getMuscleColor('Hombros')}
               stroke={getMuscleStroke('Hombros')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Hombros') }}
             />
             <path
-              d="M 325 145 C 350 152 365 180 362 215 C 345 220 322 205 315 180 Z"
+              d="M 138 82 C 152 86 160 98 158 116 C 154 120 146 114 140 102 Z"
               fill={getMuscleColor('Hombros')}
               stroke={getMuscleStroke('Hombros')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Hombros') }}
             />
             <title>Hombros (Deltoides)</title>
           </g>
 
-          {/* Pecho (Pectorales Izquierdo y Derecho) */}
-          <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Pecho')}>
+          {/* Pecho (Pectoral Mayor Izquierdo y Derecho) */}
+          <g className="cursor-pointer transition-all hover:brightness-125" onClick={() => handleMuscleClick('Pecho')}>
             <path
-              d="M 250 150 C 220 150 190 155 182 185 C 178 208 200 235 248 235 Z"
+              d="M 76 82 C 90 82 98 84 99 108 C 84 114 70 108 66 96 Z"
               fill={getMuscleColor('Pecho')}
               stroke={getMuscleStroke('Pecho')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Pecho') }}
             />
             <path
-              d="M 250 150 C 280 150 310 155 318 185 C 322 208 300 235 252 235 Z"
+              d="M 124 82 C 110 82 102 84 101 108 C 116 114 130 108 134 96 Z"
               fill={getMuscleColor('Pecho')}
               stroke={getMuscleStroke('Pecho')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Pecho') }}
             />
             <title>Pecho (Pectoral Mayor)</title>
           </g>
 
           {/* Bíceps (Izquierdo y Derecho) */}
-          <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Bíceps')}>
+          <g className="cursor-pointer transition-all hover:brightness-125" onClick={() => handleMuscleClick('Bíceps')}>
             <path
-              d="M 136 218 C 120 250 135 295 152 290 C 165 270 168 238 152 218 Z"
+              d="M 42 116 C 38 135 44 152 50 150 C 54 140 54 124 48 116 Z"
               fill={getMuscleColor('Bíceps')}
               stroke={getMuscleStroke('Bíceps')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Bíceps') }}
             />
             <path
-              d="M 364 218 C 380 250 365 295 348 290 C 335 270 332 238 348 218 Z"
+              d="M 158 116 C 162 135 156 152 150 150 C 146 140 146 124 152 116 Z"
               fill={getMuscleColor('Bíceps')}
               stroke={getMuscleStroke('Bíceps')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Bíceps') }}
             />
             <title>Bíceps Braquial</title>
           </g>
 
-          {/* Abdominales (Core / 6-Pack Column) */}
-          <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Abdominales')}>
+          {/* Antebrazos / Manos */}
+          <path d="M 50 150 L 36 190 M 150 150 L 164 190" fill="none" stroke="#475569" strokeWidth="1.2" />
+
+          {/* Abdominales (Core / 6-Pack Grid Anatómico) */}
+          <g className="cursor-pointer transition-all hover:brightness-125" onClick={() => handleMuscleClick('Abdominales')}>
             <path
-              d="M 225 240 L 275 240 L 268 375 L 232 375 Z"
+              d="M 82 110 L 118 110 L 114 175 L 86 175 Z"
               fill={getMuscleColor('Abdominales')}
               stroke={getMuscleStroke('Abdominales')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Abdominales') }}
             />
+            <line x1="100" y1="110" x2="100" y2="175" stroke="#334155" strokeWidth="1.2" />
+            <line x1="84" y1="131" x2="116" y2="131" stroke="#334155" strokeWidth="1.2" />
+            <line x1="85" y1="153" x2="115" y2="153" stroke="#334155" strokeWidth="1.2" />
             <title>Abdominales (Recto Abdominal)</title>
           </g>
 
+          {/* Oblicuos */}
+          <path d="M 68 110 C 68 135 74 160 86 175 M 132 110 C 132 135 126 160 114 175" fill="none" stroke="#475569" strokeWidth="1.2" />
+
           {/* Cuádriceps (Izquierdo y Derecho) */}
-          <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Cuádriceps')}>
+          <g className="cursor-pointer transition-all hover:brightness-125" onClick={() => handleMuscleClick('Cuádriceps')}>
             <path
-              d="M 225 390 C 190 415 180 480 190 540 C 215 550 240 540 248 490 C 252 450 245 405 225 390 Z"
+              d="M 70 185 C 62 215 66 258 92 260 C 96 235 94 200 84 185 Z"
               fill={getMuscleColor('Cuádriceps')}
               stroke={getMuscleStroke('Cuádriceps')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Cuádriceps') }}
             />
             <path
-              d="M 275 390 C 310 415 320 480 310 540 C 285 550 260 540 252 490 C 248 450 255 405 275 390 Z"
+              d="M 130 185 C 138 215 134 258 108 260 C 104 235 106 200 116 185 Z"
               fill={getMuscleColor('Cuádriceps')}
               stroke={getMuscleStroke('Cuádriceps')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Cuádriceps') }}
             />
             <title>Cuádriceps (Muslos Frontales)</title>
           </g>
 
+          {/* Rótulas Rodillas */}
+          <ellipse cx="86" cy="270" rx="5" ry="6" fill="#0f172a" stroke="#475569" strokeWidth="1.2" />
+          <ellipse cx="114" cy="270" rx="5" ry="6" fill="#0f172a" stroke="#475569" strokeWidth="1.2" />
+
           {/* Gemelos Frontales */}
-          <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Gemelos')}>
+          <g className="cursor-pointer transition-all hover:brightness-125" onClick={() => handleMuscleClick('Gemelos')}>
             <path
-              d="M 195 560 C 180 595 192 640 220 640 C 230 600 220 570 210 560 Z"
+              d="M 70 280 C 62 305 70 340 84 340 C 88 315 84 290 78 280 Z"
               fill={getMuscleColor('Gemelos')}
               stroke={getMuscleStroke('Gemelos')}
-              strokeWidth="2"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Gemelos') }}
             />
             <path
-              d="M 305 560 C 320 595 308 640 280 640 C 270 600 280 570 290 560 Z"
+              d="M 130 280 C 138 305 130 340 116 340 C 112 315 116 290 122 280 Z"
               fill={getMuscleColor('Gemelos')}
               stroke={getMuscleStroke('Gemelos')}
-              strokeWidth="2"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Gemelos') }}
             />
-            <title>Gemelos (Espinilla / Pantorrilla)</title>
+            <title>Gemelos (Pantorrilla)</title>
           </g>
 
-          {/* ─── VISTA POSTERIOR (BACK VIEW — RIGHT SIDE) ─── */}
+          {/* ═════════════════════════════════════════════════════════════════════ */}
+          {/* ─── VISTA POSTERIOR (RIGHT FIGURE: Center X = 300) ─── */}
+          {/* ═════════════════════════════════════════════════════════════════════ */}
 
-          {/* Espalda (Dorsales / Trapecios / Lumbar) */}
-          <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Espalda')}>
+          {/* Body Outer Line Contour (Posterior Muscular Physique) */}
+          <path
+            d="M 300 24 C 308 24 314 30 314 42 C 314 52 308 58 303 62 C 316 65 338 74 344 94 L 360 156 C 362 162 353 167 348 162 L 338 122 L 330 182 L 324 250 L 320 344 C 319 350 308 350 306 344 L 297 242 L 291 242 L 282 344 C 280 350 269 350 268 344 L 264 250 L 258 182 L 250 122 L 240 162 C 235 167 226 162 228 156 L 244 94 C 250 74 272 65 285 62 C 280 58 274 52 274 42 C 274 30 280 24 300 24 Z"
+            fill="#0b1329"
+            stroke="#475569"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+
+          {/* Cabeza Posterior */}
+          <ellipse cx="300" cy="42" rx="16" ry="19" fill="#1e293b" stroke="#475569" strokeWidth="1.3" />
+
+          {/* Espalda (Trapecios & Dorsal Ancho V-Taper) */}
+          <g className="cursor-pointer transition-all hover:brightness-125" onClick={() => handleMuscleClick('Espalda')}>
+            {/* Trapecio superior */}
+            <path d="M 300 64 L 270 78 L 300 118 L 330 78 Z" fill={getMuscleColor('Espalda')} stroke={getMuscleStroke('Espalda')} strokeWidth="1.2" />
+            {/* Dorsal Ancho */}
             <path
-              d="M 730 135 L 650 150 C 610 180 605 240 640 330 L 730 345 L 820 330 C 855 240 850 180 810 150 Z"
+              d="M 270 78 C 256 88 250 120 270 165 L 300 172 L 330 165 C 350 120 344 88 330 78 L 300 118 Z"
               fill={getMuscleColor('Espalda')}
               stroke={getMuscleStroke('Espalda')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Espalda') }}
             />
             <title>Espalda (Dorsales / Trapecios / Lumbar)</title>
           </g>
 
-          {/* Hombros Posteriores (Deltoides Espalda) */}
-          <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Hombros')}>
+          {/* Deltoides Posteriores (Hombros Espalda) */}
+          <g className="cursor-pointer transition-all hover:brightness-125" onClick={() => handleMuscleClick('Hombros')}>
             <path
-              d="M 650 150 C 625 155 610 180 615 215 C 630 220 652 205 658 180 Z"
+              d="M 270 78 C 256 82 244 95 246 114 C 252 118 262 112 268 98 Z"
               fill={getMuscleColor('Hombros')}
               stroke={getMuscleStroke('Hombros')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Hombros') }}
             />
             <path
-              d="M 810 150 C 835 155 850 180 845 215 C 830 220 808 205 802 180 Z"
+              d="M 330 78 C 344 82 356 95 354 114 C 348 118 338 112 332 98 Z"
               fill={getMuscleColor('Hombros')}
               stroke={getMuscleStroke('Hombros')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Hombros') }}
             />
             <title>Deltoides Posterior</title>
           </g>
 
           {/* Tríceps (Izquierdo y Derecho) */}
-          <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Tríceps')}>
+          <g className="cursor-pointer transition-all hover:brightness-125" onClick={() => handleMuscleClick('Tríceps')}>
             <path
-              d="M 615 218 C 600 250 612 295 628 290 C 640 270 642 238 628 218 Z"
+              d="M 246 114 C 242 132 248 154 256 152 C 262 142 264 124 256 114 Z"
               fill={getMuscleColor('Tríceps')}
               stroke={getMuscleStroke('Tríceps')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Tríceps') }}
             />
             <path
-              d="M 845 218 C 860 250 848 295 832 290 C 840 270 838 238 852 218 Z"
+              d="M 354 114 C 358 132 352 154 344 152 C 338 142 336 124 344 114 Z"
               fill={getMuscleColor('Tríceps')}
               stroke={getMuscleStroke('Tríceps')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Tríceps') }}
             />
             <title>Tríceps Braquial</title>
           </g>
 
-          {/* Glúteos (Gluteus Maximus - Twin Rounded Bellies) */}
-          <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Glúteos')}>
+          {/* Glúteos (Gluteus Maximus - Twin Rounded Muscular Bellies) */}
+          <g className="cursor-pointer transition-all hover:brightness-125" onClick={() => handleMuscleClick('Glúteos')}>
             <path
-              d="M 730 350 C 660 350 640 380 650 445 C 690 455 725 425 730 350 Z"
+              d="M 300 172 C 270 172 260 190 264 224 C 284 228 298 210 300 172 Z"
               fill={getMuscleColor('Glúteos')}
               stroke={getMuscleStroke('Glúteos')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Glúteos') }}
             />
             <path
-              d="M 730 350 C 800 350 820 380 810 445 C 770 455 735 425 730 350 Z"
+              d="M 300 172 C 330 172 340 190 336 224 C 316 228 302 210 300 172 Z"
               fill={getMuscleColor('Glúteos')}
               stroke={getMuscleStroke('Glúteos')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Glúteos') }}
             />
             <title>Glúteos (Glúteo Mayor)</title>
           </g>
 
           {/* Isquiosururales (Isquiotibiales Izquierdo y Derecho) */}
-          <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Isquios')}>
+          <g className="cursor-pointer transition-all hover:brightness-125" onClick={() => handleMuscleClick('Isquios')}>
             <path
-              d="M 670 450 C 650 480 660 535 700 540 C 712 510 710 470 690 450 Z"
+              d="M 264 226 C 256 245 262 275 280 278 C 286 260 284 235 276 226 Z"
               fill={getMuscleColor('Isquios')}
               stroke={getMuscleStroke('Isquios')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Isquios') }}
             />
             <path
-              d="M 810 450 C 830 480 820 535 780 540 C 768 510 770 470 790 450 Z"
+              d="M 336 226 C 344 245 338 275 320 278 C 314 260 316 235 324 226 Z"
               fill={getMuscleColor('Isquios')}
               stroke={getMuscleStroke('Isquios')}
-              strokeWidth="2.5"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Isquios') }}
             />
             <title>Isquiotibiales (Femorales)</title>
           </g>
 
           {/* Gemelos Posteriores (Gastrocnemio) */}
-          <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Gemelos')}>
+          <g className="cursor-pointer transition-all hover:brightness-125" onClick={() => handleMuscleClick('Gemelos')}>
             <path
-              d="M 645 560 C 630 595 642 640 670 640 C 680 600 670 570 660 560 Z"
+              d="M 270 282 C 260 305 266 346 280 348 C 286 348 284 320 278 282 Z"
               fill={getMuscleColor('Gemelos')}
               stroke={getMuscleStroke('Gemelos')}
-              strokeWidth="2"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Gemelos') }}
             />
             <path
-              d="M 815 560 C 830 595 818 640 790 640 C 780 600 790 570 800 560 Z"
+              d="M 330 282 C 340 305 334 346 320 348 C 314 348 316 320 322 282 Z"
               fill={getMuscleColor('Gemelos')}
               stroke={getMuscleStroke('Gemelos')}
-              strokeWidth="2"
+              strokeWidth="1.4"
               style={{ filter: getMuscleGlow('Gemelos') }}
             />
             <title>Gemelos Posteriores (Gastrocnemio)</title>
