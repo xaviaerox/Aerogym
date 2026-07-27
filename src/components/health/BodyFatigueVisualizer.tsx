@@ -21,17 +21,17 @@ export default function BodyFatigueVisualizer({
 
   const getMuscleColor = (muscleName: string) => {
     const data = fatigueMap.get(muscleName);
-    if (!data || data.fatiguePercent === 0) return 'rgba(51, 65, 85, 0.15)'; // Barely visible slate when 0%
+    if (!data || data.fatiguePercent === 0) return 'rgba(30, 41, 59, 0.05)';
     const pct = data.fatiguePercent;
-    if (pct > 80) return 'rgba(239, 68, 68, 0.55)'; // Red-500
-    if (pct > 60) return 'rgba(249, 115, 22, 0.55)'; // Orange-500
-    if (pct > 35) return 'rgba(234, 179, 8, 0.55)'; // Yellow-500
-    return 'rgba(16, 185, 129, 0.55)'; // Emerald-500
+    if (pct > 80) return 'rgba(239, 68, 68, 0.6)'; // Red-500
+    if (pct > 60) return 'rgba(249, 115, 22, 0.6)'; // Orange-500
+    if (pct > 35) return 'rgba(234, 179, 8, 0.6)'; // Yellow-500
+    return 'rgba(16, 185, 129, 0.6)'; // Emerald-500
   };
 
   const getMuscleStroke = (muscleName: string) => {
     const data = fatigueMap.get(muscleName);
-    if (!data || data.fatiguePercent === 0) return 'rgba(148, 163, 184, 0.25)';
+    if (!data || data.fatiguePercent === 0) return 'transparent';
     const pct = data.fatiguePercent;
     if (pct > 80) return '#f87171';
     if (pct > 60) return '#fb923c';
@@ -78,24 +78,22 @@ export default function BodyFatigueVisualizer({
         </div>
       </div>
 
-      {/* Container: Render exact user reference image with interactive SVG overlay */}
-      <div className="relative w-full max-w-[540px] aspect-[1000/650] mx-auto rounded-2xl border border-white/10 overflow-hidden bg-slate-950/90 shadow-inner flex items-center justify-center p-2">
-        {/* Exact 2D Anatomical Vector Base Image */}
-        <img
-          src="/Aerogym/images/body_map_2d.png"
-          onError={(e) => {
-            // Fallback if base path is without subfolder
-            (e.target as HTMLImageElement).src = '/images/body_map_2d.png';
-          }}
-          alt="Mapa Anatómico 2D"
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none opacity-90 filter contrast-125 brightness-110"
-        />
-
-        {/* Interactive SVG Overlay aligned exactly with image coordinates (1000 x 650) */}
+      {/* Embedded 2D Anatomical Map Container */}
+      <div className="relative w-full max-w-[550px] mx-auto rounded-2xl border border-white/10 overflow-hidden bg-[#eef2f6] shadow-inner p-1">
         <svg
           viewBox="0 0 1000 650"
-          className="absolute inset-0 w-full h-full drop-shadow-2xl select-none"
+          className="w-full h-auto drop-shadow-2xl select-none"
         >
+          {/* Base Anatomical Line-Art Image (Embedded inside SVG coordinate space for 100% perfect lock) */}
+          <image
+            href="/Aerogym/images/body_map_2d.png"
+            x="0"
+            y="0"
+            width="1000"
+            height="650"
+            preserveAspectRatio="xMidYMid meet"
+          />
+
           {/* ─── VISTA FRONTAL (FRONT VIEW — LEFT SIDE) ─── */}
 
           {/* Hombros (Deltoides Izquierdo y Derecho) */}
@@ -210,7 +208,7 @@ export default function BodyFatigueVisualizer({
           {/* Espalda (Dorsales / Trapecios / Lumbar) */}
           <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Espalda')}>
             <path
-              d="M 750 135 L 670 150 C 630 180 625 240 660 330 L 750 345 L 840 330 C 875 240 870 180 830 150 Z"
+              d="M 730 135 L 650 150 C 610 180 605 240 640 330 L 730 345 L 820 330 C 855 240 850 180 810 150 Z"
               fill={getMuscleColor('Espalda')}
               stroke={getMuscleStroke('Espalda')}
               strokeWidth="2.5"
@@ -222,14 +220,14 @@ export default function BodyFatigueVisualizer({
           {/* Hombros Posteriores (Deltoides Espalda) */}
           <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Hombros')}>
             <path
-              d="M 670 150 C 645 155 630 180 635 215 C 650 220 672 205 678 180 Z"
+              d="M 650 150 C 625 155 610 180 615 215 C 630 220 652 205 658 180 Z"
               fill={getMuscleColor('Hombros')}
               stroke={getMuscleStroke('Hombros')}
               strokeWidth="2.5"
               style={{ filter: getMuscleGlow('Hombros') }}
             />
             <path
-              d="M 830 150 C 855 155 870 180 865 215 C 850 220 828 205 822 180 Z"
+              d="M 810 150 C 835 155 850 180 845 215 C 830 220 808 205 802 180 Z"
               fill={getMuscleColor('Hombros')}
               stroke={getMuscleStroke('Hombros')}
               strokeWidth="2.5"
@@ -241,14 +239,14 @@ export default function BodyFatigueVisualizer({
           {/* Tríceps (Izquierdo y Derecho) */}
           <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Tríceps')}>
             <path
-              d="M 635 218 C 620 250 632 295 648 290 C 660 270 662 238 648 218 Z"
+              d="M 615 218 C 600 250 612 295 628 290 C 640 270 642 238 628 218 Z"
               fill={getMuscleColor('Tríceps')}
               stroke={getMuscleStroke('Tríceps')}
               strokeWidth="2.5"
               style={{ filter: getMuscleGlow('Tríceps') }}
             />
             <path
-              d="M 865 218 C 880 250 868 295 852 290 C 840 270 838 238 852 218 Z"
+              d="M 845 218 C 860 250 848 295 832 290 C 840 270 838 238 852 218 Z"
               fill={getMuscleColor('Tríceps')}
               stroke={getMuscleStroke('Tríceps')}
               strokeWidth="2.5"
@@ -260,14 +258,14 @@ export default function BodyFatigueVisualizer({
           {/* Glúteos (Gluteus Maximus - Twin Rounded Bellies) */}
           <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Glúteos')}>
             <path
-              d="M 750 350 C 680 350 660 380 670 445 C 710 455 745 425 750 350 Z"
+              d="M 730 350 C 660 350 640 380 650 445 C 690 455 725 425 730 350 Z"
               fill={getMuscleColor('Glúteos')}
               stroke={getMuscleStroke('Glúteos')}
               strokeWidth="2.5"
               style={{ filter: getMuscleGlow('Glúteos') }}
             />
             <path
-              d="M 750 350 C 820 350 840 380 830 445 C 790 455 755 425 750 350 Z"
+              d="M 730 350 C 800 350 820 380 810 445 C 770 455 735 425 730 350 Z"
               fill={getMuscleColor('Glúteos')}
               stroke={getMuscleStroke('Glúteos')}
               strokeWidth="2.5"
@@ -286,7 +284,7 @@ export default function BodyFatigueVisualizer({
               style={{ filter: getMuscleGlow('Isquios') }}
             />
             <path
-              d="M 830 450 C 850 480 840 535 800 540 C 788 510 790 470 810 450 Z"
+              d="M 810 450 C 830 480 820 535 780 540 C 768 510 770 470 790 450 Z"
               fill={getMuscleColor('Isquios')}
               stroke={getMuscleStroke('Isquios')}
               strokeWidth="2.5"
@@ -298,14 +296,14 @@ export default function BodyFatigueVisualizer({
           {/* Gemelos Posteriores (Gastrocnemio) */}
           <g className="cursor-pointer transition-all hover:opacity-90" onClick={() => handleMuscleClick('Gemelos')}>
             <path
-              d="M 665 560 C 650 595 662 640 690 640 C 700 600 690 570 680 560 Z"
+              d="M 645 560 C 630 595 642 640 670 640 C 680 600 670 570 660 560 Z"
               fill={getMuscleColor('Gemelos')}
               stroke={getMuscleStroke('Gemelos')}
               strokeWidth="2"
               style={{ filter: getMuscleGlow('Gemelos') }}
             />
             <path
-              d="M 835 560 C 850 595 838 640 810 640 C 800 600 810 570 820 560 Z"
+              d="M 815 560 C 830 595 818 640 790 640 C 780 600 790 570 800 560 Z"
               fill={getMuscleColor('Gemelos')}
               stroke={getMuscleStroke('Gemelos')}
               strokeWidth="2"
