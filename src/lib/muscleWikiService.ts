@@ -138,68 +138,147 @@ function mapCategoryFromExercise(id: string, type: string, name: string): string
 }
 
 const SLUG_TO_MEDIA_ID: Record<string, string> = {
-  // Biceps
-  'bb-curls': '1001-y8bYM8w',
-  'barbell-curl': '1001-y8bYM8w',
-  'hammer-curls': '1051-pkSoCW9',
-  'hammer-curl': '1051-pkSoCW9',
-  'db-alt-curls': '1052-ZsiqXYa',
-  'concentration-curls': '1052-ZsiqXYa',
-  'cable-curls': '1053-1gFNTZV',
-  'incline-db-curls': '1054-t8iSghb',
-
-  // Triceps
-  'tricep-extensions': '1007-euq4pwp',
-  'tricep-overhead': '1055-EcaV7aL',
-  'close-grip-bench': '1056-HJ63mSO',
-  'dips': '1057-EMpUwRI',
-
-  // Chest
+  // Pecho
   'bench-press': '0007-4IKbhHV',
   'incline-bb-press': '1059-SYJ4Bkt',
+  'incline-db-press': '1059-SYJ4Bkt',
+  'chest-machine-press': '0007-4IKbhHV',
+  'pec-dec': '1061-iZop9xO',
+  'dips': '1057-EMpUwRI',
   'cable-flyes': '1060-h8LFzo9',
+  'decline-bb-press': '0007-4IKbhHV',
+  'smith-incline-press': '1059-SYJ4Bkt',
   'incline-db-flyes': '1061-iZop9xO',
   'pushup': '0010-8K0w2yA',
 
-  // Back / Lats
+  // Espalda
   'lat-pulldown': '1003-w1NOByi',
+  'hammer-row': '1065-wnEscH8',
+  'chest-supported-row': '1064-qOgPVf6',
+  'seated-row': '1065-wnEscH8',
+  'db-rows': '1064-qOgPVf6',
   'pullups': '0011-03lzqwk',
   'pull-up': '0011-03lzqwk',
   'chinups': '0011-03lzqwk',
   'deadlift': '0012-UGhRD1A',
+  'cable-pullover': '1003-w1NOByi',
+  'db-pullover': '1064-qOgPVf6',
+  'hyperextensions': '1077-7M66AVi',
+  't-bar-row': '1066-WLvTAv5',
+  'close-grip-pulldown': '1003-w1NOByi',
+  'unilateral-cable-row': '1065-wnEscH8',
   'bb-rows': '1063-gfk9kD4',
   'barbell-row': '1063-gfk9kD4',
-  'db-rows': '1064-qOgPVf6',
-  'seated-row': '1065-wnEscH8',
-  't-bar-row': '1066-WLvTAv5',
 
-  // Shoulders
-  'lateral-raises': '1006-HJ63mSO',
-  'db-overhead-press': '1010-KUaoUV8',
-  'face-pulls': '1012-u4bAmKp',
-  'front-raises': '1067-za9Ni4z',
-  'bb-overhead-press': '1068-Ln9iTbU',
-
-  // Legs
-  'goblet-squat': '1004-TUZLh71',
-  'leg-press-45': '1009-kuMiR2T',
+  // Piernas / Cuádriceps
   'squats': '0009-PAgTVaK',
   'squat': '0009-PAgTVaK',
+  'leg-press-45': '1009-kuMiR2T',
+  'leg-press-light': '1009-kuMiR2T',
   'leg-extensions': '1070-62Nw60O',
   'lunges': '0013-VX5YKR5',
   'lunge': '0013-VX5YKR5',
   'bulgarian-split-squat': '1072-qDnGfDb',
+  'hack-squat': '0009-PAgTVaK',
+  'goblet-squat': '1004-TUZLh71',
+  'front-squat': '0009-PAgTVaK',
+  'reverse-lunges': '0013-VX5YKR5',
+  'sissy-squat': '1070-62Nw60O',
+  'single-leg-extension': '1070-62Nw60O',
+
+  // Isquiotibiales
   'romanian-deadlift': '1005-Kzg30R7',
   'leg-curls': '1073-xNrS20v',
+  'seated-leg-curls': '1073-xNrS20v',
+  'stiff-leg-deadlift': '1005-Kzg30R7',
+  'standing-leg-curl': '1073-xNrS20v',
+  'db-romanian-deadlift': '1005-Kzg30R7',
+
+  // Glúteos
   'hip-thrust': '1074-4LIG9xr',
   'cable-kickbacks': '1075-LsZkfU6',
+  'abductor-machine': '1075-LsZkfU6',
+  'glute-bridge': '1074-4LIG9xr',
+  'lateral-lunges': '0013-VX5YKR5',
+  'step-ups': '0013-VX5YKR5',
+  'cable-abduction': '1075-LsZkfU6',
+
+  // Gemelos
+  'calf-raises-standing': '1070-62Nw60O',
+  'calf-raises-seated': '1070-62Nw60O',
+  'press-calf-raises': '1009-kuMiR2T',
+
+  // Hombros
+  'db-overhead-press': '1010-KUaoUV8',
+  'bb-overhead-press': '1068-Ln9iTbU',
+  'arnold-press': '1010-KUaoUV8',
+  'lateral-raises': '1006-HJ63mSO',
+  'lateral-raise': '1006-HJ63mSO',
+  'cable-lateral-raises': '1006-HJ63mSO',
+  'reverse-flys': '1012-u4bAmKp',
+  'cable-reverse-flys': '1012-u4bAmKp',
+  'face-pulls': '1012-u4bAmKp',
+  'front-raises': '1067-za9Ni4z',
+  'upright-row': '1067-za9Ni4z',
+  'smith-overhead-press': '1068-Ln9iTbU',
+  'shrugs': '1067-za9Ni4z',
+
+  // Bíceps
+  'bb-curls': '1001-y8bYM8w',
+  'barbell-curl': '1001-y8bYM8w',
+  'db-alt-curls': '1052-ZsiqXYa',
+  'hammer-curls': '1051-pkSoCW9',
+  'hammer-curl': '1051-pkSoCW9',
+  'preacher-curl': '1001-y8bYM8w',
+  'db-preacher-curl': '1052-ZsiqXYa',
+  'cable-curls': '1053-1gFNTZV',
+  'concentration-curls': '1052-ZsiqXYa',
+  'incline-db-curls': '1054-t8iSghb',
+  'cable-hammer-curls': '1053-1gFNTZV',
+  'zottman-curl': '1051-pkSoCW9',
+  'high-cable-curls': '1053-1gFNTZV',
+
+  // Tríps
+  'tricep-extensions': '1007-euq4pwp',
+  'tricep-overhead': '1055-EcaV7aL',
+  'skull-crushers': '1055-EcaV7aL',
+  'assisted-dips': '1057-EMpUwRI',
+  'close-grip-bench': '1056-HJ63mSO',
+  'overhead-cable-extension': '1055-EcaV7aL',
+  'db-kickbacks': '1055-EcaV7aL',
+  'bench-dips': '1057-EMpUwRI',
+  'french-press': '1055-EcaV7aL',
+
+  // Antebrazos
+  'wrist-curls-prono': '1001-y8bYM8w',
+  'wrist-curls-supino': '1001-y8bYM8w',
+  'reverse-bb-curl': '1001-y8bYM8w',
+  'farmers-walk': '1064-qOgPVf6',
 
   // Core
-  'cable-crunch': '1076-Gxg9lDc',
-  'hanging-leg-raises': '1077-7M66AVi',
   'plank': '0014-r7cT9YD',
+  'hanging-leg-raises': '1077-7M66AVi',
+  'cable-crunch': '1076-Gxg9lDc',
+  'russian-twist': '1076-Gxg9lDc',
+  'reverse-crunch': '0015-vrhHa6D',
+  'side-plank': '0014-r7cT9YD',
+  'ab-wheel': '1076-Gxg9lDc',
+  'machine-crunch': '1076-Gxg9lDc',
+  'incline-leg-raises': '1077-7M66AVi',
+  'cable-woodchopper': '1076-Gxg9lDc',
   'burpee': '0006-qaZVsGk',
   'crunch': '0015-vrhHa6D',
+
+  // Cardio
+  'treadmill': '0006-qaZVsGk',
+  'cycling': '0006-qaZVsGk',
+  'rowing-machine': '1065-wnEscH8',
+  'elliptical': '0006-qaZVsGk',
+  'jump-rope': '0006-qaZVsGk',
+  'stairmaster': '0006-qaZVsGk',
+  'swimming': '0006-qaZVsGk',
+  'brisk-walk': '0006-qaZVsGk',
+  'hiit-run': '0006-qaZVsGk',
 };
 
 // Helper to build local media URLs
@@ -309,7 +388,6 @@ if (typeof window !== 'undefined') {
   loadLocalExercises();
 }
 
-
 // Helper function to capitalize words
 function capitalize(s: string): string {
   if (!s) return '';
@@ -371,7 +449,7 @@ function mapEquipmentToMuscleWiki(equipment: string): string {
   if (eq.includes('machine') || eq.includes('roller') || eq.includes('sled')) return 'Machine';
   if (eq.includes('stretch')) return 'Stretch';
   
-  return equipment; // Keep original if not matched directly
+  return equipment;
 }
 
 // ─── SERVICE CLASS ─────────────────────────────────────────────────────────
@@ -380,55 +458,80 @@ export class MuscleWikiService {
 
   static async loadDataset(): Promise<MuscleWikiExercise[]> {
     if (this._datasetCache && this._datasetCache.length > 0) return this._datasetCache;
+
+    const map = new Map<string, MuscleWikiExercise>();
+
+    // 1. ALWAYS populate map first with local Spanish exercises to guarantee they are never lost or overridden!
+    const baseLocal = await loadLocalExercises();
+    baseLocal.forEach(e => {
+      map.set(String(e.id), e);
+      map.set(e.name.toLowerCase().trim(), e);
+    });
+
     try {
       const baseUrl = import.meta.env.BASE_URL || '/';
       const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
 
-      // Try to load the full ExerciseDB dataset first
+      // 2. Try to load the full ExerciseDB dataset
       let res: Response | null = null;
       try { res = await fetch(`${cleanBase}data/exercises.json`); } catch (_) {}
 
       if (res?.ok) {
         const data = await res.json();
-        this._datasetCache = data.map((item: any) => {
-          const primaryMuscle = mapTargetToMuscleWiki(item.target, item.body_part);
-          const category = mapEquipmentToMuscleWiki(item.equipment);
-          const steps = item.instruction_steps?.es?.length > 0
-            ? item.instruction_steps.es
-            : (item.instruction_steps?.en ?? []);
-          const imagePath = item.image ? item.image.replace(/^\//, '') : '';
-          const gifPath = item.gif_url ? item.gif_url.replace(/^\//, '') : '';
-          return {
-            id: `mw-${item.id}`,
-            name: capitalize(item.name),
-            primary_muscles: [primaryMuscle],
-            secondary_muscles: item.secondary_muscles ? item.secondary_muscles.map((m: string) => capitalize(m)) : [],
-            category,
-            difficulty: 'Beginner',
-            force: null,
-            grips: [],
-            mechanic: null,
-            steps,
-            videos: [{
+        if (Array.isArray(data)) {
+          data.forEach((item: any) => {
+            const itemId = `mw-${item.id}`;
+            const cleanName = item.name ? item.name.toLowerCase().trim() : '';
+
+            // Do not overwrite our rich Spanish local exercises
+            if (map.has(itemId) || (cleanName && map.has(cleanName))) return;
+
+            const primaryMuscle = mapTargetToMuscleWiki(item.target, item.body_part);
+            const category = mapEquipmentToMuscleWiki(item.equipment);
+            const steps = (item.instruction_steps?.es && item.instruction_steps.es.length > 0)
+              ? item.instruction_steps.es
+              : (item.instructions?.es
+                ? [item.instructions.es]
+                : (item.instruction_steps?.en && item.instruction_steps.en.length > 0
+                  ? item.instruction_steps.en
+                  : [`Ejecuta ${capitalize(item.name)} con técnica adecuada y rango de movimiento completo.`]));
+
+            const imagePath = item.image ? item.image.replace(/^\//, '') : '';
+            const gifPath = item.gif_url ? item.gif_url.replace(/^\//, '') : '';
+
+            // Only attach videos array if image/gif is a valid path
+            const hasValidImage = imagePath && (imagePath.startsWith('images/') || imagePath.startsWith('videos/'));
+            const videos: MuscleWikiVideo[] = hasValidImage ? [{
               angle: 'front',
               gender: 'male' as const,
-              og_image: imagePath ? `${cleanBase}${imagePath}` : '',
-              url: gifPath ? `${cleanBase}${gifPath}` : '',
-            }],
-          };
-        });
-        return this._datasetCache || [];
-      }
+              og_image: `${cleanBase}${imagePath}`,
+              url: gifPath ? `${cleanBase}${gifPath}` : `${cleanBase}${imagePath}`,
+            }] : [];
 
-      // Fallback: load our curated local exercises JSON (moved out of JS bundle)
-      const local = await loadLocalExercises();
-      this._datasetCache = local;
-      return local;
+            const parsedEx: MuscleWikiExercise = {
+              id: itemId,
+              name: capitalize(item.name),
+              primary_muscles: [primaryMuscle],
+              secondary_muscles: item.secondary_muscles ? item.secondary_muscles.map((m: string) => capitalize(m)) : [],
+              category,
+              difficulty: 'Beginner',
+              force: null,
+              grips: [],
+              mechanic: null,
+              steps,
+              videos,
+            };
+
+            map.set(itemId, parsedEx);
+          });
+        }
+      }
     } catch (e) {
-      console.error('[MuscleWikiService] loadDataset error, using LOCAL_EXERCISES:', e);
-      // Last resort: return whatever was loaded by the background loader
-      return LOCAL_EXERCISES;
+      console.warn('[MuscleWikiService] loadDataset fetch warning:', e);
     }
+
+    this._datasetCache = Array.from(map.values());
+    return this._datasetCache;
   }
 
   static isOfflineModeActive(): boolean {
@@ -491,6 +594,38 @@ export class MuscleWikiService {
     return { name: `Ejercicio #${cleanId}`, muscleGroup: 'Local' };
   }
 
+  /** Match category filter flexibly against category synonyms */
+  private static _matchCategoryFilter(exCat: string, filterCat: string): boolean {
+    const c = exCat.toLowerCase();
+    const f = filterCat.toLowerCase();
+
+    if (c === f) return true;
+
+    if (f === 'barbell' || f === 'barra') {
+      return c.includes('barbell') || c.includes('barra') || c === 'ez barbell' || c === 'olympic barbell' || c === 'trap bar';
+    }
+    if (f === 'dumbbell' || f === 'mancuernas') {
+      return c.includes('dumbbell') || c.includes('mancuerna');
+    }
+    if (f === 'cables' || f === 'poleas') {
+      return c.includes('cable') || c.includes('polea') || c.includes('rope');
+    }
+    if (f === 'bodyweight' || f === 'peso corporal') {
+      return c.includes('bodyweight') || c.includes('body weight') || c.includes('assisted') || c.includes('weighted') || c.includes('corporal');
+    }
+    if (f === 'machine' || f === 'máquinas' || f === 'maquinas') {
+      return c.includes('machine') || c.includes('máquina') || c.includes('prensa') || c.includes('roller') || c.includes('sled') || c.includes('smith');
+    }
+    if (f === 'stretch' || f === 'estiramientos') {
+      return c.includes('stretch') || c.includes('estiramiento');
+    }
+    if (f === 'kettlebells' || f === 'pesa rusa (kettlebell)') {
+      return c.includes('kettlebell') || c.includes('pesa rusa');
+    }
+
+    return c.includes(f) || f.includes(c);
+  }
+
   /** Local filtering with full-text support */
   private static _searchLocal(
     query: string,
@@ -506,15 +641,16 @@ export class MuscleWikiService {
       const matchesQuery =
         !q ||
         ex.name.toLowerCase().includes(q) ||
-        ex.primary_muscles.some(m => m.toLowerCase().includes(q)) ||
+        ex.primary_muscles.some(m => m.toLowerCase().includes(q) || (TRANSLATE_MUSCLE[m] || '').toLowerCase().includes(q)) ||
         ex.steps.some(s => s.toLowerCase().includes(q));
 
       const matchesMuscle =
         !filters.muscle ||
         ex.primary_muscles.includes(filters.muscle) ||
-        (ex.secondary_muscles || []).includes(filters.muscle);
+        ex.primary_muscles.some(m => m.toLowerCase() === filters.muscle!.toLowerCase() || (TRANSLATE_MUSCLE[m] || '').toLowerCase() === filters.muscle!.toLowerCase()) ||
+        (ex.secondary_muscles || []).some(m => m.toLowerCase() === filters.muscle!.toLowerCase() || (TRANSLATE_MUSCLE[m] || '').toLowerCase() === filters.muscle!.toLowerCase());
 
-      const matchesCategory = !filters.category || ex.category.toLowerCase() === filters.category.toLowerCase();
+      const matchesCategory = !filters.category || this._matchCategoryFilter(ex.category, filters.category);
       const matchesDifficulty = !filters.difficulty || ex.difficulty === filters.difficulty;
 
       return matchesQuery && matchesMuscle && matchesCategory && matchesDifficulty;

@@ -58,16 +58,14 @@ function ActiveSessionTimer({ startedAt }: { startedAt: string }) {
 
 // ─── Main View ────────────────────────────────────────────────────────────────
 export default function TrainingSession() {
-  const { user } = useAuthStore();
-  const {
-    activeSession,
-    sessions,
-    finishSession,
-    cancelSession,
-    toggleSetComplete,
-    addExerciseToActive,
-    workoutSetsHistory,
-  } = useWorkoutStore();
+  const user = useAuthStore((s) => s.user);
+  const activeSession = useWorkoutStore((s) => s.activeSession);
+  const sessions = useWorkoutStore((s) => s.sessions);
+  const finishSession = useWorkoutStore((s) => s.finishSession);
+  const cancelSession = useWorkoutStore((s) => s.cancelSession);
+  const toggleSetComplete = useWorkoutStore((s) => s.toggleSetComplete);
+  const addExerciseToActive = useWorkoutStore((s) => s.addExerciseToActive);
+  const workoutSetsHistory = useWorkoutStore((s) => s.workoutSetsHistory);
 
   const [timerStart, setTimerStart] = useState<number | null>(null);
   const [showNotes, setShowNotes] = useState(false);

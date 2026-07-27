@@ -55,6 +55,60 @@ export function downloadJSONFile(data: object, filename: string): void {
 }
 
 /**
+ * Genera un informe CSV formateado de las sesiones de entrenamiento.
+ */
+export function exportSessionsToCSV(sessions: WorkoutSession[], sets: WorkoutSet[]): string {
+  const headers = ['Fecha', 'Sesión', 'Duración (min)', 'Volumen Total (kg)', 'Ejercicio ID', 'Serie', 'Peso (kg)', 'Reps', 'RPE', 'RIR', 'E1RM (kg)'];
+  const rows: string[] = [headers.join(',')];
+
+  sessions.forEach((s) => {
+    const sessionSets = sets.filter((st) => st.session_id === s.id);
+    if (sessionSets.length === 0) {
+      rows.push([
+        `"${s.started_at.slice(0, 10)}"`,
+        `"${s.name.replace(/"/g, '""')}"`,
+        s.duration_minutes || 0,
+        s.total_volume_kg || 0,
+        '""', '', '', '', '', '', ''
+      ].join(','));
+    } else {
+      sessionSets.forEach((st) => {
+        rows.push([
+          `"${s.started_at.slice(0, 10)}"`,
+          `"${s.name.replace(/"/g, '""')}"`,
+          s.duration_minutes || 0,
+          s.total_volume_kg || 0,
+          `"${st.exercise_id}"`,
+          st.set_number || 1,
+          st.weight_kg || 0,
+          st.reps || 0,
+          st.rpe || '',
+          st.rir || '',
+          st.e1rm_kg || 0
+        ].join(','));
+      });
+    }
+  });
+
+  return rows.join('\n');
+}
+
+/**
+ * Fuerza la descarga de un informe en formato CSV.
+ */
+export function downloadCSVFile(csvContent: string, filename: string): void {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
  * Valida y parsea el archivo de importación JSON cargado por el usuario.
  */
 export function parseImportJSON(jsonText: string): AeroGymExportData {

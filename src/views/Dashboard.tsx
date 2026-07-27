@@ -46,11 +46,20 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ nextRoutine }: DashboardProps) {
-  const { profile, user } = useAuthStore();
-  const { sessions, startSession, workoutSetsHistory, routines } = useWorkoutStore();
-  const { todayHealth, dailyHealth } = useHealthStore();
-  const { visibleWidgets, toggleWidgetVisibility } = useUIStore();
-  const { achievements, fetchAchievements, newUnlockedAchievement, clearNewAchievement } = useGamificationStore();
+  const profile = useAuthStore((s) => s.profile);
+  const user = useAuthStore((s) => s.user);
+  const sessions = useWorkoutStore((s) => s.sessions);
+  const startSession = useWorkoutStore((s) => s.startSession);
+  const workoutSetsHistory = useWorkoutStore((s) => s.workoutSetsHistory);
+  const routines = useWorkoutStore((s) => s.routines);
+  const todayHealth = useHealthStore((s) => s.todayHealth);
+  const dailyHealth = useHealthStore((s) => s.dailyHealth);
+  const visibleWidgets = useUIStore((s) => s.visibleWidgets);
+  const toggleWidgetVisibility = useUIStore((s) => s.toggleWidgetVisibility);
+  const achievements = useGamificationStore((s) => s.achievements);
+  const fetchAchievements = useGamificationStore((s) => s.fetchAchievements);
+  const newUnlockedAchievement = useGamificationStore((s) => s.newUnlockedAchievement);
+  const clearNewAchievement = useGamificationStore((s) => s.clearNewAchievement);
 
   const [isLoggerOpen, setIsLoggerOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);

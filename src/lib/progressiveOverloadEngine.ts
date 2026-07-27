@@ -1,18 +1,28 @@
 /**
- * progressiveOverloadEngine.ts — Intelligent Progressive Overload Recommendation Engine.
+ * progressiveOverloadEngine.ts — Intelligent Progressive Overload & Fatigue-Aware Recommendation Engine.
  *
- * Analyzes exercise history, target muscle group, previous sets, RPE, and RIR
- * to recommend optimal weight and rep targets for the next set or session.
+ * Analyzes exercise history, target muscle group, previous sets, RPE, RIR,
+ * and real-time CNS/Muscle Fatigue levels to recommend optimal weight and rep targets.
  *
  * Rules:
- *  1. If previous RPE <= 7 (or RIR >= 3) and set completed: Suggest weight increase (+2.5% to +5%, rounded to nearest 0.5kg/1kg).
- *  2. If previous RPE 8-9 (or RIR 1-2) and set completed: Suggest maintaining weight and attempting +1 rep.
- *  3. If previous RPE == 10 (or RIR == 0 / failure): Suggest maintaining current weight & reps or slight deload if fatigue is high.
- *  4. Fallback for new exercises: Suggest starting with a conservative baseline based on user experience level.
+ *  1. If fatigue level is HIGH/OVERTRAINED (muscle fatigue >= 80% or overall deload recommended):
+ *     -> Auto-correct load: Suggest -15% deload reduction to prevent injury and promote supercompensation.
+ *  2. If previous RPE <= 7 (or RIR >= 3) and set completed & fatigue is low/moderate:
+ *     -> Suggest weight increase (+2.5% to +5%, rounded to nearest 0.5kg/1kg).
+ *  3. If previous RPE 8-9 (or RIR 1-2) and set completed:
+ *     -> Suggest maintaining weight and attempting +1 rep.
+ *  4. If previous RPE == 10 (or RIR == 0 / failure):
+ *     -> Suggest maintaining current weight & reps.
+ *  5. Fallback for new exercises: Suggest starting with a conservative baseline based on user experience level.
  */
 
 import type { WorkoutSet } from '../infrastructure/supabase/types';
-import { calculateE1RM } from './engine';
+
+export interface FatigueContext {
+  overallFatiguePercent?: number;
+  muscleFatiguePercent?: number;
+  isDeloadRecommended?: boolean;
+}
 
 export interface OverloadRecommendation {
   suggestedWeightKg: number;
@@ -23,12 +33,13 @@ export interface OverloadRecommendation {
 
 export class ProgressiveOverloadEngine {
   /**
-   * Calculates the recommended weight and reps for an exercise based on user history and recent performance.
+   * Calculates the recommended weight and reps for an exercise based on user history and fatigue metrics.
    */
   public getRecommendation(
     exerciseId: string,
     historySets: WorkoutSet[],
-    userLevel: 'beginner' | 'intermediate' | 'advanced' = 'intermediate'
+    userLevel: 'beginner' | 'intermediate' | 'advanced' = 'intermediate',
+    fatigueContext?: FatigueContext
   ): OverloadRecommendation {
     // Filter completed sets for this specific exercise, sorted by logging date descending
     const completedSets = historySets
@@ -52,7 +63,21 @@ export class ProgressiveOverloadEngine {
     const lastRPE = lastSet.rpe !== null && lastSet.rpe !== undefined ? Number(lastSet.rpe) : null;
     const lastRIR = lastSet.rir !== null && lastSet.rir !== undefined ? Number(lastSet.rir) : null;
 
-    // Rule 1: High Effort Reserve (RPE <= 7 or RIR >= 3) -> Increase weight
+    // Rule 1: High Fatigue / Overtraining Protection Trigger
+    const muscleFatigue = fatigueContext?.muscleFatiguePercent ?? 0;
+    const isDeloadNeeded = fatigueContext?.isDeloadRecommended || muscleFatigue >= 80;
+
+    if (isDeloadNeeded) {
+      const deloadWeight = Math.round(lastWeight * 0.85 * 2) / 2; // -15% load reduction
+      return {
+        suggestedWeightKg: Math.max(1, deloadWeight),
+        suggestedReps: lastReps > 0 ? lastReps : 8,
+        reasoning: `⚠️ Fatiga neuromuscular elevada (${muscleFatigue > 0 ? muscleFatigue + '%' : 'SNC acumulada'}). Reduciendo carga a ${deloadWeight}kg (-15%) para prevenir lesión.`,
+        type: 'deload',
+      };
+    }
+
+    // Rule 2: High Effort Reserve (RPE <= 7 or RIR >= 3) -> Increase weight
     if ((lastRPE !== null && lastRPE <= 7) || (lastRIR !== null && lastRIR >= 3)) {
       const incrementPercent = userLevel === 'beginner' ? 0.05 : 0.025; // 5% beginner, 2.5% experienced
       const rawNewWeight = lastWeight * (1 + incrementPercent);
@@ -66,7 +91,7 @@ export class ProgressiveOverloadEngine {
       };
     }
 
-    // Rule 2: Optimal Training Zone (RPE 8-9 or RIR 1-2) -> Maintain weight, add +1 rep
+    // Rule 3: Optimal Training Zone (RPE 8-9 or RIR 1-2) -> Maintain weight, add +1 rep
     if ((lastRPE !== null && lastRPE >= 8 && lastRPE <= 9) || (lastRIR !== null && (lastRIR === 1 || lastRIR === 2))) {
       return {
         suggestedWeightKg: lastWeight,
@@ -76,7 +101,7 @@ export class ProgressiveOverloadEngine {
       };
     }
 
-    // Rule 3: Maximum Effort / Near Failure (RPE 10 or RIR 0) -> Consolidate weight
+    // Rule 4: Maximum Effort / Near Failure (RPE 10 or RIR 0) -> Consolidate weight
     if ((lastRPE !== null && lastRPE >= 9.5) || lastRIR === 0) {
       return {
         suggestedWeightKg: lastWeight,

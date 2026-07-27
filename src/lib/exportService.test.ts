@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { exportUserData, parseImportJSON } from './exportService';
+import { exportUserData, parseImportJSON, exportSessionsToCSV } from './exportService';
 
 vi.mock('./storageIndexedDB', () => ({
   getItemIndexedDB: vi.fn(),
@@ -38,5 +38,22 @@ describe('exportService', () => {
 
   it('throws error for invalid import JSON', () => {
     expect(() => parseImportJSON('{"invalid": true}')).toThrow();
+  });
+
+  it('generates CSV report formatted correctly for workout sessions', () => {
+    const mockSessions = [
+      { id: 's1', name: 'Torso Fuerza', started_at: '2026-07-27T10:00:00Z', duration_minutes: 60, total_volume_kg: 4500 }
+    ] as any;
+
+    const mockSets = [
+      { session_id: 's1', exercise_id: 'bench-press', set_number: 1, weight_kg: 100, reps: 5, rpe: 8, rir: 2, e1rm_kg: 116 }
+    ] as any;
+
+    const csv = exportSessionsToCSV(mockSessions, mockSets);
+
+    expect(csv).toContain('Fecha,Sesión,Duración (min),Volumen Total (kg)');
+    expect(csv).toContain('"Torso Fuerza"');
+    expect(csv).toContain('"bench-press"');
+    expect(csv).toContain('100,5,8,2,116');
   });
 });

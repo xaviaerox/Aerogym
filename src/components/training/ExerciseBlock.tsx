@@ -23,7 +23,8 @@ export default function ExerciseBlock({
   onGuideOpen,
   onToggleSet,
 }: ExerciseBlockProps) {
-  const { addSetToActive, updateActiveExercise } = useWorkoutStore();
+  const addSetToActive = useWorkoutStore((s) => s.addSetToActive);
+  const updateActiveExercise = useWorkoutStore((s) => s.updateActiveExercise);
 
   const exerciseInfo =
     BASE_EXERCISES.find((e) => e.id === ex.exercise_id) ||

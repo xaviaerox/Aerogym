@@ -39,4 +39,19 @@ describe('ProgressiveOverloadEngine', () => {
     expect(rec.suggestedWeightKg).toBe(140);
     expect(rec.suggestedReps).toBe(5);
   });
+
+  it('auto-corrects and triggers deload when muscle fatigue is >= 80%', () => {
+    const history: Partial<WorkoutSet>[] = [
+      { exercise_id: 'bench-press', weight_kg: 100, reps: 8, rpe: 7, is_completed: true, logged_at: new Date().toISOString() },
+    ];
+    const rec = progressiveOverloadEngine.getRecommendation(
+      'bench-press',
+      history as WorkoutSet[],
+      'intermediate',
+      { muscleFatiguePercent: 85, isDeloadRecommended: true }
+    );
+    expect(rec.type).toBe('deload');
+    expect(rec.suggestedWeightKg).toBe(85); // 100 * 0.85
+    expect(rec.reasoning).toContain('Fatiga neuromuscular elevada');
+  });
 });

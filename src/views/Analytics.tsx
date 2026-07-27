@@ -26,6 +26,7 @@ import { calculateMuscleFatigue } from '../lib/fatigueEngine';
 import BodyFatigueVisualizer from '../components/health/BodyFatigueVisualizer';
 import VolumeChartCard from '../components/analytics/VolumeChartCard';
 import HealthTrendsCard from '../components/analytics/HealthTrendsCard';
+import AddBodyMeasurementModal from '../components/analytics/AddBodyMeasurementModal';
 
 type TimeFilter = 'week' | 'month' | 'all';
 type ViewTab = 'performance' | 'composition';
@@ -37,6 +38,7 @@ export default function Analytics() {
 
   const [activeTab, setActiveTab] = useState<ViewTab>('performance');
   const [filter, setFilter] = useState<TimeFilter>('month');
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Calcular informe de fatiga muscular (Analytics 2.0)
   const fatigueReport = useMemo(() => {
@@ -47,18 +49,6 @@ export default function Analytics() {
   const localInsights = useMemo(() => {
     return calculateLocalInsights(sessions, dailyHealth);
   }, [sessions, dailyHealth]);
-
-  // Modal para agregar medidas corporales
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [weight, setWeight] = useState('');
-  const [bodyFat, setBodyFat] = useState('');
-  const [waist, setWaist] = useState('');
-  const [chest, setChest] = useState('');
-  const [arm, setArm] = useState('');
-  const [leg, setLeg] = useState('');
-  const [hip, setHip] = useState('');
-  const [measuredAt, setMeasuredAt] = useState(new Date().toISOString().split('T')[0]);
-  const [isSaving, setIsSaving] = useState(false);
 
   // Filtrar sesiones según el rango de tiempo seleccionado
   const filteredSessions = useMemo(() => {
@@ -113,36 +103,9 @@ export default function Analytics() {
       }));
   }, [measurements]);
 
-  const handleSaveMeasurement = async () => {
-    if (!user?.id || !weight) return;
-    setIsSaving(true);
-    try {
-      await addMeasurement(user.id, {
-        measured_at: measuredAt,
-        weight_kg: parseFloat(weight),
-        body_fat_pct: bodyFat ? parseFloat(bodyFat) : null,
-        waist_cm: waist ? parseFloat(waist) : null,
-        chest_cm: chest ? parseFloat(chest) : null,
-        arm_cm: arm ? parseFloat(arm) : null,
-        leg_cm: leg ? parseFloat(leg) : null,
-        hip_cm: hip ? parseFloat(hip) : null,
-      });
-
-      // Resetear inputs y cerrar modal
-      setWeight('');
-      setBodyFat('');
-      setWaist('');
-      setChest('');
-      setArm('');
-      setLeg('');
-      setHip('');
-      setIsModalOpen(false);
-    } catch (err) {
-      console.error(err);
-      alert('Error guardando medidas');
-    } finally {
-      setIsSaving(false);
-    }
+  const handleSaveMeasurement = async (data: any) => {
+    if (!user?.id) return;
+    await addMeasurement(user.id, data);
   };
 
   return (
@@ -438,148 +401,11 @@ export default function Analytics() {
       )}
 
       {/* ── MODAL DE REGISTRO DE MEDIDAS ────────────────────────────────── */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex flex-col justify-end max-w-md mx-auto"
-          >
-            <div className="flex justify-between items-center p-6 border-b border-white/5 sticky top-0 bg-black/50 backdrop-blur-md z-10">
-              <div>
-                <h3 className="text-2xl font-black text-slate-50 flex items-center gap-2">
-                  <Scale size={24} className="text-brand-blue" />
-                  Medidas
-                </h3>
-                <p className="text-[9px] text-slate-500 uppercase tracking-widest font-black">Historial Físico</p>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-2.5 glass rounded-full text-slate-400 hover:text-slate-100"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-5 pb-28">
-              
-              {/* Fecha */}
-              <div className="glass p-5 rounded-3xl border border-white/5 space-y-2">
-                <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest block">Fecha de Registro</label>
-                <input
-                  type="date"
-                  value={measuredAt}
-                  onChange={(e) => setMeasuredAt(e.target.value)}
-                  className="w-full bg-slate-800 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none font-bold text-slate-100"
-                />
-              </div>
-
-              {/* Peso & Grasa */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="glass p-5 rounded-3xl border border-white/5 space-y-2">
-                  <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest block">Peso (kg) *</label>
-                  <input
-                    type="number"
-                    step={0.1}
-                    value={weight}
-                    onChange={(e) => setWeight(e.target.value)}
-                    placeholder="75.0"
-                    required
-                    className="w-full bg-slate-800 text-center rounded-2xl py-3 outline-none font-bold text-lg text-slate-100 focus:ring-2 ring-rose-500/30"
-                  />
-                </div>
-                <div className="glass p-5 rounded-3xl border border-white/5 space-y-2">
-                  <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest block">Grasa Corporal (%)</label>
-                  <input
-                    type="number"
-                    step={0.1}
-                    value={bodyFat}
-                    onChange={(e) => setBodyFat(e.target.value)}
-                    placeholder="15.0"
-                    className="w-full bg-slate-800 text-center rounded-2xl py-3 outline-none font-bold text-lg text-slate-100 focus:ring-2 ring-brand-blue/30"
-                  />
-                </div>
-              </div>
-
-              {/* Cintura & Pecho */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="glass p-5 rounded-3xl border border-white/5 space-y-2">
-                  <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest block">Cintura (cm)</label>
-                  <input
-                    type="number"
-                    step={0.1}
-                    value={waist}
-                    onChange={(e) => setWaist(e.target.value)}
-                    placeholder="80"
-                    className="w-full bg-slate-800 text-center rounded-2xl py-3 outline-none font-bold text-slate-100"
-                  />
-                </div>
-                <div className="glass p-5 rounded-3xl border border-white/5 space-y-2">
-                  <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest block">Pecho (cm)</label>
-                  <input
-                    type="number"
-                    step={0.1}
-                    value={chest}
-                    onChange={(e) => setChest(e.target.value)}
-                    placeholder="100"
-                    className="w-full bg-slate-800 text-center rounded-2xl py-3 outline-none font-bold text-slate-100"
-                  />
-                </div>
-              </div>
-
-              {/* Brazo, Muslo, Cadera */}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="glass p-4 rounded-3xl border border-white/5 space-y-2">
-                  <label className="text-[8px] text-slate-500 uppercase font-black tracking-widest block">Brazo (cm)</label>
-                  <input
-                    type="number"
-                    step={0.1}
-                    value={arm}
-                    onChange={(e) => setArm(e.target.value)}
-                    placeholder="38"
-                    className="w-full bg-slate-800 text-center rounded-xl py-2 outline-none font-bold text-sm text-slate-100"
-                  />
-                </div>
-                <div className="glass p-4 rounded-3xl border border-white/5 space-y-2">
-                  <label className="text-[8px] text-slate-500 uppercase font-black tracking-widest block">Muslo (cm)</label>
-                  <input
-                    type="number"
-                    step={0.1}
-                    value={leg}
-                    onChange={(e) => setLeg(e.target.value)}
-                    placeholder="58"
-                    className="w-full bg-slate-800 text-center rounded-xl py-2 outline-none font-bold text-sm text-slate-100"
-                  />
-                </div>
-                <div className="glass p-4 rounded-3xl border border-white/5 space-y-2">
-                  <label className="text-[8px] text-slate-500 uppercase font-black tracking-widest block">Cadera (cm)</label>
-                  <input
-                    type="number"
-                    step={0.1}
-                    value={hip}
-                    onChange={(e) => setHip(e.target.value)}
-                    placeholder="96"
-                    className="w-full bg-slate-800 text-center rounded-xl py-2 outline-none font-bold text-sm text-slate-100"
-                  />
-                </div>
-              </div>
-
-            </div>
-
-            <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-4 bg-slate-950/80 backdrop-blur-lg border-t border-white/5 z-20">
-              <button
-                onClick={handleSaveMeasurement}
-                disabled={isSaving || !weight}
-                className="btn-primary w-full py-4 text-slate-950 font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {isSaving ? 'Guardando Medidas...' : 'Guardar Medidas'}
-                <Sparkles size={16} />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <AddBodyMeasurementModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleSaveMeasurement}
+      />
     </div>
   );
 }
