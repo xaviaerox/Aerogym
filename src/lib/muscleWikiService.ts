@@ -139,154 +139,147 @@ function mapCategoryFromExercise(id: string, type: string, name: string): string
 
 const SLUG_TO_MEDIA_ID: Record<string, string> = {
   // Pecho
-  'bench-press': '0007-4IKbhHV',
-  'incline-bb-press': '1059-SYJ4Bkt',
-  'incline-db-press': '1059-SYJ4Bkt',
-  'chest-machine-press': '0007-4IKbhHV',
-  'pec-dec': '1061-iZop9xO',
-  'dips': '1057-EMpUwRI',
-  'cable-flyes': '1060-h8LFzo9',
-  'decline-bb-press': '0007-4IKbhHV',
-  'smith-incline-press': '1059-SYJ4Bkt',
-  'incline-db-flyes': '1061-iZop9xO',
-  'pushup': '0010-8K0w2yA',
+  'bench-press': '0025-EIeI8Vf',
+  'incline-bb-press': '0047-3TZduzM',
+  'incline-db-press': '0314-ns0SIbU',
+  'chest-machine-press': '0989-c16nYGA',
+  'pec-dec': '1494-bWlZvXh',
+  'dips': '3287-LkoAWAE',
+  'cable-flyes': '1262-w4dLzSx',
+  'decline-bb-press': '0033-GrO65fd',
+  'smith-incline-press': '0757-5v7KYld',
+  'incline-db-flyes': '0319-ESOd5Pl',
+  'pushup': '0975-ufaxB52',
 
   // Espalda
-  'lat-pulldown': '1003-w1NOByi',
-  'hammer-row': '1065-wnEscH8',
-  'chest-supported-row': '1064-qOgPVf6',
-  'seated-row': '1065-wnEscH8',
-  'db-rows': '1064-qOgPVf6',
-  'pullups': '0011-03lzqwk',
-  'pull-up': '0011-03lzqwk',
-  'chinups': '0011-03lzqwk',
-  'deadlift': '0012-UGhRD1A',
-  'cable-pullover': '1003-w1NOByi',
-  'db-pullover': '1064-qOgPVf6',
-  'hyperextensions': '1077-7M66AVi',
-  't-bar-row': '1066-WLvTAv5',
-  'close-grip-pulldown': '1003-w1NOByi',
-  'unilateral-cable-row': '1065-wnEscH8',
-  'bb-rows': '1063-gfk9kD4',
-  'barbell-row': '1063-gfk9kD4',
+  'lat-pulldown': '2330-LEprlgG',
+  'hammer-row': '0990-DKBwJrL',
+  'chest-supported-row': '0010-8K0w2yA',
+  'seated-row': '0990-DKBwJrL',
+  'db-rows': '0293-BJ0Hz5L',
+  'pullups': '0015-vrhHa6D',
+  'pull-up': '0015-vrhHa6D',
+  'chinups': '1431-7OeHptV',
+  'deadlift': '1009-kuMiR2T',
+  'cable-pullover': '1316-cA9FuWG',
+  'db-pullover': '0288-vi8EhoE',
+  'hyperextensions': '0489-zhMwOwE',
+  't-bar-row': '1349-BgljGjd',
+  'close-grip-pulldown': '0007-4IKbhHV',
+  'unilateral-cable-row': '0159-kesXOpB',
+  'bb-rows': '0027-eZyBC3j',
+  'barbell-row': '0027-eZyBC3j',
 
   // Piernas / Cuádriceps
-  'squats': '0009-PAgTVaK',
-  'squat': '0009-PAgTVaK',
-  'leg-press-45': '1009-kuMiR2T',
-  'leg-press-light': '1009-kuMiR2T',
-  'leg-extensions': '1070-62Nw60O',
-  'lunges': '0013-VX5YKR5',
-  'lunge': '0013-VX5YKR5',
-  'bulgarian-split-squat': '1072-qDnGfDb',
-  'hack-squat': '0009-PAgTVaK',
-  'goblet-squat': '1004-TUZLh71',
-  'front-squat': '0009-PAgTVaK',
-  'reverse-lunges': '0013-VX5YKR5',
-  'sissy-squat': '1070-62Nw60O',
-  'single-leg-extension': '1070-62Nw60O',
+  'squats': '0024-Y7YcmIJ',
+  'squat': '0024-Y7YcmIJ',
+  'leg-press-45': '2287-V07qpXy',
+  'leg-press-light': '2287-V07qpXy',
+  'leg-extensions': '0585-my33uHU',
+  'lunges': '1410-py1HSzx',
+  'lunge': '1410-py1HSzx',
+  'bulgarian-split-squat': '0987-arsYEd3',
+  'hack-squat': '0046-5VCj6iH',
+  'goblet-squat': '1760-yn8yg1r',
+  'front-squat': '0024-Y7YcmIJ',
+  'reverse-lunges': '1410-py1HSzx',
+  'sissy-squat': '1489-xdYPUtE',
+  'single-leg-extension': '0585-my33uHU',
 
   // Isquiotibiales
-  'romanian-deadlift': '1005-Kzg30R7',
-  'leg-curls': '1073-xNrS20v',
-  'seated-leg-curls': '1073-xNrS20v',
-  'stiff-leg-deadlift': '1005-Kzg30R7',
-  'standing-leg-curl': '1073-xNrS20v',
-  'db-romanian-deadlift': '1005-Kzg30R7',
+  'romanian-deadlift': '0085-wQ2c4XD',
+  'leg-curls': '3235-zHEpuuc',
+  'seated-leg-curls': '0599-Zg3XY7P',
+  'stiff-leg-deadlift': '0085-wQ2c4XD',
+  'standing-leg-curl': '3235-zHEpuuc',
+  'db-romanian-deadlift': '1459-rR0LJzx',
 
   // Glúteos
-  'hip-thrust': '1074-4LIG9xr',
-  'cable-kickbacks': '1075-LsZkfU6',
-  'abductor-machine': '1075-LsZkfU6',
-  'glute-bridge': '1074-4LIG9xr',
-  'lateral-lunges': '0013-VX5YKR5',
-  'step-ups': '0013-VX5YKR5',
-  'cable-abduction': '1075-LsZkfU6',
+  'hip-thrust': '3236-Pjbc0Kt',
+  'cable-kickbacks': '0860-HEJ6DIX',
+  'abductor-machine': '1427-mQ1tBXn',
+  'glute-bridge': '1409-qKBpF7I',
+  'lateral-lunges': '1410-py1HSzx',
+  'step-ups': '1008-d5bTEPV',
+  'cable-abduction': '0597-CHpahtl',
 
   // Gemelos
-  'calf-raises-standing': '1070-62Nw60O',
-  'calf-raises-seated': '1070-62Nw60O',
-  'press-calf-raises': '1009-kuMiR2T',
+  'calf-raises-standing': '0999-9JprnPh',
+  'calf-raises-seated': '0088-ktsFQAZ',
+  'press-calf-raises': '0999-9JprnPh',
 
   // Hombros
-  'db-overhead-press': '1010-KUaoUV8',
-  'bb-overhead-press': '1068-Ln9iTbU',
-  'arnold-press': '1010-KUaoUV8',
-  'lateral-raises': '1006-HJ63mSO',
-  'lateral-raise': '1006-HJ63mSO',
-  'cable-lateral-raises': '1006-HJ63mSO',
-  'reverse-flys': '1012-u4bAmKp',
-  'cable-reverse-flys': '1012-u4bAmKp',
-  'face-pulls': '1012-u4bAmKp',
-  'front-raises': '1067-za9Ni4z',
-  'upright-row': '1067-za9Ni4z',
-  'smith-overhead-press': '1068-Ln9iTbU',
-  'shrugs': '1067-za9Ni4z',
+  'db-overhead-press': '0361-84RyJf8',
+  'bb-overhead-press': '0091-kTbSH9h',
+  'arnold-press': '2137-Xy4jlWA',
+  'lateral-raises': '0977-sTg7iys',
+  'lateral-raise': '0977-sTg7iys',
+  'cable-lateral-raises': '0178-goJ6ezq',
+  'reverse-flys': '0993-sTfvVsG',
+  'cable-reverse-flys': '0225-P5p0j8B',
+  'face-pulls': '0993-sTfvVsG',
+  'front-raises': '0978-TFA88iB',
+  'upright-row': '0120-UDlhcO8',
+  'smith-overhead-press': '0765-xUwnBMT',
+  'shrugs': '1018-trmte8s',
 
   // Bíceps
-  'bb-curls': '1001-y8bYM8w',
-  'barbell-curl': '1001-y8bYM8w',
-  'db-alt-curls': '1052-ZsiqXYa',
-  'hammer-curls': '1051-pkSoCW9',
-  'hammer-curl': '1051-pkSoCW9',
-  'preacher-curl': '1001-y8bYM8w',
-  'db-preacher-curl': '1052-ZsiqXYa',
-  'cable-curls': '1053-1gFNTZV',
-  'concentration-curls': '1052-ZsiqXYa',
-  'incline-db-curls': '1054-t8iSghb',
-  'cable-hammer-curls': '1053-1gFNTZV',
-  'zottman-curl': '1051-pkSoCW9',
-  'high-cable-curls': '1053-1gFNTZV',
-
-  // Tríps
-  'tricep-extensions': '1007-euq4pwp',
-  'tricep-overhead': '1055-EcaV7aL',
-  'skull-crushers': '1055-EcaV7aL',
-  'assisted-dips': '1057-EMpUwRI',
-  'close-grip-bench': '1056-HJ63mSO',
-  'overhead-cable-extension': '1055-EcaV7aL',
-  'db-kickbacks': '1055-EcaV7aL',
-  'bench-dips': '1057-EMpUwRI',
-  'french-press': '1055-EcaV7aL',
+  'bb-curls': '0023-Yza7XrQ',
+  'barbell-curl': '0023-Yza7XrQ',
+  'db-alt-curls': '0285-BU15nH4',
+  'hammer-curls': '0165-HPlPoQA',
+  'hammer-curl': '0165-HPlPoQA',
+  'preacher-curl': '0059-SYJ4Bkt',
+  'db-preacher-curl': '1646-fy7Tgy4',
+  'cable-curls': '3235-zHEpuuc',
+  'concentration-curls': '0976-kmVVAfu',
+  'incline-db-curls': '0072-WLvTAv5',
+  'cable-hammer-curls': '0165-HPlPoQA',
+  'zottman-curl': '0439-kXaIn5A',
+  'high-cable-curls': '3235-zHEpuuc',
+  'french-press': '0018-7HcfMBP',
 
   // Antebrazos
-  'wrist-curls-prono': '1001-y8bYM8w',
-  'wrist-curls-supino': '1001-y8bYM8w',
-  'reverse-bb-curl': '1001-y8bYM8w',
-  'farmers-walk': '1064-qOgPVf6',
+  'wrist-curls-prono': '0994-Ezpnw9d',
+  'wrist-curls-supino': '0994-Ezpnw9d',
+  'reverse-bb-curl': '0080-xNrS20v',
+  'farmers-walk': '2133-qPEzJjA',
 
   // Core
-  'plank': '0014-r7cT9YD',
-  'hanging-leg-raises': '1077-7M66AVi',
-  'cable-crunch': '1076-Gxg9lDc',
-  'russian-twist': '1076-Gxg9lDc',
-  'reverse-crunch': '0015-vrhHa6D',
-  'side-plank': '0014-r7cT9YD',
-  'ab-wheel': '1076-Gxg9lDc',
-  'machine-crunch': '1076-Gxg9lDc',
-  'incline-leg-raises': '1077-7M66AVi',
-  'cable-woodchopper': '1076-Gxg9lDc',
-  'burpee': '0006-qaZVsGk',
-  'crunch': '0015-vrhHa6D',
+  'plank': '3544-5VXmnV5',
+  'hanging-leg-raises': '0012-UGhRD1A',
+  'cable-crunch': '0972-tZkGYZ9',
+  'russian-twist': '0014-r7cT9YD',
+  'reverse-crunch': '0873-RqOtqD7',
+  'side-plank': '3544-5VXmnV5',
+  'ab-wheel': '0971-zhF9lW4',
+  'machine-crunch': '0972-tZkGYZ9',
+  'incline-leg-raises': '0012-UGhRD1A',
+  'cable-woodchopper': '0972-tZkGYZ9',
+  'burpee': '1160-dK9394r',
+  'crunch': '0972-tZkGYZ9',
 
   // Cardio
-  'treadmill': '0006-qaZVsGk',
-  'cycling': '0006-qaZVsGk',
-  'rowing-machine': '1065-wnEscH8',
-  'elliptical': '0006-qaZVsGk',
-  'jump-rope': '0006-qaZVsGk',
-  'stairmaster': '0006-qaZVsGk',
-  'swimming': '0006-qaZVsGk',
-  'brisk-walk': '0006-qaZVsGk',
-  'hiit-run': '0006-qaZVsGk',
+  'treadmill': '3666-rjiM4L3',
+  'cycling': '0972-tZkGYZ9',
+  'rowing-machine': '0990-DKBwJrL',
+  'elliptical': '2141-rjtuP6X',
+  'jump-rope': '0128-RJa4tCo',
+  'stairmaster': '1490-6HmFgmx',
+  'swimming': '3433-SP3hUez',
+  'brisk-walk': '2133-qPEzJjA',
+  'hiit-run': '0972-tZkGYZ9',
 };
+
+import { BASE_EXERCISES_DETAILS } from '../data/baseExercisesDetails';
 
 // Helper to build local media URLs
 function mwVideo(category: string, slug: string): MuscleWikiVideo[] {
   const baseUrl = import.meta.env.BASE_URL || '/';
   const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
 
-  const mediaId = SLUG_TO_MEDIA_ID[slug];
+  const detail = BASE_EXERCISES_DETAILS[slug];
+  const mediaId = SLUG_TO_MEDIA_ID[slug] || detail?.mediaId;
   if (!mediaId) {
     // Return empty array if not mapped so we don't display a mismatched image!
     return [];
@@ -306,30 +299,49 @@ function mwVideo(category: string, slug: string): MuscleWikiVideo[] {
 const buildInitialLocalExercises = (): MuscleWikiExercise[] => {
   const map = new Map<string, MuscleWikiExercise>();
 
-  // Add BASE_EXERCISES baseline
+  // Add BASE_EXERCISES baseline enriched with detailed Spanish instructions and real media
   BASE_EXERCISES.forEach((ex) => {
     const wikiMuscle = mapSpanishMuscleToWikiKey(ex.muscleGroup);
     const wikiCategory = mapCategoryFromExercise(ex.id, ex.type, ex.name);
+    const detail = BASE_EXERCISES_DETAILS[ex.id];
 
-    map.set(String(ex.id), {
+    const steps = (detail && detail.steps && detail.steps.length > 0)
+      ? detail.steps
+      : [
+          `Adopta una posición erguida y estable sujetando el equipamiento de ${ex.name} con alineación anatómica correcta.`,
+          `Realiza la fase excéntrica (descenso/estiramiento) de forma suave y controlada durante 2-3 segundos.`,
+          `Pausa 1 segundo en el punto de máxima contracción muscular sintiendo la tensión focalizada.`,
+          `Ejecuta la fase concéntrica aplicando fuerza de forma fluida mientras exhalas el aire de los pulmones.`,
+          `Mantén el torso estable y evita compensar con inercias durante todas las repeticiones.`
+        ];
+
+    const exerciseItem: MuscleWikiExercise = {
       id: ex.id,
       name: ex.name,
       primary_muscles: [wikiMuscle],
       secondary_muscles: [],
       category: wikiCategory,
       difficulty: 'Beginner',
-      force: null,
+      force: detail?.force || (ex.type === 'Compuesto' ? 'Push' : null),
       grips: [],
       mechanic: ex.type === 'Compuesto' ? 'compound' : 'isolation',
-      steps: [`Ejecuta ${ex.name} con forma técnica adecuada y rango completo de movimiento.`],
+      steps,
       videos: mwVideo(wikiCategory, ex.id),
-    });
+    };
+
+    map.set(String(ex.id), exerciseItem);
+    map.set(ex.name.toLowerCase().trim(), exerciseItem);
   });
 
   // Enrich with detailed local JSON exercises if available
   if (Array.isArray(localExercisesJson)) {
     (localExercisesJson as MuscleWikiExercise[]).forEach((ex) => {
-      map.set(String(ex.id), ex);
+      if (!map.has(String(ex.id))) {
+        map.set(String(ex.id), ex);
+      }
+      if (ex.name) {
+        map.set(ex.name.toLowerCase().trim(), ex);
+      }
     });
   }
 
