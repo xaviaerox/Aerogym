@@ -1,8 +1,8 @@
-# Política de Seguridad — AeroGym
+# Política de Seguridad — AeroGym (Solutech)
 
 ## 🛡️ Compromiso de Privacidad y Seguridad
 
-AeroGym está diseñado con una filosofía **Local-First / Privacy-First**. Toda la información de salud, entrenamientos y datos personales se procesa prioritariamente de forma local en el navegador del usuario.
+**AeroGym**, un producto desarrollado por **Xavi de Solutech**, está diseñado con una arquitectura estricta **Local-First / Privacy-First**. Toda la información de salud, hábitos, entrenamientos y datos personales se procesa prioritariamente de forma local en el navegador del usuario.
 
 ### 🔒 Reporte Responsable de Vulnerabilidades
 
@@ -11,7 +11,7 @@ Si has descubierto una vulnerabilidad de seguridad en AeroGym, te pedimos que la
 **No abras una issue pública para reportar vulnerabilidades de seguridad.**
 
 Por favor, envía los detalles del hallazgo por correo electrónico a:
-`security@aerogym.app`
+`security@solutech.dev` o `security@aerogym.app`
 
 ### ℹ️ Información a incluir en el reporte
 
@@ -21,6 +21,6 @@ Por favor, envía los detalles del hallazgo por correo electrónico a:
 
 ### ⚡ Tiempos de Respuesta
 
-- **Acuse de recibo:** Menos de 48 horas.
-- **Evaluación e investigación:** 5 días hábiles.
-- **Publicación del parche:** Prioridad alta según la severidad.
+- **Acuse de recibo:** Menos de 24-48 horas.
+- **Evaluación e investigación:** 3-5 días hábiles.
+- **Publicación del parche:** Prioridad máxima según la severidad.

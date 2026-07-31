@@ -135,7 +135,7 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
             </button>
           )}
           <div>
-            <h1 className="text-2xl font-bold text-slate-50">Explorador MuscleWiki</h1>
+            <h1 className="text-2xl font-bold text-slate-50">Biblioteca de Ejercicios</h1>
             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black flex items-center gap-1">
               <Dumbbell size={10} className="text-brand-blue" />
               Base de Datos Científica
@@ -171,7 +171,7 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar ejercicio en MuscleWiki..."
+              placeholder="Buscar ejercicio por nombre o músculo..."
               className="bg-transparent flex-1 outline-none text-sm placeholder:text-slate-500 text-slate-100"
             />
             {query && (
@@ -418,7 +418,7 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
                 <div>
                   <span className="text-slate-500 uppercase tracking-wider font-bold text-[9px]">Origen Datos</span>
                   <p className="font-bold text-brand-blue mt-0.5 font-mono">
-                    {String(selectedExercise.id).startsWith('mw-') ? 'Dataset Local' : 'MuscleWiki API'}
+                    {String(selectedExercise.id).startsWith('mw-') ? 'Dataset Local' : 'Catálogo Global'}
                   </p>
                 </div>
               </div>

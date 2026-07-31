@@ -1,6 +1,6 @@
 import { supabase } from '../infrastructure/supabase/client';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://ualgaluxhznwavksguuu.supabase.co';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://your-supabase-project.supabase.co';
 const PROXY_URL = `${SUPABASE_URL}/functions/v1/groq-proxy`;
 
 // Groq usa la API compatible con OpenAI
@@ -14,6 +14,7 @@ interface GroqRequestBody {
   messages: GroqMessage[];
   max_tokens?: number;
   temperature?: number;
+  response_format?: { type: 'json_object' };
 }
 
 /**
@@ -159,15 +160,21 @@ function generateFallbackRoutine(
  */
 export async function generateRoutineWithAI(
   profile: UserContextForAI,
-  availableExercises: { id: string; name: string; type: string; muscle_group: string }[]
+  availableExercises: { id: string; name: string; type: string; muscle_group: string }[],
+  customPrompt?: string
 ): Promise<{ name: string; description: string; exercises: { exerciseId: string; defaultSets: number; defaultReps: string; defaultWeight: number }[] }> {
   try {
     const exercisesContext = availableExercises
       .map((e) => `- ID: ${e.id}, Nombre: ${e.name}, Tipo: ${e.type}, Músculo: ${e.muscle_group}`)
       .join('\n');
 
+    const promptDetails = customPrompt && customPrompt.trim()
+      ? `\nREQUISITOS E INSTRUCCIONES ESPECÍFICAS DEL ATLETA:\n"${customPrompt.trim()}"\n`
+      : '';
+
     const text = await callGroqProxy({
       model: 'llama-3.3-70b-versatile',
+      response_format: { type: 'json_object' },
       messages: [
         {
           role: 'system',
@@ -181,7 +188,7 @@ PERFIL:
 - Nombre: ${profile.name}
 - Nivel: ${profile.level}  
 - Objetivo: ${profile.goal}
-
+${promptDetails}
 EJERCICIOS DISPONIBLES (usa SOLO estos IDs exactos):
 ${exercisesContext}
 

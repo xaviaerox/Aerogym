@@ -464,6 +464,14 @@ export default function ProfileSettings() {
             <LogOut size={18} /> Cerrar Sesión
           </button>
         </div>
+
+        {/* Product Footer */}
+        <div className="pt-4 pb-2 text-center space-y-1">
+          <p className="text-xs text-slate-500 font-medium">AeroGym v2.0 Enterprise</p>
+          <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">
+            Desarrollado por Xavi de Solutech
+          </p>
+        </div>
       </section>
     </div>
   );

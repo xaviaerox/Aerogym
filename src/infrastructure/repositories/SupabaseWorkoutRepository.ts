@@ -65,13 +65,15 @@ export class SupabaseWorkoutRepository implements IWorkoutRepository {
     return { data: items };
   }
 
-  async fetchWorkoutHistory(userId: string): Promise<WorkoutSet[]> {
+  async fetchWorkoutHistory(userId: string, limit = 250): Promise<WorkoutSet[]> {
     if (syncEngine.isOnline()) {
       try {
         const { data, error } = await supabase
           .from('workout_sets')
           .select('*, workout_sessions!inner(user_id)')
-          .eq('workout_sessions.user_id', userId);
+          .eq('workout_sessions.user_id', userId)
+          .order('logged_at', { ascending: false })
+          .limit(limit);
 
         if (!error && data) {
           const sets = data.map(({ workout_sessions, ...set }) => set) as WorkoutSet[];
@@ -84,7 +86,7 @@ export class SupabaseWorkoutRepository implements IWorkoutRepository {
     }
 
     const cached = await getItemIndexedDB<WorkoutSet[]>('sets_cache', `user_${userId}`);
-    return cached || [];
+    return (cached || []).slice(0, limit);
   }
 
   async saveSession(

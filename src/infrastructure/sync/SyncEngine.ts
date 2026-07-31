@@ -1,5 +1,6 @@
 import { getSyncQueue, removeSyncAction, setItemIndexedDB, type SyncQueueAction } from '../../lib/storageIndexedDB';
 import { supabase } from '../supabase/client';
+import type { WorkoutSet } from '../supabase/types';
 
 export class SyncEngine {
   private isProcessing = false;
@@ -89,7 +90,7 @@ export class SyncEngine {
           if (sessionError || !sessionData) return false;
 
           if (sets && sets.length > 0) {
-            const setsToInsert = sets.map((s: any) => ({
+            const setsToInsert = sets.map((s: Partial<WorkoutSet>) => ({
               ...s,
               session_id: sessionData.id,
             }));

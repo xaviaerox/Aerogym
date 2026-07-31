@@ -48,7 +48,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { model = 'llama-3.3-70b-versatile', messages, max_tokens, temperature } = body;
+    const { model = 'llama-3.3-70b-versatile', messages, max_tokens, temperature, response_format } = body;
 
     // Validar el payload
     if (!messages || !Array.isArray(messages)) {
@@ -60,6 +60,17 @@ serve(async (req) => {
 
     console.log(`Calling Groq with model=${model}, messages=${messages.length}`);
 
+    const groqPayload: Record<string, unknown> = {
+      model,
+      messages,
+      max_tokens: max_tokens ?? 1024,
+      temperature: temperature ?? 0.7,
+    };
+
+    if (response_format) {
+      groqPayload.response_format = response_format;
+    }
+
     // Llamar a la API de Groq (compatible con OpenAI)
     const groqResponse = await fetch(GROQ_BASE_URL, {
       method: 'POST',
@@ -67,12 +78,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${GROQ_API_KEY}`,
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        max_tokens: max_tokens ?? 1024,
-        temperature: temperature ?? 0.7,
-      }),
+      body: JSON.stringify(groqPayload),
     });
 
     if (!groqResponse.ok) {

@@ -1,6 +1,8 @@
 -- ================================================================
--- AeroGym 2.0 — Supabase Schema
--- Ejecutar en el SQL Editor de Supabase Dashboard
+-- AeroGym 2.0 (Xavi de Solutech) — Supabase Reference Schema
+-- NOTA: Las migraciones SQL oficiales de producción residen en
+-- supabase/migrations/ y son ejecutadas a través del CLI de Supabase.
+-- Este archivo sirve como esquema de referencia estático.
 -- ================================================================
 
 -- Enable UUID extension

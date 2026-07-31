@@ -2,7 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0 Enterprise Evolution] - 2026-07-31
+
+### Added
+- **Diseño Adaptativo Responsive (Desktop & Tablet)**: App shell adaptable en `App.tsx` con Sidebar de navegación colapsable para pantallas de escritorio ($>768\text{px}$) y grid multi-columna `max-w-7xl`.
+- **Paginación e Ingesta Incremental**: Carga de historiales de entrenamiento por bloques de fechas (60 días / 100 registros) en `SupabaseWorkoutRepository.ts` e `useWorkoutStore.ts`.
+- **Registro Aditivo de Evolución**: Documentación incremental de versiones en `docs/changelog/` y migración SQL acumulativa `20260731000000_v2_1_enterprise_hardening.sql`.
+- **Virtualización de Listas**: Renderizado con `@tanstack/react-virtual` en `MuscleWikiExplorer.tsx`.
+- **Widgets Desacoplados**: Modulación de componentes monolíticos (`QuickActionsWidget`, `ReadinessSummaryWidget`, `VolumeTrendsWidget`).
+
+### Security
+- **Sal Dinámica CSPRNG por Usuario**: Sustitución de `SECRET_SALT` estática en `cryptoStorage.ts` por sales criptográficas aleatorias únicas guardadas en perfil/IndexedDB, manteniendo retrocompatibilidad.
+- **SQL RPC Hardening**: Fijado `SET search_path = public` en `match_rag_documents` para prevenir secuestro de esquemas.
+
+### Improved
+- **Proxy Groq & IA**: Configuración de `response_format: { type: "json_object" }` en `groq-proxy/index.ts` para validación segura de respuestas con Zod.
+- **SyncEngine Refactoring**: Reemplazo de tipos `any` por tipos discriminados en `SyncEngine.ts`.
+- **CI/CD Pipeline**: Integración de verificaciones obligatorias de linting y tests en `.github/workflows/deploy.yml`.
+
 ## [2026-04-27]
+
 
 ### Added
 - **Integración Universal de Salud**: Soporte completo para **Google Takeout (Google Fit)** unificado con el sistema de Xiaomi.

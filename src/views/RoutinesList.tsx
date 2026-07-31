@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Play, Trash2, Sparkles, ChevronRight, Loader2, X, Dumbbell, Edit2, Calendar } from 'lucide-react';
+import { Plus, Play, Trash2, Sparkles, ChevronRight, Loader2, X, Dumbbell, Edit2, Calendar, Target, Zap } from 'lucide-react';
 import { useAuthStore } from '../application/stores/useAuthStore';
 import { useWorkoutStore } from '../application/stores/useWorkoutStore';
 import { BASE_EXERCISES } from '../constants/exercises';
@@ -11,6 +11,14 @@ import SessionEditor from './SessionEditor';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+const PRESET_PROMPTS = [
+  { label: '🔥 Push / Empuje', prompt: 'Rutina de empuje centrada en pectorales, deltoides anterior/lateral y tríceps.' },
+  { label: '💪 Pull / Tirón', prompt: 'Rutina de tirón enfocada en dorsales, trapecios y bíceps.' },
+  { label: '🦵 Leg Day / Pierna', prompt: 'Rutina completa de tren inferior: cuadriceps, isquios y glúteos.' },
+  { label: '⏱️ Exprés (30 min)', prompt: 'Rutina corta de alta densidad de 30 minutos con descansos breves.' },
+  { label: '🏠 Mancuernas', prompt: 'Rutina realizada exclusivamente con mancuernas y peso corporal.' },
+];
 
 export default function RoutinesList() {
   const { profile, user } = useAuthStore();
@@ -26,7 +34,10 @@ export default function RoutinesList() {
     fetchSessions,
     fetchWorkoutHistory,
   } = useWorkoutStore();
+
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [newRoutineName, setNewRoutineName] = useState('');
   const [editingRoutine, setEditingRoutine] = useState<(Routine & { exercises: RoutineExercise[] }) | null>(null);
@@ -40,9 +51,11 @@ export default function RoutinesList() {
     }
   }, [user?.id, fetchSessions, fetchWorkoutHistory]);
 
-  const handleGenerateAI = async () => {
+  const handleGenerateAI = async (promptToUse?: string) => {
     if (!profile || !user?.id) return;
     setIsGenerating(true);
+    const finalPrompt = promptToUse !== undefined ? promptToUse : customPrompt;
+
     try {
       const exercisesForAI = BASE_EXERCISES.map((ex) => ({
         id: ex.id,
@@ -61,12 +74,13 @@ export default function RoutinesList() {
           age: profile.age,
           sessionsCount: 0,
         },
-        exercisesForAI
+        exercisesForAI,
+        finalPrompt
       );
 
       // Create the routine in Supabase
       const routine = await createRoutine(user.id, generated.name, generated.description);
-      
+
       // Add exercises to routine
       if (generated.exercises && generated.exercises.length > 0) {
         const exercisesToInsert = generated.exercises.map((ex, idx) => ({
@@ -81,10 +95,11 @@ export default function RoutinesList() {
         await updateRoutineExercises(routine.id, exercisesToInsert as any);
       }
 
-      alert(`✅ Rutina "${routine.name}" creada por IA con ${generated.exercises?.length || 0} ejercicios.`);
+      setIsAIModalOpen(false);
+      setCustomPrompt('');
     } catch (err) {
       console.error(err);
-      alert('Error generando rutina. Verifica que el coach IA esté configurado.');
+      alert('Error generando rutina con IA. Inténtalo de nuevo.');
     } finally {
       setIsGenerating(false);
     }
@@ -113,7 +128,6 @@ export default function RoutinesList() {
   }
 
   if (editingRoutine) {
-    // Buscar la rutina actualizada del store (por si el usuario guardó cambios)
     const freshRoutine = routines.find(r => r.id === editingRoutine.id) || editingRoutine;
     return (
       <RoutineEditor
@@ -137,16 +151,11 @@ export default function RoutinesList() {
           </motion.button>
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={handleGenerateAI}
-            disabled={isGenerating}
-            className="flex items-center gap-2 px-4 py-2.5 bg-brand-blue/20 border border-brand-blue/30 rounded-2xl text-brand-blue text-sm font-bold disabled:opacity-60"
+            onClick={() => setIsAIModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-brand-blue/20 border border-brand-blue/30 rounded-2xl text-brand-blue text-sm font-bold hover:bg-brand-blue/30 transition-all shadow-md"
           >
-            {isGenerating ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Sparkles size={16} />
-            )}
-            IA
+            <Sparkles size={16} />
+            Diseñar con IA
           </motion.button>
         </div>
       </div>
@@ -179,7 +188,7 @@ export default function RoutinesList() {
 
       {activeSubTab === 'routines' ? (
         <>
-          {/* Create dialog */}
+          {/* Create Manual dialog */}
           <AnimatePresence>
             {isCreating && (
               <motion.div
@@ -223,16 +232,15 @@ export default function RoutinesList() {
               <div>
                 <p className="text-slate-400 font-medium">Sin rutinas todavía</p>
                 <p className="text-slate-600 text-sm mt-1">
-                  Crea una manualmente o déjasela a la IA
+                  Crea una manualmente o personalízala con IA
                 </p>
               </div>
               <button
-                onClick={handleGenerateAI}
-                disabled={isGenerating}
+                onClick={() => setIsAIModalOpen(true)}
                 className="w-full py-3 bg-brand-blue/20 border border-brand-blue/30 text-brand-blue rounded-2xl font-bold text-sm flex items-center justify-center gap-2"
               >
-                {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                Generar con IA
+                <Sparkles size={16} />
+                Diseñar Rutina con IA
               </button>
             </div>
           ) : (
@@ -293,14 +301,14 @@ export default function RoutinesList() {
             <div className="space-y-4">
               {sessions.map((session) => {
                 const sessionSets = workoutSetsHistory.filter((s) => s.session_id === session.id);
-                
+
                 const exerciseCounts = new Map<string, { count: number; isCardio: boolean; duration: number }>();
                 sessionSets.forEach((set) => {
                   const exerciseInfo = BASE_EXERCISES.find((e) => e.id === set.exercise_id);
                   const name = exerciseInfo?.name || set.exercise_id;
                   const isCardio = exerciseInfo?.muscleGroup === 'Cardio';
                   const duration = set.duration_seconds ? Math.round(set.duration_seconds / 60) : 0;
-                  
+
                   if (!exerciseCounts.has(name)) {
                     exerciseCounts.set(name, { count: 0, isCardio, duration: 0 });
                   }
@@ -385,6 +393,107 @@ export default function RoutinesList() {
           )}
         </div>
       )}
+
+      {/* ── MODAL PROMPTEABLE DE GENERACIÓN DE RUTINA IA ────────────────── */}
+      <AnimatePresence>
+        {isAIModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex justify-center items-center p-4 overflow-y-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 10 }}
+              className="w-full max-w-md glass-dark border border-white/10 p-6 rounded-3xl space-y-5 shadow-2xl relative"
+            >
+              {/* Modal Header */}
+              <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 bg-brand-blue/20 rounded-xl flex items-center justify-center border border-brand-blue/30 text-brand-blue">
+                    <Sparkles size={18} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-100 text-base">Diseñador de Rutinas IA</h3>
+                    <p className="text-[10px] text-slate-400">Instrucciones a medida para Llama 3.3</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAIModalOpen(false)}
+                  className="p-2 text-slate-400 hover:text-slate-200 rounded-xl glass"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Quick Presets */}
+              <div className="space-y-2">
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                  Plantillas Rápidas
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {PRESET_PROMPTS.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setCustomPrompt(preset.prompt)}
+                      className="text-[11px] bg-slate-800/80 hover:bg-brand-blue/15 text-slate-300 hover:text-brand-blue px-3 py-1.5 rounded-xl border border-white/10 hover:border-brand-blue/30 font-semibold transition-all"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Prompt Input */}
+              <div className="space-y-2">
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                  Instrucciones o Requisitos Específicos
+                </label>
+                <textarea
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  placeholder="Ej: Rutina de Empuje (Push) enfocada en hipertrofia de pecho superior y hombro lateral con mancuernas. 45 minutos."
+                  rows={4}
+                  className="w-full bg-slate-800/90 border border-white/10 rounded-2xl p-3.5 text-xs text-slate-100 outline-none focus:ring-2 ring-brand-blue/30 placeholder:text-slate-500 leading-relaxed resize-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAIModalOpen(false)}
+                  disabled={isGenerating}
+                  className="flex-1 py-3 glass rounded-2xl text-xs font-bold text-slate-400 hover:text-slate-200 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleGenerateAI()}
+                  disabled={isGenerating}
+                  className="flex-1 py-3 bg-brand-blue text-slate-950 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-brand-blue/90 disabled:opacity-50 transition-all shadow-lg"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Diseñando...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      Generar Rutina
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

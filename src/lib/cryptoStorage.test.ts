@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { encryptData, decryptData } from './cryptoStorage';
+import { encryptData, decryptData, generateUserSalt } from './cryptoStorage';
 
 describe('cryptoStorage', () => {
   it('encrypts and decrypts payload correctly', async () => {
@@ -14,6 +14,20 @@ describe('cryptoStorage', () => {
     expect(decrypted).toEqual(payload);
   });
 
+  it('supports custom dynamic user salts', async () => {
+    const payload = { steps: 10500 };
+    const secret = 'user-pass';
+    const customSalt = generateUserSalt();
+
+    expect(customSalt).toBeTypeOf('string');
+    expect(customSalt.length).toBeGreaterThan(10);
+
+    const encrypted = await encryptData(payload, secret, customSalt);
+    const decrypted = await decryptData<typeof payload>(encrypted, secret, customSalt);
+
+    expect(decrypted).toEqual(payload);
+  });
+
   it('returns null when decrypting with wrong secret', async () => {
     const payload = { secret_note: 'Confidencial' };
     const encrypted = await encryptData(payload, 'correct-key');
@@ -22,3 +36,4 @@ describe('cryptoStorage', () => {
     expect(decrypted).toBeNull();
   });
 });
+

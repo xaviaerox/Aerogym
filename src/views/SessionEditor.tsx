@@ -415,7 +415,7 @@ export default function SessionEditor({ session, onBack }: SessionEditorProps) {
                       : 'text-slate-400 hover:text-slate-200 font-bold'
                   )}
                 >
-                  MuscleWiki
+                  Catálogo Global
                 </button>
               </div>
             </div>
