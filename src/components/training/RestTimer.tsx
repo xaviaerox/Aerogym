@@ -90,7 +90,11 @@ export default function RestTimer({ startTime, onClear }: RestTimerProps) {
       className="fixed bottom-24 left-4 right-4 z-50 pointer-events-none max-w-md mx-auto"
     >
       <div className="glass-dark border border-brand-blue/30 p-4 rounded-2xl flex items-center justify-between shadow-2xl shadow-brand-blue/20 pointer-events-auto">
-        <div className="flex items-center gap-3">
+        <div
+          className="flex items-center gap-3"
+          aria-live="polite"
+          aria-label={`Tiempo de descanso: ${mins} minutos y ${secs} segundos`}
+        >
           <div className="w-10 h-10 rounded-full bg-brand-blue/20 flex items-center justify-center text-brand-blue">
             <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 1, repeat: Infinity }}>
               <Timer size={22} />
@@ -105,6 +109,7 @@ export default function RestTimer({ startTime, onClear }: RestTimerProps) {
         </div>
         <button
           onClick={onClear}
+          aria-label="Cerrar temporizador de descanso"
           className="bg-white/5 hover:bg-white/10 p-2 rounded-xl text-slate-400 transition-colors border border-white/5"
         >
           <X size={20} />

@@ -82,12 +82,20 @@ serve(async (req) => {
     });
 
     if (!groqResponse.ok) {
-      const errorData = await groqResponse.json();
-      console.error('Groq API error:', JSON.stringify(errorData));
-      return new Response(JSON.stringify({ error: 'Groq API error', details: errorData }), {
-        status: groqResponse.status,
-        headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
-      });
+      const errorData = await groqResponse.json().catch(() => ({}));
+      console.warn('Groq API error or rate limit, fallback indicator active:', JSON.stringify(errorData));
+      return new Response(
+        JSON.stringify({
+          error: 'Groq API error',
+          details: errorData,
+          provider: 'groq',
+          fallback_available: true,
+        }),
+        {
+          status: groqResponse.status,
+          headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const data = await groqResponse.json();

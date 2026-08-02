@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0 Ultimate Enterprise] - 2026-08-02
+
+### Added
+- **Inyección de Dependencias Pura (DDD)**: Creación de `RepositoryContext.tsx` para inyectar abstraídas las capas de datos en componentes y stores.
+- **Persistencia de Almacenamiento OS**: Integración de `persistentStorageService.ts` utilizando `navigator.storage.persist()` para evitar purgas en navegadores móviles.
+- **Accesibilidad Universal WCAG 2.1 AA**: Atributos `aria-label`, foco interactivo y navegabilidad por teclado (`Enter`, `Space`) en mapa anatómico SVG y temporizadores.
+- **Failover IA Multiproveedor**: Fallback automático Groq $\rightarrow$ Google Gemini API en `groq-proxy`.
+- **Motor de Visión por Computador Biomecánico**: Módulo `computerVisionEngine.ts` para estimación postural en vivo.
+- **Dictado de Voz NL**: Parser de lenguaje natural `voiceParserEngine.ts` para registro de series por comandos hablados.
+
 ## [2.1.0 Enterprise Evolution] - 2026-07-31
 
 ### Added

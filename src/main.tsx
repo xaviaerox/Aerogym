@@ -2,7 +2,12 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary.tsx';
+import { RepositoryProvider } from './infrastructure/repositories/RepositoryContext.tsx';
+import { requestPersistentStorage } from './lib/persistentStorageService.ts';
 import './index.css';
+
+// Solicitar persistencia de almacenamiento en segundo plano
+requestPersistentStorage();
 
 // Manejador global para recuperar la aplicación ante fallos de carga de chunks
 // (ej. cuando se sube una nueva versión y los hashes cambian, eliminando archivos antiguos)
@@ -32,8 +37,11 @@ window.addEventListener('unhandledrejection', (event) => {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <GlobalErrorBoundary>
-      <App />
+      <RepositoryProvider>
+        <App />
+      </RepositoryProvider>
     </GlobalErrorBoundary>
   </StrictMode>,
 );
+
 

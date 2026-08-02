@@ -24,6 +24,14 @@ function MusclePathBase({
   onMouseLeave,
 }: MusclePathProps) {
   const isOutline = definition.group === 'outline';
+
+  const handleKeyDown = (e: React.KeyboardEvent<SVGPathElement>) => {
+    if (!isOutline && selectable && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      onClick?.();
+    }
+  };
+
   return (
     <path
       id={definition.id}
@@ -37,8 +45,13 @@ function MusclePathBase({
       strokeLinejoin="round"
       strokeLinecap="round"
       filter={style.filter}
-      className={selectable && !isOutline ? 'cursor-pointer transition-all duration-200 hover:opacity-100' : ''}
+      tabIndex={selectable && !isOutline ? 0 : -1}
+      role={selectable && !isOutline ? 'button' : undefined}
+      aria-label={!isOutline ? `Grupo muscular: ${definition.name}` : undefined}
+      aria-pressed={isSelected}
+      className={selectable && !isOutline ? 'cursor-pointer transition-all duration-200 hover:opacity-100 focus:outline-none focus:stroke-brand-blue' : ''}
       onClick={isOutline ? undefined : onClick}
+      onKeyDown={isOutline ? undefined : handleKeyDown}
       onMouseEnter={isOutline ? undefined : onMouseEnter}
       onMouseLeave={isOutline ? undefined : onMouseLeave}
     >
