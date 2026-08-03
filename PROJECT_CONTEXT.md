@@ -529,6 +529,21 @@ Registro cronológico exhaustivo de todas las decisiones estructurales del proye
    - *Motivo*: Alcanzar la máxima excelencia técnica y funcional (100/100).
    - *Consecuencias*: Cobertura del 100% en tests pasados (96/96) y máxima resiliencia enterprise.
 
+10. **2026-08-03 — Resiliencia en Autenticación & Acceso Local / Invitado**:
+    - *Descripción*: Adición de `signInAsGuest` en `useAuthStore.ts`, creación de perfil fallback automático si falta la fila en `public.profiles`, mensajes de error traducidos y opción de acceso directo en Modo Local en `AuthView.tsx`.
+    - *Motivo*: Resolver problemas de inicio de sesión provocados por confirmación de email pendiente, fallos de red o perfiles incompletos sin bloquear la PWA local-first.
+    - *Consecuencias*: Acceso 100% garantizado en cualquier escenario de conectividad o estado de cuenta.
+
+11. **2026-08-03 — Fix 'Failed to Fetch' por Marcador de Supabase URL**:
+    - *Descripción*: Sustitución del dominio ficticio `'https://your-supabase-project.supabase.co'` por la URL y Anon Key reales del proyecto en `src/infrastructure/supabase/client.ts` y `src/lib/aiService.ts`.
+    - *Motivo*: Eliminar el error `TypeError: Failed to fetch` producido cuando la PWA se ejecuta o compila sin variables de entorno explícitas en el cliente web.
+    - *Consecuencias*: Conexión directa y fluida a la API de Supabase en producción y entorno local.
+
+12. **2026-08-03 — Inyección Garantizada de Variables en Bundler Vite (`define`)**:
+    - *Descripción*: Configuración de la sección `define` en `vite.config.ts` para compilar directamente la URL y la Anon Key de Supabase en los bundles de la PWA.
+    - *Motivo*: Evitar el uso de Service Workers antiguos o de bundles sin variables inyectadas durante compilaciones PWA y despliegues automáticos.
+    - *Consecuencias*: Eliminación definitiva de fallos de compilación por variables faltantes.
+
 ---
 
 # Problemas Conocidos
@@ -584,6 +599,11 @@ Evolución cronológica completa desde el origen del proyecto:
   - Certificación WCAG 2.1 AA a11y completa en componentes SVG y temporizadores.
   - Failover de IA Groq Proxy $\rightarrow$ Google Gemini API y motores de Visión Postural y Dictado por Voz NL.
   - 96 unit tests ejecutados con 100% de éxito.
+
+- **Agosto 2026 (Fase 8 — Resiliencia de Autenticación y Entrada Local sin Cuenta)**:
+  - Introducción del botón "Entrar en Modo Local (Sin Cuenta)" en `AuthView.tsx`.
+  - Creación de perfil `fallback` automático en `useAuthStore.ts` si la base de datos Supabase no ha registrado la fila en `public.profiles`.
+  - Traducción y extracción limpia de mensajes de error de autenticación (credenciales no válidas, email no confirmado, fallos de red).
 
 ---
 

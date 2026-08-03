@@ -1,6 +1,10 @@
 import { supabase } from '../infrastructure/supabase/client';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://your-supabase-project.supabase.co';
+const DEFAULT_SUPABASE_URL = 'https://ualgaluxhznwavksguuu.supabase.co';
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL !== 'https://your-supabase-project.supabase.co')
+  ? import.meta.env.VITE_SUPABASE_URL
+  : DEFAULT_SUPABASE_URL;
+
 const PROXY_URL = `${SUPABASE_URL}/functions/v1/groq-proxy`;
 
 // Groq usa la API compatible con OpenAI

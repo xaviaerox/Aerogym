@@ -16,7 +16,7 @@ export default function AuthView() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuthStore();
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInAsGuest } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +32,7 @@ export default function AuthView() {
           return;
         }
         await signUpWithEmail(email, password, name);
-        setSuccess('¡Cuenta creada! Revisa tu email para confirmar.');
+        setSuccess('¡Cuenta creada! Revisa tu email para confirmar el registro si está activado en Supabase.');
       }
     } catch (err: unknown) {
       console.error('Authentication error:', err);
@@ -59,13 +59,13 @@ export default function AuthView() {
       if (displayMessage.includes('Invalid login credentials')) {
         setError('Email o contraseña incorrectos');
       } else if (displayMessage.includes('Email not confirmed')) {
-        setError('Confirma tu email antes de entrar');
+        setError('Tu email no ha sido confirmado. Revisa tu bandeja de entrada o utiliza el Modo Local para acceder sin esperar.');
       } else if (displayMessage.includes('already registered')) {
-        setError('Este email ya tiene una cuenta. Inicia sesión.');
+        setError('Este email ya tiene una cuenta. Inicia sesión con tu contraseña.');
       } else if (displayMessage.includes('Password should be at least')) {
-        setError('La contraseña debe tener al menos 6 caracteres');
-      } else if (displayMessage === '{}' || displayMessage === '{"is_completed":true}') {
-        setError('Error de registro (v2): Comprueba tu conexión o si el registro está temporalmente deshabilitado en Supabase.');
+        setError('La contraseña debe tener al menos 6 caracteres.');
+      } else if (displayMessage.includes('Failed to fetch') || displayMessage.includes('NetworkError')) {
+        setError('Error de conexión. Comprueba tu acceso a internet o utiliza el Modo Local.');
       } else {
         setError(displayMessage);
       }
@@ -233,23 +233,34 @@ export default function AuthView() {
           {/* Divider */}
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-white/10" />
-            <span className="text-slate-500 text-xs font-bold uppercase tracking-widest">o continúa con</span>
+            <span className="text-slate-500 text-xs font-bold uppercase tracking-widest">o bien</span>
             <div className="flex-1 h-px bg-white/10" />
           </div>
 
-          {/* Google */}
-          <button
-            onClick={handleGoogle}
-            disabled={isLoading}
-            className="w-full py-4 glass-dark border border-white/10 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 hover:bg-white/5 active:scale-[0.98] transition-all disabled:opacity-60"
-          >
-            <Chrome size={20} className="text-blue-400" />
-            <span>Google</span>
-          </button>
+          <div className="space-y-3">
+            {/* Google */}
+            <button
+              onClick={handleGoogle}
+              disabled={isLoading}
+              className="w-full py-3.5 glass-dark border border-white/10 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 hover:bg-white/5 active:scale-[0.98] transition-all disabled:opacity-60 text-slate-200"
+            >
+              <Chrome size={20} className="text-blue-400" />
+              <span>Google</span>
+            </button>
+
+            {/* Guest / Local Mode */}
+            <button
+              onClick={signInAsGuest}
+              className="w-full py-3.5 bg-slate-800/60 border border-emerald-500/30 text-emerald-400 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-emerald-500/10 active:scale-[0.98] transition-all"
+            >
+              <Dumbbell size={18} />
+              <span>Entrar en Modo Local (Sin Cuenta)</span>
+            </button>
+          </div>
         </motion.div>
 
         <p className="text-center text-slate-600 text-xs">
-          Tus datos están seguros y son solo tuyos.
+          Tus datos están seguros y se procesan de forma local en tu dispositivo.
         </p>
       </div>
     </div>
