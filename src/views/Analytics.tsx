@@ -40,6 +40,7 @@ import BodyFatigueVisualizer from '../components/health/BodyFatigueVisualizer';
 import VolumeChartCard from '../components/analytics/VolumeChartCard';
 import HealthTrendsCard from '../components/analytics/HealthTrendsCard';
 import AddBodyMeasurementModal from '../components/analytics/AddBodyMeasurementModal';
+import ActivityHeatmap from '../components/analytics/ActivityHeatmap';
 
 type TimeFilter = 'week' | 'month' | 'all';
 type ViewTab = 'performance' | 'composition';
@@ -221,6 +222,9 @@ export default function Analytics() {
       {/* ── RENDIMIENTO TAB ────────────────────────────────────────── */}
       {activeTab === 'performance' && (
         <div className="space-y-6 animate-in fade-in duration-300">
+          {/* Matriz de Calor de Actividad y Esfuerzo Físico (Estilo GitHub) */}
+          <ActivityHeatmap sessions={sessions} dailyHealth={dailyHealth} />
+
           {/* Summary KPIs: High-value training metrics */}
           <div className="grid grid-cols-3 gap-3">
             {/* Volumen Semanal + Delta % */}
