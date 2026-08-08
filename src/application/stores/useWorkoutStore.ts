@@ -47,6 +47,7 @@ export interface WorkoutState {
   createRoutine: (userId: string, name: string, description?: string) => Promise<Routine>;
   deleteRoutine: (routineId: string) => Promise<void>;
   updateRoutineExercises: (routineId: string, exercises: Omit<RoutineExercise, 'id'>[]) => Promise<void>;
+  reorderRoutines: (newRoutines: (Routine & { exercises: RoutineExercise[] })[]) => void;
 
   // Actions — Past Sessions
   updatePastSession: (sessionId: string, updates: Partial<WorkoutSession>) => Promise<void>;
@@ -335,6 +336,25 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   fetchRoutines: async (userId) => {
     try {
       const routines = await supabaseWorkoutRepository.fetchRoutines(userId);
+      const savedOrderJson = typeof localStorage !== 'undefined' ? localStorage.getItem('aerogym_routines_order') : null;
+      if (savedOrderJson) {
+        try {
+          const savedOrder: string[] = JSON.parse(savedOrderJson);
+          if (Array.isArray(savedOrder) && savedOrder.length > 0) {
+            const orderMap = new Map<string, number>();
+            savedOrder.forEach((id, idx) => orderMap.set(id, idx));
+            const sortedRoutines = [...routines].sort((a, b) => {
+              const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
+              const idxB = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999;
+              return idxA - idxB;
+            });
+            set({ routines: sortedRoutines });
+            return;
+          }
+        } catch (e) {
+          console.warn('Error parsing saved routine order:', e);
+        }
+      }
       set({ routines });
     } catch (e) {
       console.error('Error fetching routines:', e);
@@ -343,17 +363,34 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
   createRoutine: async (userId, name, description) => {
     const data = await supabaseWorkoutRepository.createRoutine(userId, name, description);
-    set((state) => ({
-      routines: [{ ...data, exercises: [] }, ...state.routines],
-    }));
+    const newRoutine = { ...data, exercises: [] };
+    set((state) => {
+      const newRoutines = [newRoutine, ...state.routines];
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('aerogym_routines_order', JSON.stringify(newRoutines.map((r) => r.id)));
+        }
+      } catch (e) {
+        console.error('Error saving routine order:', e);
+      }
+      return { routines: newRoutines };
+    });
     return data;
   },
 
   deleteRoutine: async (routineId) => {
     await supabaseWorkoutRepository.deleteRoutine(routineId);
-    set((state) => ({
-      routines: state.routines.filter((r) => r.id !== routineId),
-    }));
+    set((state) => {
+      const newRoutines = state.routines.filter((r) => r.id !== routineId);
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('aerogym_routines_order', JSON.stringify(newRoutines.map((r) => r.id)));
+        }
+      } catch (e) {
+        console.error('Error saving routine order:', e);
+      }
+      return { routines: newRoutines };
+    });
   },
 
   updateRoutineExercises: async (routineId, exercises) => {
@@ -361,6 +398,17 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     const userId = useAuthStore.getState().user?.id || get().sessions[0]?.user_id;
     if (userId) {
       await get().fetchRoutines(userId);
+    }
+  },
+
+  reorderRoutines: (newRoutines) => {
+    set({ routines: newRoutines });
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('aerogym_routines_order', JSON.stringify(newRoutines.map((r) => r.id)));
+      }
+    } catch (e) {
+      console.error('Error saving routine order:', e);
     }
   },
 

@@ -1,6 +1,21 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Play, Trash2, Sparkles, ChevronRight, Loader2, X, Dumbbell, Edit2, Calendar, Target, Zap } from 'lucide-react';
+import { Plus, Play, Trash2, Sparkles, ChevronRight, Loader2, X, Dumbbell, Edit2, Calendar, Target, Zap, GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useAuthStore } from '../application/stores/useAuthStore';
 import { useWorkoutStore } from '../application/stores/useWorkoutStore';
 import { BASE_EXERCISES } from '../constants/exercises';
@@ -28,12 +43,40 @@ export default function RoutinesList() {
     deleteRoutine,
     createRoutine,
     updateRoutineExercises,
+    reorderRoutines,
     sessions,
     workoutSetsHistory,
     deletePastSession,
     fetchSessions,
     fetchWorkoutHistory,
   } = useWorkoutStore();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = routines.findIndex((r) => r.id === active.id);
+      const newIndex = routines.findIndex((r) => r.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newRoutines = arrayMove(routines, oldIndex, newIndex);
+        reorderRoutines(newRoutines);
+      }
+    }
+  };
+
+  const moveRoutine = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= routines.length) return;
+    const newRoutines = arrayMove(routines, index, targetIndex);
+    reorderRoutines(newRoutines);
+  };
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
@@ -244,47 +287,25 @@ export default function RoutinesList() {
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {routines.map((routine) => (
-                <motion.div
-                  key={routine.id}
-                  whileTap={{ scale: 0.98 }}
-                  className="glass p-5 rounded-2xl border border-white/5 flex items-center gap-4 cursor-pointer"
-                  onClick={() => setEditingRoutine(routine)}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-50 truncate">{routine.name}</p>
-                    {routine.description && (
-                      <p className="text-xs text-slate-500 mt-0.5 truncate">{routine.description}</p>
-                    )}
-                    <p className="text-[10px] text-slate-600 uppercase tracking-widest font-bold mt-1">
-                      {routine.exercises?.length || 0} ejercicios
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => setEditingRoutine(routine)}
-                      className="p-2 text-slate-400 hover:text-brand-blue transition-colors"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={(e) => handleDelete(routine.id, e)}
-                      className="p-2 text-slate-500 hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => startSession(routine as Routine & { exercises: RoutineExercise[] })}
-                      className="flex items-center gap-1.5 bg-brand-blue text-slate-950 px-4 py-2.5 rounded-xl font-black text-xs"
-                    >
-                      <Play size={14} fill="currentColor" />
-                      INICIAR
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={routines.map((r) => r.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-3">
+                  {routines.map((routine, idx) => (
+                    <SortableRoutineItem
+                      key={routine.id}
+                      routine={routine}
+                      index={idx}
+                      isFirst={idx === 0}
+                      isLast={idx === routines.length - 1}
+                      onMove={(dir) => moveRoutine(idx, dir)}
+                      onEdit={() => setEditingRoutine(routine)}
+                      onDelete={(e) => handleDelete(routine.id, e)}
+                      onStart={() => startSession(routine as Routine & { exercises: RoutineExercise[] })}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           )}
         </>
       ) : (
@@ -494,6 +515,120 @@ export default function RoutinesList() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+interface SortableRoutineItemProps {
+  key?: string;
+  routine: Routine & { exercises: RoutineExercise[] };
+  index: number;
+  isFirst: boolean;
+  isLast: boolean;
+  onMove: (direction: 'up' | 'down') => void;
+  onEdit: () => void;
+  onDelete: (e: React.MouseEvent) => void;
+  onStart: () => void;
+}
+
+function SortableRoutineItem({
+  routine,
+  isFirst,
+  isLast,
+  onMove,
+  onEdit,
+  onDelete,
+  onStart,
+}: SortableRoutineItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: routine.id,
+  });
+
+  const style = {
+    transform: transform ? CSS.Transform.toString(transform) : undefined,
+    transition,
+    zIndex: isDragging ? 50 : 'auto',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'glass p-4 rounded-2xl border transition-all flex items-center gap-3 cursor-pointer',
+        isDragging
+          ? 'border-brand-blue/40 bg-slate-800/90 scale-[1.02] shadow-2xl shadow-brand-blue/10'
+          : 'border-white/5 hover:border-brand-blue/20'
+      )}
+      onClick={onEdit}
+    >
+      {/* Drag & Move controls */}
+      <div className="flex items-center gap-0.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+        <div
+          {...attributes}
+          {...listeners}
+          className="p-1.5 text-slate-500 cursor-grab active:cursor-grabbing hover:text-slate-300 transition-colors"
+          title="Arrastrar para reordenar"
+        >
+          <GripVertical size={16} />
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <button
+            type="button"
+            disabled={isFirst}
+            onClick={() => onMove('up')}
+            className="p-0.5 text-slate-500 hover:text-brand-blue disabled:opacity-20 disabled:hover:text-slate-500 transition-colors"
+            title="Mover arriba"
+          >
+            <ChevronUp size={12} />
+          </button>
+          <button
+            type="button"
+            disabled={isLast}
+            onClick={() => onMove('down')}
+            className="p-0.5 text-slate-500 hover:text-brand-blue disabled:opacity-20 disabled:hover:text-slate-500 transition-colors"
+            title="Mover abajo"
+          >
+            <ChevronDown size={12} />
+          </button>
+        </div>
+      </div>
+
+      {/* Routine Info */}
+      <div className="flex-1 min-w-0">
+        <p className="font-bold text-slate-50 truncate">{routine.name}</p>
+        {routine.description && (
+          <p className="text-xs text-slate-500 mt-0.5 truncate">{routine.description}</p>
+        )}
+        <p className="text-[10px] text-slate-600 uppercase tracking-widest font-bold mt-1">
+          {routine.exercises?.length || 0} ejercicios
+        </p>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+        <button
+          onClick={onEdit}
+          className="p-2 text-slate-400 hover:text-brand-blue transition-colors rounded-xl hover:bg-white/5"
+          title="Editar rutina"
+        >
+          <Edit2 size={16} />
+        </button>
+        <button
+          onClick={onDelete}
+          className="p-2 text-slate-500 hover:text-red-400 transition-colors rounded-xl hover:bg-white/5"
+          title="Eliminar rutina"
+        >
+          <Trash2 size={16} />
+        </button>
+        <button
+          onClick={onStart}
+          className="flex items-center gap-1.5 bg-brand-blue text-slate-950 px-3.5 py-2.5 rounded-xl font-black text-xs hover:bg-brand-blue/90 transition-all shadow-md"
+        >
+          <Play size={14} fill="currentColor" />
+          INICIAR
+        </button>
+      </div>
     </div>
   );
 }

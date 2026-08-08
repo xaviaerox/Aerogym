@@ -172,21 +172,7 @@ export default function ProfileSettings() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="glass p-4 rounded-2xl text-center">
-          <p className="text-xl font-black text-brand-blue">{sessions.length}</p>
-          <p className="text-[10px] text-slate-500 uppercase font-bold">Entrenos</p>
-        </div>
-        <div className="glass p-4 rounded-2xl text-center">
-          <p className="text-xl font-black text-slate-50">{profile.weight_kg || '--'}kg</p>
-          <p className="text-[10px] text-slate-500 uppercase font-bold">Peso</p>
-        </div>
-        <div className="glass p-4 rounded-2xl text-center">
-          <p className="text-xl font-black text-brand-green">{measurements.length}</p>
-          <p className="text-[10px] text-slate-500 uppercase font-bold">Medidas</p>
-        </div>
-      </div>
+
 
       {/* Logros / Insignias */}
       <section className="space-y-4">

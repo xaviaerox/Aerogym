@@ -246,51 +246,30 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-3">
-        {visibleWidgets.sessionsCount && (
-          <StatCard
-            label="Entrenos"
-            value={sessions.length.toString()}
-            icon={<Dumbbell size={16} className="text-brand-blue" />}
-            color="blue"
-          />
-        )}
-        {visibleWidgets.streak && (
-          <StatCard
-            label="Racha"
-            value={`${streak}d`}
-            icon={<Flame size={16} className="text-orange-400 animate-pulse" />}
-            color="orange"
-          />
-        )}
-        {visibleWidgets.readiness && (
-          <div className="cursor-pointer" onClick={() => setIsDiagnosticOpen(true)}>
-            <StatCard
-              label="Readiness"
-              value={`${readiness.score}%`}
-              icon={<Activity size={16} className="text-brand-green" />}
-              color="green"
-            />
+      {/* Daily Readiness & Quick Status Banner */}
+      {visibleWidgets.readiness && (
+        <div
+          onClick={() => setIsDiagnosticOpen(true)}
+          className="glass border border-brand-green/20 bg-brand-green/5 p-4 rounded-3xl flex items-center justify-between shadow-lg cursor-pointer hover:border-brand-green/40 transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-brand-green/20 flex items-center justify-center text-brand-green border border-brand-green/30 flex-shrink-0">
+              <Activity size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider font-extrabold text-brand-green">Recuperación Diario (Readiness)</p>
+              <p className="text-lg font-black text-slate-50">{readiness.score}% <span className="text-xs font-bold text-brand-green">· {readiness.status}</span></p>
+            </div>
           </div>
-        )}
-      </div>
-
-      {/* DOTS Relative Strength Card */}
-      <div className="glass border border-brand-blue/20 bg-brand-blue/5 p-4 rounded-3xl flex items-center justify-between shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-brand-blue/20 flex items-center justify-center text-brand-blue border border-brand-blue/30">
-            <Trophy size={20} />
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider font-extrabold text-brand-blue">Fuerza Relativa (DOTS)</p>
-            <p className="text-lg font-black text-slate-50">{dotsScore.dotsPoints} pts <span className="text-xs font-bold text-brand-green">· {dotsScore.strengthCategory}</span></p>
+          <div className="flex items-center gap-2">
+            {visibleWidgets.streak && (
+              <span className="text-[10px] font-black bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2.5 py-1 rounded-xl flex items-center gap-1">
+                <Flame size={12} className="animate-pulse" /> {streak}d racha
+              </span>
+            )}
           </div>
         </div>
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right max-w-[100px] leading-tight">
-          {dotsScore.percentileText}
-        </span>
-      </div>
+      )}
 
       {/* Siguiente Sesión */}
       {visibleWidgets.nextRoutine && (
