@@ -7,7 +7,6 @@ import {
   eachDayOfInterval,
   isSameDay,
   isAfter,
-  parseISO,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -51,15 +50,37 @@ export default function ActivityHeatmap({
   const [timeRange, setTimeRange] = useState<TimeRange>('year');
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
 
-  // Map sessions by date (YYYY-MM-DD)
+  // Map sessions by date (YYYY-MM-DD) with robust date extraction
   const sessionsByDate = useMemo(() => {
     const map = new Map<string, WorkoutSession[]>();
     sessions.forEach((s) => {
       if (!s.started_at) return;
-      const key = format(parseISO(s.started_at), 'yyyy-MM-dd');
-      const list = map.get(key) || [];
-      list.push(s);
-      map.set(key, list);
+      try {
+        let key = '';
+        if (typeof s.started_at === 'string') {
+          const match = s.started_at.match(/(\d{4}-\d{2}-\d{2})/);
+          if (match) {
+            key = match[1];
+          } else {
+            const d = new Date(s.started_at);
+            if (!isNaN(d.getTime())) {
+              key = format(d, 'yyyy-MM-dd');
+            }
+          }
+        } else {
+          const d = new Date(s.started_at);
+          if (!isNaN(d.getTime())) {
+            key = format(d, 'yyyy-MM-dd');
+          }
+        }
+        if (key) {
+          const list = map.get(key) || [];
+          list.push(s);
+          map.set(key, list);
+        }
+      } catch (e) {
+        console.warn('Error parsing session date:', s.started_at, e);
+      }
     });
     return map;
   }, [sessions]);
@@ -195,11 +216,11 @@ export default function ActivityHeatmap({
     if (isFuture) return 'bg-slate-900/30 border-transparent opacity-30 cursor-not-allowed';
     switch (intensity) {
       case 1:
-        return 'bg-emerald-950/80 border-emerald-850/60 hover:bg-emerald-900 hover:border-emerald-700 text-emerald-400';
+        return 'bg-emerald-950/90 border-emerald-800/60 hover:bg-emerald-900 hover:border-emerald-700 text-emerald-400';
       case 2:
-        return 'bg-emerald-700/80 border-emerald-600/60 hover:bg-emerald-600 hover:border-emerald-500 text-emerald-200';
+        return 'bg-emerald-700/90 border-emerald-600/80 hover:bg-emerald-600 hover:border-emerald-500 text-emerald-200';
       case 3:
-        return 'bg-emerald-500 border-emerald-400/80 hover:bg-emerald-400 shadow-xs shadow-emerald-500/30 text-white';
+        return 'bg-emerald-500 border-emerald-400 hover:bg-emerald-400 shadow-xs shadow-emerald-500/30 text-white';
       case 4:
         return 'bg-emerald-400 border-emerald-300 hover:bg-emerald-300 shadow-sm shadow-emerald-400/50 text-slate-950 font-bold';
       case 0:
@@ -211,133 +232,133 @@ export default function ActivityHeatmap({
   const today = new Date();
 
   return (
-    <div className={cn('glass p-5 sm:p-6 rounded-3xl space-y-5 border border-white/5', className)}>
+    <div className={cn('glass p-4 sm:p-5 rounded-3xl space-y-4 border border-white/5 overflow-hidden', className)}>
       {/* Header with Title and Metric Switchers */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shadow-xs">
-            <Activity size={20} />
+      <div className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+              <Activity size={18} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold text-slate-100 leading-snug truncate">
+                Matriz de Actividad y Esfuerzo
+              </h3>
+              <p className="text-[11px] text-slate-400 truncate">
+                Seguimiento de sobrecarga y consistencia anual
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-              Matriz de Actividad y Esfuerzo Físico
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                12 Meses
-              </span>
-            </h3>
-            <p className="text-xs text-slate-400">
-              Seguimiento de sobrecarga y consistencia anual
-            </p>
-          </div>
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+            12 Meses
+          </span>
         </div>
 
         {/* Metric Selector Buttons */}
-        <div className="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-2xl border border-slate-800/80 self-start sm:self-auto overflow-x-auto max-w-full">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800/80">
           <button
             type="button"
             onClick={() => setMetric('volume')}
             className={cn(
-              'px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer',
+              'px-2 py-1.5 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer truncate',
               metric === 'volume'
                 ? 'bg-emerald-500 text-slate-950 shadow-xs shadow-emerald-500/40 font-bold'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             )}
           >
-            <Dumbbell size={13} />
-            Volumen (kg)
+            <Dumbbell size={12} className="shrink-0" />
+            <span className="truncate">Volumen (kg)</span>
           </button>
           <button
             type="button"
             onClick={() => setMetric('effort')}
             className={cn(
-              'px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer',
+              'px-2 py-1.5 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer truncate',
               metric === 'effort'
                 ? 'bg-emerald-500 text-slate-950 shadow-xs shadow-emerald-500/40 font-bold'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             )}
           >
-            <Zap size={13} />
-            Esfuerzo (RPE)
+            <Zap size={12} className="shrink-0" />
+            <span className="truncate">Esfuerzo (RPE)</span>
           </button>
           <button
             type="button"
             onClick={() => setMetric('duration')}
             className={cn(
-              'px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer',
+              'px-2 py-1.5 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer truncate',
               metric === 'duration'
                 ? 'bg-emerald-500 text-slate-950 shadow-xs shadow-emerald-500/40 font-bold'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             )}
           >
-            <Clock size={13} />
-            Minutos
+            <Clock size={12} className="shrink-0" />
+            <span className="truncate">Minutos</span>
           </button>
           <button
             type="button"
             onClick={() => setMetric('sessions')}
             className={cn(
-              'px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer',
+              'px-2 py-1.5 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer truncate',
               metric === 'sessions'
                 ? 'bg-emerald-500 text-slate-950 shadow-xs shadow-emerald-500/40 font-bold'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             )}
           >
-            <Flame size={13} />
-            Sesiones
+            <Flame size={12} className="shrink-0" />
+            <span className="truncate">Sesiones</span>
           </button>
         </div>
       </div>
 
       {/* Summary KPI Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-800/60">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 overflow-hidden">
+          <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider truncate">
             Días Activos
           </span>
-          <div className="flex items-baseline gap-1.5 mt-0.5">
-            <span className="text-lg font-black text-slate-100">{stats.totalActiveDays}</span>
-            <span className="text-xs text-slate-400">días</span>
+          <div className="flex items-baseline gap-1 mt-0.5">
+            <span className="text-base sm:text-lg font-black text-slate-100">{stats.totalActiveDays}</span>
+            <span className="text-[10px] text-slate-400">días</span>
           </div>
         </div>
 
-        <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-800/60">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 overflow-hidden">
+          <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider truncate">
             Racha Máxima
           </span>
-          <div className="flex items-baseline gap-1.5 mt-0.5">
-            <span className="text-lg font-black text-emerald-400">{stats.maxStreak}</span>
-            <span className="text-xs text-slate-400">días seguidos</span>
+          <div className="flex items-baseline gap-1 mt-0.5">
+            <span className="text-base sm:text-lg font-black text-emerald-400">{stats.maxStreak}</span>
+            <span className="text-[10px] text-slate-400 truncate">seguidos</span>
           </div>
         </div>
 
-        <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-800/60">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 overflow-hidden">
+          <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider truncate">
             Volumen Total
           </span>
-          <div className="flex items-baseline gap-1.5 mt-0.5">
-            <span className="text-lg font-black text-slate-100">
+          <div className="flex items-baseline gap-1 mt-0.5">
+            <span className="text-base sm:text-lg font-black text-slate-100 truncate">
               {(stats.periodTotalVolume / 1000).toFixed(1)}t
             </span>
-            <span className="text-xs text-slate-400">levantados</span>
           </div>
         </div>
 
-        <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-800/60">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 overflow-hidden">
+          <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider truncate">
             Tiempo Invertido
           </span>
-          <div className="flex items-baseline gap-1.5 mt-0.5">
-            <span className="text-lg font-black text-slate-100">
-              {Math.round(stats.periodTotalMinutes / 60)}h
+          <div className="flex items-baseline gap-1 mt-0.5">
+            <span className="text-base sm:text-lg font-black text-slate-100 truncate">
+              {Math.round(stats.periodTotalMinutes / 60)}h {stats.periodTotalMinutes % 60}m
             </span>
-            <span className="text-xs text-slate-400">{stats.periodTotalMinutes % 60}m</span>
           </div>
         </div>
       </div>
 
       {/* Heatmap Matrix Canvas */}
       <div className="overflow-x-auto pb-2 pt-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-        <div className="min-w-[700px] space-y-1.5">
+        <div className="min-w-[650px] space-y-1.5">
           {/* Months Header Line */}
           <div className="flex text-[10px] font-bold text-slate-400 pl-8 pr-1">
             {weeks.map((_, index) => {
@@ -399,7 +420,7 @@ export default function ActivityHeatmap({
       {/* Legend & Details Footer */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-800/80 text-xs">
         {/* Selected Day Details Panel */}
-        <div className="flex items-center gap-2 text-slate-300 min-h-[24px]">
+        <div className="flex items-center gap-2 text-slate-300 min-h-[24px] overflow-hidden">
           {selectedDay ? (
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <span className="font-bold text-slate-100 flex items-center gap-1 bg-slate-800/70 px-2 py-0.5 rounded-lg border border-slate-700/50">
@@ -428,12 +449,12 @@ export default function ActivityHeatmap({
                   )}
                 </>
               ) : (
-                <span className="text-slate-400 italic">Día de descanso sin registro de sesión</span>
+                <span className="text-slate-400 italic text-[11px]">Día de descanso sin registro de sesión</span>
               )}
             </div>
           ) : (
-            <span className="text-slate-400 text-xs flex items-center gap-1.5">
-              <Info size={13} className="text-slate-400" />
+            <span className="text-slate-400 text-[11px] flex items-center gap-1.5">
+              <Info size={13} className="text-slate-400 shrink-0" />
               Pasa el cursor o toca un día para ver detalles específicos.
             </span>
           )}
@@ -444,9 +465,9 @@ export default function ActivityHeatmap({
           <span>Menos</span>
           <div className="flex gap-[3px]">
             <div className="w-3 h-3 rounded-[2px] bg-slate-800/40 border border-slate-700/30" />
-            <div className="w-3 h-3 rounded-[2px] bg-emerald-950/80 border border-emerald-850/60" />
-            <div className="w-3 h-3 rounded-[2px] bg-emerald-700/80 border border-emerald-600/60" />
-            <div className="w-3 h-3 rounded-[2px] bg-emerald-500 border border-emerald-400/80" />
+            <div className="w-3 h-3 rounded-[2px] bg-emerald-950/90 border border-emerald-800/60" />
+            <div className="w-3 h-3 rounded-[2px] bg-emerald-700/90 border border-emerald-600/80" />
+            <div className="w-3 h-3 rounded-[2px] bg-emerald-500 border border-emerald-400" />
             <div className="w-3 h-3 rounded-[2px] bg-emerald-400 border border-emerald-300" />
           </div>
           <span>Más</span>
