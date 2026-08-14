@@ -7,6 +7,24 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <script>
+      (function() {
+        var CURRENT_VER = '2.2.0';
+        if (localStorage.getItem('aerogym_app_ver') !== CURRENT_VER) {
+          localStorage.setItem('aerogym_app_ver', CURRENT_VER);
+          if ('caches' in window) {
+            caches.keys().then(function(names) {
+              for (var i = 0; i < names.length; i++) caches.delete(names[i]);
+            });
+          }
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+              for (var i = 0; i < regs.length; i++) regs[i].unregister();
+            });
+          }
+        }
+      })();
+    </script>
     <title>AeroGym | Tu Entrenador Personal Inteligente</title>
     <meta name="theme-color" content="#0f172a" />
     <meta name="description" content="Domina tu entrenamiento con AeroGym. Registro de sesiones, análisis de progresión y entrenador inteligente." />
