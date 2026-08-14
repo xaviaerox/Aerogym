@@ -453,7 +453,7 @@ export default function ProfileSettings() {
 
         {/* Product Footer */}
         <div className="pt-4 pb-2 text-center space-y-1">
-          <p className="text-xs text-slate-500 font-medium">AeroGym v2.0 Enterprise</p>
+          <p className="text-xs text-slate-400 font-bold">AeroGym v2.2.0 Enterprise (Reordenación & Stats 2.0)</p>
           <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">
             Desarrollado por Xavi de Solutech
           </p>
