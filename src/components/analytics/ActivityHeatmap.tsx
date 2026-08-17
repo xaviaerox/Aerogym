@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   format,
   subWeeks,
@@ -22,7 +22,7 @@ import type { WorkoutSession, DailyHealth } from '../../infrastructure/supabase/
 import { cn } from '../../lib/utils';
 
 export type HeatmapMetric = 'volume' | 'effort' | 'duration' | 'sessions';
-export type TimeRange = 'year' | '6months';
+export type TimeRange = '3months' | '6months' | 'year';
 
 interface ActivityHeatmapProps {
   sessions: WorkoutSession[];
@@ -36,9 +36,9 @@ interface DayData {
   sessions: WorkoutSession[];
   totalVolume: number;
   totalDuration: number;
-  maxEffort: number; // 1-10 perceived difficulty
+  maxEffort: number;
   sessionsCount: number;
-  intensity: number; // 0 to 4
+  intensity: number;
 }
 
 export default function ActivityHeatmap({
@@ -47,10 +47,12 @@ export default function ActivityHeatmap({
   className,
 }: ActivityHeatmapProps) {
   const [metric, setMetric] = useState<HeatmapMetric>('volume');
-  const [timeRange, setTimeRange] = useState<TimeRange>('year');
+  const [timeRange, setTimeRange] = useState<TimeRange>('3months');
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
 
-  // Map sessions by date (YYYY-MM-DD) with robust date extraction
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Map sessions by date (YYYY-MM-DD)
   const sessionsByDate = useMemo(() => {
     const map = new Map<string, WorkoutSession[]>();
     sessions.forEach((s) => {
@@ -102,12 +104,11 @@ export default function ActivityHeatmap({
   const { weeks, monthLabels, stats } = useMemo(() => {
     const today = new Date();
     const end = endOfWeek(today, { weekStartsOn: 1 });
-    const numWeeks = timeRange === '6months' ? 26 : 52;
+    const numWeeks = timeRange === '3months' ? 13 : timeRange === '6months' ? 26 : 52;
     const start = subWeeks(startOfWeek(today, { weekStartsOn: 1 }), numWeeks - 1);
 
     const allDays = eachDayOfInterval({ start, end });
 
-    // Group into 7-day weeks (Monday=0 to Sunday=6)
     const weeksArr: DayData[][] = [];
     let currentWeek: DayData[] = [];
 
@@ -128,7 +129,6 @@ export default function ActivityHeatmap({
       const maxEffort = daySessions.reduce((acc, s) => Math.max(acc, s.perceived_difficulty || 0), 0);
       const sessionsCount = daySessions.length;
 
-      // Track stats for the period
       if (sessionsCount > 0) {
         totalActiveDays++;
         periodTotalVolume += totalVolume;
@@ -139,7 +139,6 @@ export default function ActivityHeatmap({
         tempStreak = 0;
       }
 
-      // Calculate intensity level (0 to 4)
       let intensity = 0;
       if (sessionsCount > 0) {
         if (metric === 'volume') {
@@ -175,7 +174,6 @@ export default function ActivityHeatmap({
       });
 
       if (currentWeek.length === 7) {
-        // Track month label on first day of month
         const weekIndex = weeksArr.length;
         const firstDayOfMonthInWeek = currentWeek.find((d) => d.date.getDate() <= 7);
         if (firstDayOfMonthInWeek) {
@@ -211,6 +209,13 @@ export default function ActivityHeatmap({
     };
   }, [sessionsByDate, timeRange, metric, maxVolume]);
 
+  // Auto-scroll container to the right (latest active days) on mount or range change
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollLeft = containerRef.current.scrollWidth;
+    }
+  }, [timeRange, weeks]);
+
   // Intensity color styling map
   const getCellColorClass = (intensity: number, isFuture: boolean) => {
     if (isFuture) return 'bg-slate-900/30 border-transparent opacity-30 cursor-not-allowed';
@@ -233,9 +238,9 @@ export default function ActivityHeatmap({
 
   return (
     <div className={cn('glass p-4 sm:p-5 rounded-3xl space-y-4 border border-white/5 overflow-hidden', className)}>
-      {/* Header with Title and Metric Switchers */}
+      {/* Header with Title and Range Switcher */}
       <div className="flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
               <Activity size={18} />
@@ -245,13 +250,29 @@ export default function ActivityHeatmap({
                 Matriz de Actividad y Esfuerzo
               </h3>
               <p className="text-[11px] text-slate-400 truncate">
-                Seguimiento de sobrecarga y consistencia anual
+                Seguimiento de sobrecarga y consistencia
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
-            12 Meses
-          </span>
+
+          {/* Time Range Selector Chips */}
+          <div className="flex bg-slate-900/90 p-1 rounded-xl border border-slate-800/80 shrink-0">
+            {(['3months', '6months', 'year'] as TimeRange[]).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setTimeRange(r)}
+                className={cn(
+                  'px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer',
+                  timeRange === r
+                    ? 'bg-emerald-500 text-slate-950 shadow-xs font-black'
+                    : 'text-slate-400 hover:text-slate-200'
+                )}
+              >
+                {r === '3months' ? '3 Meses' : r === '6months' ? '6 Meses' : '1 Año'}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Metric Selector Buttons */}
@@ -356,9 +377,15 @@ export default function ActivityHeatmap({
         </div>
       </div>
 
-      {/* Heatmap Matrix Canvas */}
-      <div className="overflow-x-auto pb-2 pt-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-        <div className="min-w-[650px] space-y-1.5">
+      {/* Heatmap Matrix Canvas with Auto-Scroll */}
+      <div
+        ref={containerRef}
+        className="overflow-x-auto pb-2 pt-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent scroll-smooth"
+      >
+        <div className={cn(
+          'space-y-1.5',
+          timeRange === '3months' ? 'w-full min-w-[320px]' : 'min-w-[650px]'
+        )}>
           {/* Months Header Line */}
           <div className="flex text-[10px] font-bold text-slate-400 pl-8 pr-1">
             {weeks.map((_, index) => {
