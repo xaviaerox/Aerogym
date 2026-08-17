@@ -4,29 +4,30 @@ Este documento detalla la hoja de ruta estratégica para la evolución técnica,
 
 ---
 
-## ⚡ Quick Wins (Completados)
-- [x] Migración inicial de base de datos consolidada en `supabase/migrations/20260723000000_initial_schema.sql`.
-- [x] Corrección de CI/CD GitHub Actions en `.github/workflows/deploy.yml` con variables `VITE_SUPABASE_*`.
-- [x] Actualización de `README.md` alineada a la arquitectura real v2.0 (Supabase + Groq).
+## ⚡ Quick Wins & Fases Completadas (v3.1.0 Enterprise)
+- [x] Unificación de variables de entorno con Zod en `src/config.ts` y eliminación de claves hardcodeadas.
+- [x] Extracción del dataset estático de ejercicios a `public/data/exercises-local.json` con `fetch` dinámico.
+- [x] Transacciones masivas `bulkSetIndexedDB<T>()` en `storageIndexedDB.ts`.
+- [x] Script de generación de tipos Supabase `"db:types"` en `package.json`.
+- [x] Layout adaptativo responsive para escritorio (`Sidebar.tsx` + `max-w-7xl`).
+- [x] Desacoplamiento de `useHealthStore.ts` canalizado a través de `SupabaseHealthRepository.ts`.
+- [x] Modularización de `Analytics.tsx` en `VolumeChart.tsx`, `MuscleDistributionChart.tsx` y `E1RMProgressChart.tsx`.
+- [x] Streaming SSE token a token en la Edge Function `groq-proxy` y `aiService.ts`.
+- [x] Generador de tarjetas visuales de récords personales para redes sociales (`SocialShareModal.tsx`).
+- [x] Widget de control de nutrición y macronutrientes (`NutritionTrackerWidget.tsx`).
+- [x] Notificaciones Push PWA Nativas (1.3) para descansos, Readiness y recordatorios agendados.
+- [x] Gamificación Social & Leaderboards de Fuerza Relativa (DOTS) (1.4).
 
 ---
 
-## ⚙️ Sprint 1: Estabilización & Clean Architecture
-- [ ] Extraer dataset estático de ejercicios (57KB) de `muscleWikiService.ts` a `public/data/exercises-musclewiki.json`.
-- [ ] Restablecer Clean Architecture eliminando llamadas directas a Supabase desde `useWorkoutStore.ts`.
-- [ ] Modularizar la vista monolítica `TrainingSession.tsx` en subcomponentes atómicos (`SetRow`, `ExerciseHeader`, `WorkoutTimer`).
+## ⚙️ Próximas Características (v3.2 Enterprise)
+- [ ] **Dictado por Voz Real (Speech Recognition API)**: Registro de series y repeticiones manos libres en `voiceParserEngine.ts`.
+- [ ] **Internacionalización Multi-idioma (i18n)**: Integración de `react-i18next` para alternar la interfaz entre Español e Inglés.
+- [ ] **Informes de Evolución en PDF**: Exportador de reportes en PDF formateado para entrenadores personales.
 
 ---
 
-## 🧠 Sprint 2: IA Avanzada & Performance Real
-- [ ] Habilitar RAG vectorial semántico en Supabase Postgres con `pgvector` (`rag_documents`).
-- [ ] Implementar respuestas progresivas en streaming (SSE) para el Coach de IA Aero.
-- [ ] Integrar virtualización de scroll con `@tanstack/react-virtual` para listas largas.
-- [ ] Implementar un sistema de notificaciones Toast centralizado.
-
----
-
-## 🧪 Sprint 3: QA, Escalabilidad & Calidad de Código
-- [ ] Delegar el cálculo de e1RM y volumen semanal a funciones RPC en Postgres.
-- [ ] Ampliar suite de pruebas unitarias de componentes UI con Vitest + React Testing Library.
-- [ ] Aplicar paginación por cursor en la carga de historial de series.
+## 🚀 Visión a Largo Plazo (v4.0 & Futuras Versiones)
+- [ ] **Análisis Biomecánico y Postural con IA**: Estimación de postura mediante visión por computador en cliente (MediaPipe / TensorFlow.js).
+- [ ] **Integración Web Bluetooth (VBT & Básculas)**: Conexión nativa con encoders de velocidad de barra y básculas de bioimpedancia.
+- [ ] **Sincronización Bidireccional Salud**: Integración con Apple HealthKit y Android Health Connect.

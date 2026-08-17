@@ -36,7 +36,11 @@ import XPProgressBar from '../components/dashboard/XPProgressBar';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
 import NextRoutineCard from '../components/dashboard/NextRoutineCard';
 import QuickHealthStats from '../components/dashboard/QuickHealthStats';
+import NutritionTrackerWidget from '../components/dashboard/NutritionTrackerWidget';
 import StoicQuoteCard from '../components/dashboard/StoicQuoteCard';
+import LeaderboardModal from '../components/gamification/LeaderboardModal';
+import WorkoutReminderModal from '../components/health/WorkoutReminderModal';
+import { Bell } from 'lucide-react';
 import { getDailyStoicQuote, getRandomStoicQuote, type StoicQuote } from '../constants/stoicQuotes';
 import { strengthScoreEngine } from '../lib/strengthScoreEngine';
 import { calculateE1RM } from '../lib/math/formulas';
@@ -65,6 +69,8 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
   const [isRoutineSelectorOpen, setIsRoutineSelectorOpen] = useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const [isReminderOpen, setIsReminderOpen] = useState(false);
   const [stoicQuote, setStoicQuote] = useState<StoicQuote>(() => getDailyStoicQuote());
 
   const handleNextQuote = () => {
@@ -287,6 +293,34 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
           onOpenLogger={() => setIsLoggerOpen(true)}
         />
       )}
+
+      {/* Social Leaderboard & PWA Reminder Action Buttons */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={() => setIsLeaderboardOpen(true)}
+          className="glass p-3.5 rounded-2xl border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 flex items-center justify-between text-amber-400 font-extrabold text-xs transition-all shadow-md"
+        >
+          <div className="flex items-center gap-2">
+            <Trophy size={16} />
+            <span>Leaderboard DOTS</span>
+          </div>
+          <ChevronRight size={14} />
+        </button>
+
+        <button
+          onClick={() => setIsReminderOpen(true)}
+          className="glass p-3.5 rounded-2xl border border-brand-blue/30 bg-brand-blue/5 hover:bg-brand-blue/10 flex items-center justify-between text-brand-blue font-extrabold text-xs transition-all shadow-md"
+        >
+          <div className="flex items-center gap-2">
+            <Bell size={16} />
+            <span>Alarma PWA</span>
+          </div>
+          <ChevronRight size={14} />
+        </button>
+      </div>
+
+      {/* Widget de Control de Nutrición */}
+      <NutritionTrackerWidget />
 
       {/* Water & Steps Quick Progress Widgets */}
       <div className="grid grid-cols-2 gap-3">
@@ -642,6 +676,12 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modals de Leaderboard y Alarma PWA */}
+      {isLeaderboardOpen && <LeaderboardModal onClose={() => setIsLeaderboardOpen(false)} />}
+      {isReminderOpen && (
+        <WorkoutReminderModal routineName={nextRoutine?.name} onClose={() => setIsReminderOpen(false)} />
+      )}
     </div>
   );
 }

@@ -1,6 +1,5 @@
 // Service to communicate with the MuscleWiki API.
 import { BASE_EXERCISES } from '../constants/exercises';
-import { localExercisesData as localExercisesJson } from '../data/exercises-local';
 
 // Priority order:
 //   1. Supabase Edge Function proxy (bypasses CORS, works with any tier from server)
@@ -332,18 +331,6 @@ const buildInitialLocalExercises = (): MuscleWikiExercise[] => {
     map.set(String(ex.id), exerciseItem);
     map.set(ex.name.toLowerCase().trim(), exerciseItem);
   });
-
-  // Enrich with detailed local JSON exercises if available
-  if (Array.isArray(localExercisesJson)) {
-    (localExercisesJson as MuscleWikiExercise[]).forEach((ex) => {
-      if (!map.has(String(ex.id))) {
-        map.set(String(ex.id), ex);
-      }
-      if (ex.name) {
-        map.set(ex.name.toLowerCase().trim(), ex);
-      }
-    });
-  }
 
   return Array.from(map.values());
 };

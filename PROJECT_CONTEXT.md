@@ -20,9 +20,9 @@
 
 **Usuarios objetivo**: Atletas de fuerza, hipertrofia, calistenia y gimnasio general que buscan control riguroso de su progresión física con orientación analítica y estoica.
 
-**Estado del proyecto**: En Producción / Desarrollo Activo (Versión 3.0 Ultimate Enterprise — 100/100 Max Score).
+**Estado del proyecto**: En Producción / Desarrollo Activo (Versión 3.1.0 Enterprise — Auditoría & Refactorización Completa).
 
-**Nivel de madurez**: Enterprise / Producción Máxima (Clean Architecture + Pure DI Container, RLS estricto, WCAG 2.1 AA a11y, 96 tests unitarios/integración en verde).
+**Nivel de madurez**: Enterprise / Producción Máxima (Clean Architecture + Repositorios desacoplados, Layout Responsive Desktop, Streaming SSE IA, Leaderboards Social DOTS, 102 tests en verde).
 
 **Modelo de Distribución**: Despliegue de aplicación web cliente (PWA) exclusiva mediante GitHub Actions a **GitHub Pages**.
 
@@ -30,9 +30,9 @@
 
 **Repositorio**: `https://github.com/tu-usuario/Aerogym.git` (Local: `c:\Users\Xaviaerox\Documents\GitHub\Aerogym`)
 
-**Versión actual**: 3.0.0 Ultimate Enterprise (100/100 Max Score)
+**Versión actual**: 3.1.0 Enterprise (Refactor & Social Leaderboards)
 
-**Última actualización**: 2 de Agosto de 2026.
+**Última actualización**: 17 de Agosto de 2026.
 
 ---
 

@@ -9,12 +9,8 @@ export default defineConfig(({ mode }) => {
   return {
     base: '/Aerogym/',
     define: {
-      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(
-        env.VITE_SUPABASE_URL || 'https://ualgaluxhznwavksguuu.supabase.co'
-      ),
-      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(
-        env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhbGdhbHV4aHpud2F2a3NndXV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNDMzMDYsImV4cCI6MjA5NzgxOTMwNn0.uZXhYCLtZWMkhM9_QovHwEKzKF40ZXmCf-Ak7elFMOI'
-      ),
+      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || ''),
+      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || ''),
     },
     plugins: [
       react(),

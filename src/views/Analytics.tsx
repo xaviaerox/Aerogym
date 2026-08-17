@@ -51,6 +51,9 @@ import HealthTrendsCard from '../components/analytics/HealthTrendsCard';
 import AddBodyMeasurementModal from '../components/analytics/AddBodyMeasurementModal';
 import ActivityHeatmap from '../components/analytics/ActivityHeatmap';
 import StatsCustomizerModal, { BlockConfig } from '../components/analytics/StatsCustomizerModal';
+import VolumeChart from '../components/analytics/VolumeChart';
+import MuscleDistributionChart from '../components/analytics/MuscleDistributionChart';
+import E1RMProgressChart from '../components/analytics/E1RMProgressChart';
 
 type TimeFilter = 'week' | 'month' | 'all';
 type ViewTab = 'performance' | 'health' | 'composition';

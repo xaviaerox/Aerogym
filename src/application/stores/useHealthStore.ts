@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { supabase } from '../../infrastructure/supabase/client';
 import { supabaseHealthRepository } from '../../infrastructure/repositories/SupabaseHealthRepository';
 import type { DailyHealth, BodyMeasurement } from '../../infrastructure/supabase/types';
 
@@ -48,7 +47,6 @@ export const useHealthStore = create<HealthState>((set, get) => ({
   },
 
   upsertDailyHealth: async (userId, date, updates) => {
-    const { dailyHealth } = get();
     const today = new Date().toISOString().split('T')[0];
 
     const payload = {
@@ -58,24 +56,23 @@ export const useHealthStore = create<HealthState>((set, get) => ({
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase
-      .from('daily_health')
-      .upsert(payload, { onConflict: 'user_id,date' })
-      .select()
-      .single();
+    try {
+      const data = await supabaseHealthRepository.saveDailyHealth(payload as any);
+      if (data) {
+        set((state) => {
+          const exists = state.dailyHealth.some((h) => h.date === date);
+          const newDailyHealth = exists
+            ? state.dailyHealth.map((h) => (h.date === date ? data : h))
+            : [data, ...state.dailyHealth].sort((a, b) => b.date.localeCompare(a.date));
 
-    if (!error && data) {
-      set((state) => {
-        const exists = state.dailyHealth.some((h) => h.date === date);
-        const newDailyHealth = exists
-          ? state.dailyHealth.map((h) => (h.date === date ? data : h))
-          : [data, ...state.dailyHealth].sort((a, b) => b.date.localeCompare(a.date));
-
-        return {
-          dailyHealth: newDailyHealth,
-          todayHealth: date === today ? data : state.todayHealth,
-        };
-      });
+          return {
+            dailyHealth: newDailyHealth,
+            todayHealth: date === today ? data : state.todayHealth,
+          };
+        });
+      }
+    } catch (e) {
+      console.error('Error saving daily health:', e);
     }
   },
 
@@ -85,19 +82,21 @@ export const useHealthStore = create<HealthState>((set, get) => ({
   },
 
   addMeasurement: async (userId, measurementData) => {
-    const { data, error } = await supabase
-      .from('body_measurements')
-      .upsert(
-        { user_id: userId, ...measurementData, measured_at: measurementData.measured_at || new Date().toISOString().split('T')[0] },
-        { onConflict: 'user_id,measured_at' }
-      )
-      .select()
-      .single();
+    const payload = {
+      user_id: userId,
+      ...measurementData,
+      measured_at: measurementData.measured_at || new Date().toISOString().split('T')[0],
+    };
 
-    if (!error && data) {
-      set((state) => ({
-        measurements: [data, ...state.measurements.filter((m) => m.measured_at !== data.measured_at)],
-      }));
+    try {
+      const data = await supabaseHealthRepository.saveMeasurement(payload as any);
+      if (data) {
+        set((state) => ({
+          measurements: [data, ...state.measurements.filter((m) => m.measured_at !== data.measured_at)],
+        }));
+      }
+    } catch (e) {
+      console.error('Error saving body measurement:', e);
     }
   },
 }));

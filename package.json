@@ -1,7 +1,7 @@
 {
   "name": "aerogym",
   "private": true,
-  "version": "2.0.0",
+  "version": "3.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
@@ -12,6 +12,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "db:types": "supabase gen types typescript --project-id ualgaluxhznwavksguuu > src/infrastructure/supabase/types.ts",
     "deploy": "npm run build && node -e \"fs.rmSync('dist/.git', {recursive:true, force:true})\" && git --git-dir=dist/.git --work-tree=dist init && git --git-dir=dist/.git --work-tree=dist checkout -b gh-pages && git --git-dir=dist/.git --work-tree=dist add -A && git --git-dir=dist/.git --work-tree=dist commit -m \"Deploy AeroGym\" && git --git-dir=dist/.git --work-tree=dist push -f https://github.com/xaviaerox/Aerogym.git gh-pages"
   },
   "dependencies": {

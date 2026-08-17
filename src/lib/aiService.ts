@@ -1,11 +1,7 @@
 import { supabase } from '../infrastructure/supabase/client';
+import { config } from '../config';
 
-const DEFAULT_SUPABASE_URL = 'https://ualgaluxhznwavksguuu.supabase.co';
-const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL !== 'https://your-supabase-project.supabase.co')
-  ? import.meta.env.VITE_SUPABASE_URL
-  : DEFAULT_SUPABASE_URL;
-
-const PROXY_URL = `${SUPABASE_URL}/functions/v1/groq-proxy`;
+const PROXY_URL = `${config.supabaseUrl}/functions/v1/groq-proxy`;
 
 // Groq usa la API compatible con OpenAI
 interface GroqMessage {
@@ -47,6 +43,67 @@ export async function callGroqProxy(body: GroqRequestBody): Promise<string> {
   const text = data?.choices?.[0]?.message?.content;
   if (!text) throw new Error('Respuesta vacía de Groq');
   return text.trim();
+}
+
+/**
+ * Invoca al proxy Edge Function activando el streaming SSE token a token.
+ */
+export async function streamGroqProxy(
+  body: GroqRequestBody,
+  onChunk: (chunkText: string) => void
+): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    throw new Error('Debes estar autenticado para usar el servicio de IA');
+  }
+
+  const response = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ ...body, stream: true }),
+  });
+
+  if (!response.ok || !response.body) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Groq proxy stream error ${response.status}: ${JSON.stringify(errorData)}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let fullText = '';
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed === 'data: [DONE]') continue;
+      if (trimmed.startsWith('data: ')) {
+        try {
+          const parsed = JSON.parse(trimmed.substring(6));
+          const delta = parsed?.choices?.[0]?.delta?.content || '';
+          if (delta) {
+            fullText += delta;
+            onChunk(delta);
+          }
+        } catch (_) {
+          // Ignorar fragmentos SSE mal formados
+        }
+      }
+    }
+  }
+
+  return fullText;
 }
 
 /**

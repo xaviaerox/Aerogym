@@ -60,6 +60,27 @@ export async function setItemIndexedDB<T>(storeName: string, key: string, value:
   }
 }
 
+export async function bulkSetIndexedDB<T>(storeName: string, items: { key: string; value: T }[]): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+    for (const item of items) {
+      const val = item.value;
+      store.put(typeof val === 'object' && val !== null ? { ...val, id: item.key } : { id: item.key, data: val });
+    }
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) {
+    console.warn('IndexedDB bulkSet fallback to LocalStorage:', e);
+    for (const item of items) {
+      localStorage.setItem(`idb_fallback_${storeName}_${item.key}`, JSON.stringify(item.value));
+    }
+  }
+}
+
 export async function getItemIndexedDB<T>(storeName: string, key: string): Promise<T | null> {
   try {
     const db = await openDB();

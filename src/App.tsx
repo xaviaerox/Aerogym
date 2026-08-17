@@ -26,6 +26,7 @@ import PWAReloadPrompt from './components/PWAReloadPrompt';
 import AchievementModal from './components/gamification/AchievementModal';
 import NetworkStatusIndicator from './components/NetworkStatusIndicator';
 import ToastContainer from './components/ui/ToastContainer';
+import Sidebar from './components/Sidebar';
 import { useGamificationStore } from './application/stores/useGamificationStore';
 
 function ViewLoader() {
@@ -134,9 +135,12 @@ export default function App() {
     }
 
     return (
-      <div className="min-h-screen bg-transparent flex flex-col max-w-md mx-auto relative overflow-hidden">
+      <div className="min-h-screen bg-transparent flex flex-col md:flex-row max-w-7xl mx-auto relative overflow-hidden">
+        {/* Desktop Sidebar Navigation */}
+        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+
         {/* Main Content */}
-        <main className="flex-1 pb-28 overflow-y-auto px-4 pt-6">
+        <main className="flex-1 pb-28 md:pb-8 overflow-y-auto px-4 md:px-8 pt-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -152,8 +156,8 @@ export default function App() {
           </AnimatePresence>
         </main>
 
-        {/* Bottom Nav */}
-        <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-dark h-20 pb-safe px-6 flex items-center justify-between z-50 rounded-t-3xl border-t border-white/5">
+        {/* Mobile Bottom Nav */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-dark h-20 pb-safe px-6 flex items-center justify-between z-50 rounded-t-3xl border-t border-white/5">
           <NavBtn
             icon={<LayoutDashboard size={24} />}
             active={activeTab === 'home'}
