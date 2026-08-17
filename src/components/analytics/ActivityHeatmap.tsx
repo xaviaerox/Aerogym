@@ -237,20 +237,20 @@ export default function ActivityHeatmap({
   const today = new Date();
 
   return (
-    <div className={cn('glass p-4 sm:p-5 rounded-3xl space-y-4 border border-white/5 overflow-hidden', className)}>
+    <div className={cn('glass p-4 sm:p-5 rounded-3xl space-y-4 border border-white/5', className)}>
       {/* Header with Title and Range Switcher */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-              <Activity size={18} />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+              <Activity size={16} />
             </div>
-            <div className="min-w-0">
-              <h3 className="text-sm font-bold text-slate-100 leading-snug truncate">
-                Matriz de Actividad y Esfuerzo
+            <div>
+              <h3 className="text-sm font-bold text-slate-100 leading-none">
+                Matriz de Actividad
               </h3>
-              <p className="text-[11px] text-slate-400 truncate">
-                Seguimiento de sobrecarga y consistencia
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Consistencia y sobrecarga
               </p>
             </div>
           </div>
@@ -263,7 +263,7 @@ export default function ActivityHeatmap({
                 type="button"
                 onClick={() => setTimeRange(r)}
                 className={cn(
-                  'px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer',
+                  'px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap',
                   timeRange === r
                     ? 'bg-emerald-500 text-slate-950 shadow-xs font-black'
                     : 'text-slate-400 hover:text-slate-200'
@@ -275,102 +275,102 @@ export default function ActivityHeatmap({
           </div>
         </div>
 
-        {/* Metric Selector Buttons */}
+        {/* Metric Selector Buttons - Clean & No Truncation */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800/80">
           <button
             type="button"
             onClick={() => setMetric('volume')}
             className={cn(
-              'px-2 py-1.5 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer truncate',
+              'px-2 py-1.5 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap',
               metric === 'volume'
                 ? 'bg-emerald-500 text-slate-950 shadow-xs shadow-emerald-500/40 font-bold'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             )}
           >
             <Dumbbell size={12} className="shrink-0" />
-            <span className="truncate">Volumen (kg)</span>
+            <span>Volumen (kg)</span>
           </button>
           <button
             type="button"
             onClick={() => setMetric('effort')}
             className={cn(
-              'px-2 py-1.5 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer truncate',
+              'px-2 py-1.5 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap',
               metric === 'effort'
                 ? 'bg-emerald-500 text-slate-950 shadow-xs shadow-emerald-500/40 font-bold'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             )}
           >
             <Zap size={12} className="shrink-0" />
-            <span className="truncate">Esfuerzo (RPE)</span>
+            <span>Esfuerzo RPE</span>
           </button>
           <button
             type="button"
             onClick={() => setMetric('duration')}
             className={cn(
-              'px-2 py-1.5 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer truncate',
+              'px-2 py-1.5 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap',
               metric === 'duration'
                 ? 'bg-emerald-500 text-slate-950 shadow-xs shadow-emerald-500/40 font-bold'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             )}
           >
             <Clock size={12} className="shrink-0" />
-            <span className="truncate">Minutos</span>
+            <span>Minutos</span>
           </button>
           <button
             type="button"
             onClick={() => setMetric('sessions')}
             className={cn(
-              'px-2 py-1.5 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer truncate',
+              'px-2 py-1.5 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap',
               metric === 'sessions'
                 ? 'bg-emerald-500 text-slate-950 shadow-xs shadow-emerald-500/40 font-bold'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             )}
           >
             <Flame size={12} className="shrink-0" />
-            <span className="truncate">Sesiones</span>
+            <span>Sesiones</span>
           </button>
         </div>
       </div>
 
-      {/* Summary KPI Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 overflow-hidden">
-          <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider truncate">
+      {/* Summary KPI Bar - Clean Labels without Ellipsis */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 flex flex-col justify-between">
+          <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider whitespace-nowrap">
             Días Activos
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
+          <div className="flex items-baseline gap-1 mt-1">
             <span className="text-base sm:text-lg font-black text-slate-100">{stats.totalActiveDays}</span>
             <span className="text-[10px] text-slate-400">días</span>
           </div>
         </div>
 
-        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 overflow-hidden">
-          <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider truncate">
+        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 flex flex-col justify-between">
+          <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider whitespace-nowrap">
             Racha Máxima
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
+          <div className="flex items-baseline gap-1 mt-1">
             <span className="text-base sm:text-lg font-black text-emerald-400">{stats.maxStreak}</span>
-            <span className="text-[10px] text-slate-400 truncate">seguidos</span>
+            <span className="text-[10px] text-slate-400">días</span>
           </div>
         </div>
 
-        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 overflow-hidden">
-          <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider truncate">
+        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 flex flex-col justify-between">
+          <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider whitespace-nowrap">
             Volumen Total
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <span className="text-base sm:text-lg font-black text-slate-100 truncate">
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-base sm:text-lg font-black text-slate-100">
               {(stats.periodTotalVolume / 1000).toFixed(1)}t
             </span>
           </div>
         </div>
 
-        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 overflow-hidden">
-          <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider truncate">
-            Tiempo Invertido
+        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 flex flex-col justify-between">
+          <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider whitespace-nowrap">
+            Tiempo Total
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <span className="text-base sm:text-lg font-black text-slate-100 truncate">
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-base sm:text-lg font-black text-slate-100">
               {Math.round(stats.periodTotalMinutes / 60)}h {stats.periodTotalMinutes % 60}m
             </span>
           </div>
@@ -447,7 +447,7 @@ export default function ActivityHeatmap({
       {/* Legend & Details Footer */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-800/80 text-xs">
         {/* Selected Day Details Panel */}
-        <div className="flex items-center gap-2 text-slate-300 min-h-[24px] overflow-hidden">
+        <div className="flex items-center gap-2 text-slate-300 min-h-[24px]">
           {selectedDay ? (
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <span className="font-bold text-slate-100 flex items-center gap-1 bg-slate-800/70 px-2 py-0.5 rounded-lg border border-slate-700/50">
@@ -470,7 +470,7 @@ export default function ActivityHeatmap({
                     </>
                   )}
                   {selectedDay.sessions.length > 0 && (
-                    <span className="text-slate-400 italic text-[11px] max-w-[200px] truncate">
+                    <span className="text-slate-400 italic text-[11px]">
                       ({selectedDay.sessions.map((s) => s.name).join(', ')})
                     </span>
                   )}
@@ -482,7 +482,7 @@ export default function ActivityHeatmap({
           ) : (
             <span className="text-slate-400 text-[11px] flex items-center gap-1.5">
               <Info size={13} className="text-slate-400 shrink-0" />
-              Pasa el cursor o toca un día para ver detalles específicos.
+              Toca un día para ver sus detalles.
             </span>
           )}
         </div>

@@ -14,7 +14,7 @@ import {
   Area,
   ReferenceLine,
 } from 'recharts';
-import { format, subDays, isSameDay } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   TrendingUp,
@@ -28,10 +28,8 @@ import {
   Zap,
   Check,
   X,
-  Moon,
   Footprints,
   HeartPulse,
-  Flame,
   Award,
   Layers,
   ArrowUpRight,
@@ -77,7 +75,7 @@ export default function Analytics() {
 
   // Filtrar sesiones según el rango de tiempo seleccionado
   const filteredSessions = useMemo(() => {
-    const sorted = [...sessions].reverse(); // De más antiguo a más reciente
+    const sorted = [...sessions].reverse();
     if (filter === 'week') return sorted.slice(-7);
     if (filter === 'month') return sorted.slice(-30);
     return sorted;
@@ -239,7 +237,7 @@ export default function Analytics() {
     };
   }, [todayHealth, dailyHealth, sessions]);
 
-  // Consistencia de los últimos 7 días con volumen por día
+  // Consistencia de los últimos 7 días
   const last7Days = useMemo(() => {
     return Array.from({ length: 7 }).map((_, i) => {
       const d = subDays(now, 6 - i);
@@ -289,69 +287,17 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6 pb-32">
-      {/* ── Subtab Pill Navigation Bar ───────────────────────────────── */}
-      <div className="flex flex-col gap-3 sticky top-0 bg-slate-950/90 backdrop-blur-xl pt-2 pb-3 z-30 border-b border-white/5">
-        <div className="flex bg-slate-900/90 p-1.5 rounded-2xl border border-white/5 shadow-inner">
-          <button
-            onClick={() => setActiveTab('performance')}
-            className={cn(
-              'flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer',
-              activeTab === 'performance'
-                ? 'bg-brand-blue text-slate-950 shadow-md font-black'
-                : 'text-slate-400 hover:text-slate-200 font-bold'
-            )}
-          >
-            <Zap size={14} />
-            <span>Rendimiento</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('health')}
-            className={cn(
-              'flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer',
-              activeTab === 'health'
-                ? 'bg-brand-blue text-slate-950 shadow-md font-black'
-                : 'text-slate-400 hover:text-slate-200 font-bold'
-            )}
-          >
-            <HeartPulse size={14} />
-            <span>Salud & Recuperación</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('composition')}
-            className={cn(
-              'flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer',
-              activeTab === 'composition'
-                ? 'bg-brand-blue text-slate-950 shadow-md font-black'
-                : 'text-slate-400 hover:text-slate-200 font-bold'
-            )}
-          >
-            <Scale size={14} />
-            <span>Composición</span>
-          </button>
-        </div>
+      {/* ── Integrated Sleek Top Header Bar ─────────────────────────────── */}
+      <div className="sticky top-0 bg-slate-950/95 backdrop-blur-xl pt-2 pb-3 z-30 border-b border-white/5 space-y-3">
+        {/* Header Row */}
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-brand-blue/15 text-brand-blue flex items-center justify-center border border-brand-blue/20">
+              <TrendingUp size={18} />
+            </div>
+            <h1 className="text-lg font-black text-slate-100 tracking-tight">Estadísticas & Progreso</h1>
+          </div>
 
-        {/* Sub-header Controls */}
-        <div className="flex justify-between items-center px-1">
-          <h1 className="text-lg sm:text-xl font-black text-slate-100 flex items-center gap-2">
-            {activeTab === 'performance' && (
-              <>
-                <TrendingUp size={20} className="text-brand-blue" />
-                <span>Rendimiento & Sobrecarga</span>
-              </>
-            )}
-            {activeTab === 'health' && (
-              <>
-                <Activity size={20} className="text-emerald-400" />
-                <span>Salud & Recuperación</span>
-              </>
-            )}
-            {activeTab === 'composition' && (
-              <>
-                <Scale size={20} className="text-amber-400" />
-                <span>Composición Corporal</span>
-              </>
-            )}
-          </h1>
           {activeTab === 'performance' ? (
             <div className="flex bg-slate-900/90 p-1 rounded-xl border border-white/5">
               {(['week', 'month', 'all'] as TimeFilter[]).map((f) => (
@@ -359,7 +305,7 @@ export default function Analytics() {
                   key={f}
                   onClick={() => setFilter(f)}
                   className={cn(
-                    'px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer',
+                    'px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap',
                     filter === f ? 'bg-brand-blue/20 text-brand-blue border border-brand-blue/30 font-black' : 'text-slate-400 hover:text-slate-200'
                   )}
                 >
@@ -370,24 +316,64 @@ export default function Analytics() {
           ) : activeTab === 'composition' ? (
             <button
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-blue text-slate-950 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-brand-blue/90 cursor-pointer shadow-md"
+              className="flex items-center gap-1 px-3 py-1.5 bg-brand-blue text-slate-950 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-brand-blue/90 cursor-pointer shadow-md"
             >
               <Plus size={14} />
               Métricas
             </button>
           ) : null}
         </div>
+
+        {/* Sleek Segmented Tab Switcher */}
+        <div className="flex bg-slate-900/90 p-1 rounded-2xl border border-white/5 shadow-inner">
+          <button
+            onClick={() => setActiveTab('performance')}
+            className={cn(
+              'flex-1 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap',
+              activeTab === 'performance'
+                ? 'bg-brand-blue text-slate-950 shadow-md font-black'
+                : 'text-slate-400 hover:text-slate-200'
+            )}
+          >
+            <Zap size={14} />
+            <span>Rendimiento</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('health')}
+            className={cn(
+              'flex-1 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap',
+              activeTab === 'health'
+                ? 'bg-brand-blue text-slate-950 shadow-md font-black'
+                : 'text-slate-400 hover:text-slate-200'
+            )}
+          >
+            <HeartPulse size={14} />
+            <span>Recuperación</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('composition')}
+            className={cn(
+              'flex-1 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap',
+              activeTab === 'composition'
+                ? 'bg-brand-blue text-slate-950 shadow-md font-black'
+                : 'text-slate-400 hover:text-slate-200'
+            )}
+          >
+            <Scale size={14} />
+            <span>Composición</span>
+          </button>
+        </div>
       </div>
 
       {/* ── RENDIMIENTO TAB ────────────────────────────────────────── */}
       {activeTab === 'performance' && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          {/* Top Hero Cards Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* Top Hero Cards Grid - Clean Labels without Ellipsis */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {/* Volumen 7d */}
-            <div className="glass p-4 rounded-3xl border border-white/5 space-y-1.5 relative overflow-hidden">
+            <div className="glass p-3.5 rounded-3xl border border-white/5 space-y-1 flex flex-col justify-between">
               <div className="flex justify-between items-center">
-                <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Volumen (7d)</span>
+                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider whitespace-nowrap">Volumen 7d</span>
                 {volDeltaPct !== 0 && (
                   <span className={cn(
                     'text-[9px] font-extrabold px-1.5 py-0.5 rounded-full flex items-center gap-0.5',
@@ -398,40 +384,40 @@ export default function Analytics() {
                   </span>
                 )}
               </div>
-              <p className="text-2xl font-black text-slate-50 tracking-tight">
-                {(thisWeekVol / 1000).toFixed(1)}<span className="text-sm font-bold text-brand-blue">t</span>
+              <p className="text-xl sm:text-2xl font-black text-slate-50 tracking-tight">
+                {(thisWeekVol / 1000).toFixed(1)}<span className="text-xs font-bold text-brand-blue">t</span>
               </p>
-              <p className="text-[10px] text-slate-400 truncate font-medium">vs 7 días anteriores</p>
+              <p className="text-[10px] text-slate-400 font-medium whitespace-nowrap">vs 7 días anteriores</p>
             </div>
 
             {/* Series Efectivas */}
-            <div className="glass p-4 rounded-3xl border border-white/5 space-y-1.5">
+            <div className="glass p-3.5 rounded-3xl border border-white/5 space-y-1 flex flex-col justify-between">
               <div className="flex justify-between items-center">
-                <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Series (7d)</span>
+                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider whitespace-nowrap">Series (7d)</span>
                 <Zap size={13} className="text-emerald-400" />
               </div>
-              <p className="text-2xl font-black text-emerald-400 tracking-tight">{totalEffectiveSets7d}</p>
-              <p className="text-[10px] text-slate-400 truncate font-medium">series completadas</p>
+              <p className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight">{totalEffectiveSets7d}</p>
+              <p className="text-[10px] text-slate-400 font-medium whitespace-nowrap">series efectivas</p>
             </div>
 
             {/* Nuevos PRs */}
-            <div className="glass p-4 rounded-3xl border border-white/5 space-y-1.5">
+            <div className="glass p-3.5 rounded-3xl border border-white/5 space-y-1 flex flex-col justify-between">
               <div className="flex justify-between items-center">
-                <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Nuevos PRs</span>
+                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider whitespace-nowrap">Nuevos PRs</span>
                 <Trophy size={13} className="text-amber-400" />
               </div>
-              <p className="text-2xl font-black text-amber-400 tracking-tight">{recentPRs30d}</p>
-              <p className="text-[10px] text-slate-400 truncate font-medium">últimos 30 días</p>
+              <p className="text-xl sm:text-2xl font-black text-amber-400 tracking-tight">{recentPRs30d}</p>
+              <p className="text-[10px] text-slate-400 font-medium whitespace-nowrap">últimos 30 días</p>
             </div>
 
             {/* DOTS Score Quick */}
-            <div className="glass p-4 rounded-3xl border border-brand-blue/20 bg-brand-blue/5 space-y-1.5">
+            <div className="glass p-3.5 rounded-3xl border border-brand-blue/20 bg-brand-blue/5 space-y-1 flex flex-col justify-between">
               <div className="flex justify-between items-center">
-                <span className="text-[9px] text-brand-blue uppercase font-black tracking-wider">Fuerza DOTS</span>
+                <span className="text-[10px] text-brand-blue uppercase font-bold tracking-wider whitespace-nowrap">Fuerza DOTS</span>
                 <Award size={13} className="text-brand-blue" />
               </div>
-              <p className="text-2xl font-black text-slate-50 tracking-tight">{dotsScore.dotsPoints}</p>
-              <p className="text-[10px] text-brand-green font-bold truncate">{dotsScore.strengthCategory}</p>
+              <p className="text-xl sm:text-2xl font-black text-slate-50 tracking-tight">{dotsScore.dotsPoints}</p>
+              <p className="text-[10px] text-brand-green font-bold whitespace-nowrap">{dotsScore.strengthCategory}</p>
             </div>
           </div>
 
@@ -464,7 +450,7 @@ export default function Analytics() {
             </div>
           </div>
 
-          {/* Matriz de Calor de Actividad de 12 Meses */}
+          {/* Matriz de Calor de Actividad */}
           <ActivityHeatmap sessions={sessions} dailyHealth={dailyHealth} />
 
           {/* Distribución por Grupo Muscular */}
