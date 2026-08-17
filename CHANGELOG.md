@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 ### Security & Hardening
 - **Unificación de Configuración Supabase**: Módulo `src/config.ts` validado con Zod schema. Eliminados todos los fallbacks de URL y Anon Key hardcodeados.
 - **Seguridad en CI/CD**: Adición del paso `npm audit --audit-level=high` en `.github/workflows/deploy.yml`.
+- **Corrección CI/CD 429 Error**: Eliminación de la acción obsoleta y no mantenida `peaceiris/actions-gh-pages` que provocaba errores 429 (Too Many Requests) al descargar archives de GitHub, migrando el despliegue al flujo oficial nativo de GitHub Pages (`upload-pages-artifact` + `deploy-pages`).
 
 ### Performance & Clean Architecture
 - **Carga Dinámica de Ejercicios MuscleWiki**: Carga asíncrona desde `public/data/exercises-local.json` reduciendo el tamaño del chunk JavaScript principal.
