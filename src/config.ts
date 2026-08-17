@@ -23,7 +23,16 @@ if (!parsed.success) {
   console.error('Configuración inválida de Supabase:', parsed.error.format());
 }
 
+export const APP_VERSION = '2.2.0';
+export const APP_EDITION = 'Enterprise (Reordenación & Stats 2.0)';
+export const APP_AUTHOR = 'Xavi de Solutech';
+export const APP_FULL_BRANDING = `AeroGym v${APP_VERSION} ${APP_EDITION}`;
+
 export const config = {
   supabaseUrl: rawConfig.supabaseUrl,
   supabaseAnonKey: rawConfig.supabaseAnonKey,
+  appVersion: APP_VERSION,
+  appEdition: APP_EDITION,
+  appAuthor: APP_AUTHOR,
+  appBranding: APP_FULL_BRANDING,
 };

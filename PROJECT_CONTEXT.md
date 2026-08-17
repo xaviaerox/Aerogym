@@ -4,7 +4,7 @@
 
 # Proyecto
 
-**Nombre**: AeroGym (AeroGym 2.0 Enterprise PWA)
+**Nombre**: AeroGym (AeroGym v2.2.0 Enterprise PWA)
 
 **Creador y Desarrollador**: Xavi de Solutech
 
@@ -20,9 +20,9 @@
 
 **Usuarios objetivo**: Atletas de fuerza, hipertrofia, calistenia y gimnasio general que buscan control riguroso de su progresión física con orientación analítica y estoica.
 
-**Estado del proyecto**: En Producción / Desarrollo Activo (Versión 3.1.0 Enterprise — Auditoría & Refactorización Completa).
+**Estado del proyecto**: En Producción / Desarrollo Activo (Versión v2.2.0 Enterprise — Reordenación & Stats 2.0).
 
-**Nivel de madurez**: Enterprise / Producción Máxima (Clean Architecture + Repositorios desacoplados, Layout Responsive Desktop, Streaming SSE IA, Leaderboards Social DOTS, 102 tests en verde).
+**Nivel de madurez**: Enterprise / Producción Máxima (Clean Architecture + Repositorios desacoplados, Layout Responsive Desktop, Streaming SSE IA, Alarma PWA, 100 tests en verde).
 
 **Modelo de Distribución**: Despliegue de aplicación web cliente (PWA) exclusiva mediante GitHub Actions a **GitHub Pages**.
 
@@ -30,7 +30,7 @@
 
 **Repositorio**: `https://github.com/tu-usuario/Aerogym.git` (Local: `c:\Users\Xaviaerox\Documents\GitHub\Aerogym`)
 
-**Versión actual**: 3.1.0 Enterprise (Refactor & Social Leaderboards)
+**Versión actual**: v2.2.0 Enterprise (Reordenación & Stats 2.0) — Desarrollado por Xavi de Solutech
 
 **Última actualización**: 17 de Agosto de 2026.
 

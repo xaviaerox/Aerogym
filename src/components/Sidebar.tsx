@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuthStore } from '../application/stores/useAuthStore';
+import { APP_VERSION, APP_AUTHOR } from '../config';
 
 type Tab = 'home' | 'workouts' | 'coach' | 'analytics' | 'profile';
 
@@ -40,9 +41,9 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           </div>
           <div>
             <h1 className="font-extrabold text-lg text-white tracking-wide leading-none">
-              AeroGym <span className="text-brand-blue text-xs font-semibold px-1.5 py-0.5 rounded bg-brand-blue/10 border border-brand-blue/20">3.0</span>
+              AeroGym <span className="text-brand-blue text-xs font-semibold px-1.5 py-0.5 rounded bg-brand-blue/10 border border-brand-blue/20">v{APP_VERSION}</span>
             </h1>
-            <p className="text-[11px] text-slate-400 font-medium mt-1">Smart Fitness & AI</p>
+            <p className="text-[10px] text-slate-400 font-medium mt-1">Desarrollado por {APP_AUTHOR}</p>
           </div>
         </div>
 

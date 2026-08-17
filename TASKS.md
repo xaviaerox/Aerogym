@@ -1,10 +1,16 @@
 # 📋 AeroGym Tasks & Execution Board
 
-Estado y seguimiento de tareas del proyecto AeroGym (Versión actual: **3.1.0 Enterprise**).
+Estado y seguimiento de tareas del proyecto AeroGym (Versión actual: **v2.2.0 Enterprise (Reordenación & Stats 2.0)** — Desarrollado por Xavi de Solutech).
 
 ---
 
-## ✅ Tareas Completadas (v3.1.0 — 17 de Agosto de 2026)
+## 🛡️ Principios de Arquitectura & Calidad
+- **Cero Datos Falsos (No Mocks / No Placebos)**: Todas las funcionalidades deben utilizar datos 100% reales calculados a partir del historial del usuario, IndexedDB, Supabase Postgres o APIs nativas del navegador.
+- **Versionado Dinámico y Lineal**: La versión de la aplicación se centraliza en `package.json` y `src/config.ts` (`APP_VERSION`, `APP_AUTHOR`) para actualizarse automáticamente en la interfaz.
+
+---
+
+## ✅ Tareas Completadas (v2.2.0 Enterprise — 17 de Agosto de 2026)
 
 ### ⚡ Quick Wins
 - [x] **Configuración Centralizada con Zod**: Creado `src/config.ts` y eliminadas claves/fallbacks hardcodeados en `vite.config.ts`, `client.ts` y `aiService.ts`.
@@ -21,14 +27,11 @@ Estado y seguimiento de tareas del proyecto AeroGym (Versión actual: **3.1.0 En
 - [x] **Descomposición de Analíticas**: Creados `VolumeChart.tsx`, `MuscleDistributionChart.tsx` y `E1RMProgressChart.tsx` dentro de `src/views/Analytics.tsx`.
 - [x] **Streaming SSE en Groq Proxy & IA**: Habilitado `stream: true` en la Edge Function `groq-proxy` y `streamGroqProxy` en `aiService.ts`.
 
-### 🎯 Sprint 3: QA & Nuevas Funcionalidades
-- [x] **Generador de Tarjetas para Redes Sociales**: Creado `SocialShareModal.tsx` con Canvas 2D interactivo para imágenes PNG.
-- [x] **Widget de Control de Nutrición**: Creado `NutritionTrackerWidget.tsx` e integrado en `Dashboard.tsx`.
-- [x] **Pruebas Unitarias UI**: Creada suite de tests para `RestTimer.test.tsx` (102 tests pasados en total).
-
-### 🏆 Características v2.0 Avanzadas
-- [x] **Notificaciones Push PWA Nativas (1.3)**: Implementadas en `notificationService.ts` y modal `WorkoutReminderModal.tsx`.
-- [x] **Gamificación Social & Leaderboard (1.4)**: Creado `leaderboardEngine.ts` y modal `LeaderboardModal.tsx` con ranking DOTS, volumen y racha.
+### 🎯 Sprint 3: QA & Nuevas Funcionalidades Reales
+- [x] **Generador de Tarjetas para Redes Sociales**: Creado `SocialShareModal.tsx` con Canvas 2D interactivo para imágenes PNG reales de PRs.
+- [x] **Widget de Control de Nutrición**: Creado `NutritionTrackerWidget.tsx` e integrado en `Dashboard.tsx` con cálculos reales de macronutrientes.
+- [x] **Notificaciones Push PWA Nativas**: Implementadas en `notificationService.ts` y modal de alarma `WorkoutReminderModal.tsx`.
+- [x] **Limpieza Estricta de Mocks**: Eliminado completamente el módulo de leaderboard con usuarios semilla falsos.
 
 ---
 

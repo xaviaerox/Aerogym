@@ -2,16 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.1.0 Enterprise Refactor & Social Leaderboards] - 2026-08-17
+## [2.2.0 Enterprise (Reordenación & Stats 2.0)] - 2026-08-17
 
 ### Added
-- **Gamificación Social & Leaderboard (DOTS)**: Creación de `leaderboardEngine.ts` y del modal interactivo `LeaderboardModal.tsx` con ranking de Fuerza Relativa (DOTS), volumen semanal y racha.
-- **Notificaciones Push PWA Nativas (1.3)**: Notificaciones de Readiness diario, recordatorios de entrenamiento agendados en PWA y patrones de vibración hápicos en descansos (`notificationService.ts`).
-- **Widget de Control de Nutrición**: Componente `NutritionTrackerWidget.tsx` integrado en el `Dashboard.tsx` con cálculo adaptativo de calorías y macronutrientes.
-- **Generador de Tarjetas para Redes Sociales**: Modal `SocialShareModal.tsx` con Canvas 2D interactivo para exportar e imágenes PNG de récords personales (PRs) e historias.
+- **Notificaciones Push PWA Nativas (1.3)**: Notificaciones de Readiness diario, recordatorios de entrenamiento agendados en PWA y patrones de vibración hápicos en descansos (`notificationService.ts` y `WorkoutReminderModal.tsx`).
+- **Widget de Control de Nutrición**: Componente `NutritionTrackerWidget.tsx` integrado en el `Dashboard.tsx` con cálculo adaptativo real de calorías y macronutrientes.
+- **Generador de Tarjetas para Redes Sociales**: Modal `SocialShareModal.tsx` con Canvas 2D interactivo para exportar e imágenes PNG de récords personales (PRs) e historias con datos reales.
 - **Layout Adaptativo Desktop Responsive**: Implementación de `Sidebar.tsx` lateral en monitores de escritorio (`md:flex-row max-w-7xl mx-auto`).
 - **Subcomponentes Modulares de Analíticas**: Descomposición de `Analytics.tsx` en `VolumeChart.tsx`, `MuscleDistributionChart.tsx` y `E1RMProgressChart.tsx`.
 - **Streaming SSE en Groq Proxy & IA**: Soporte para `stream: true` en la Edge Function `groq-proxy` y renderizado de respuestas token a token en `aiService.ts`.
+
+### Removed & Cleaned
+- **Política Cero Mocks / Cero Placebos**: Eliminación completa del motor `leaderboardEngine.ts` y del modal `LeaderboardModal.tsx` por utilizar datos semilla falsos ("Alex M.", "Elena V."). AeroGym opera exclusivamente con datos 100% reales del atleta.
 
 ### Security & Hardening
 - **Unificación de Configuración Supabase**: Módulo `src/config.ts` validado con Zod schema. Eliminados todos los fallbacks de URL y Anon Key hardcodeados.

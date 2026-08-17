@@ -4,7 +4,7 @@ Este documento detalla la hoja de ruta estratégica para la evolución técnica,
 
 ---
 
-## ⚡ Quick Wins & Fases Completadas (v3.1.0 Enterprise)
+## ⚡ Quick Wins & Fases Completadas (v2.2.0 Enterprise)
 - [x] Unificación de variables de entorno con Zod en `src/config.ts` y eliminación de claves hardcodeadas.
 - [x] Extracción del dataset estático de ejercicios a `public/data/exercises-local.json` con `fetch` dinámico.
 - [x] Transacciones masivas `bulkSetIndexedDB<T>()` en `storageIndexedDB.ts`.
@@ -15,8 +15,8 @@ Este documento detalla la hoja de ruta estratégica para la evolución técnica,
 - [x] Streaming SSE token a token en la Edge Function `groq-proxy` y `aiService.ts`.
 - [x] Generador de tarjetas visuales de récords personales para redes sociales (`SocialShareModal.tsx`).
 - [x] Widget de control de nutrición y macronutrientes (`NutritionTrackerWidget.tsx`).
-- [x] Notificaciones Push PWA Nativas (1.3) para descansos, Readiness y recordatorios agendados.
-- [x] Gamificación Social & Leaderboards de Fuerza Relativa (DOTS) (1.4).
+- [x] Notificaciones Push PWA Nativas (1.3) para descansos, Readiness y recordatorios agendados (`WorkoutReminderModal.tsx`).
+- [x] Purga estricta de componentes con datos falsos/mocks en favor de lógica 100% real.
 
 ---
 
