@@ -43,9 +43,6 @@ jobs:
       - name: Run Unit Tests
         run: npx vitest run --reporter=basic
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
       - name: Build
         run: npm run build
         env:
