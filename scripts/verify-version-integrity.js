@@ -100,6 +100,17 @@ if (fs.existsSync(viteConfigPath)) {
   }
 }
 
+// 6. Verificar index.html
+const indexPath = path.join(rootDir, 'index.html');
+if (fs.existsSync(indexPath)) {
+  const indexContent = fs.readFileSync(indexPath, 'utf8');
+  if (!indexContent.includes(`var CURRENT_VER = '${canonicalVersion}'`)) {
+    errors.push(`INCONSISTENCIA: index.html tiene CURRENT_VER desincronizado con package.json (${canonicalVersion})`);
+  } else {
+    console.log(`✓ index.html tiene el purgado inline de Service Worker alineado con v${canonicalVersion}`);
+  }
+}
+
 // Resumen final
 console.log('\n--- RESULTADO DE VERIFICACIÓN DE VERSIONADO ---');
 if (warnings.length > 0) {

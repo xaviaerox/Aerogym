@@ -12,6 +12,7 @@ import type { Profile } from '../infrastructure/supabase/types';
 import { MuscleWikiService } from '../lib/muscleWikiService';
 import { exportUserData, downloadJSONFile, parseImportJSON } from '../lib/exportService';
 import { backupService } from '../lib/backupService';
+import { APP_FULL_BRANDING, APP_AUTHOR } from '../config';
 
 const ALL_ACHIEVEMENTS = [
   {
@@ -453,9 +454,9 @@ export default function ProfileSettings() {
 
         {/* Product Footer */}
         <div className="pt-4 pb-2 text-center space-y-1">
-          <p className="text-xs text-slate-400 font-bold">AeroGym v2.2.0 Enterprise (Reordenación & Stats 2.0)</p>
+          <p className="text-xs text-slate-400 font-bold">{APP_FULL_BRANDING}</p>
           <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">
-            Desarrollado por Xavi de Solutech
+            Desarrollado por {APP_AUTHOR}
           </p>
         </div>
       </section>

@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuthStore } from '../application/stores/useAuthStore';
-import { APP_VERSION, APP_AUTHOR } from '../config';
+import { APP_VERSION, APP_EDITION, APP_AUTHOR } from '../config';
 
 type Tab = 'home' | 'workouts' | 'coach' | 'analytics' | 'profile';
 
@@ -39,11 +39,12 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           <div className="w-10 h-10 bg-brand-blue/20 rounded-2xl border border-brand-blue/30 flex items-center justify-center text-brand-blue shadow-lg shadow-brand-blue/10">
             <Dumbbell size={22} />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="font-extrabold text-lg text-white tracking-wide leading-none">
               AeroGym <span className="text-brand-blue text-xs font-semibold px-1.5 py-0.5 rounded bg-brand-blue/10 border border-brand-blue/20">v{APP_VERSION}</span>
             </h1>
-            <p className="text-[10px] text-slate-400 font-medium mt-1">Desarrollado por {APP_AUTHOR}</p>
+            <p className="text-[10px] text-slate-300 font-semibold mt-1 truncate" title={APP_EDITION}>{APP_EDITION}</p>
+            <p className="text-[9px] text-slate-400 font-medium mt-0.5">Desarrollado por {APP_AUTHOR}</p>
           </div>
         </div>
 
