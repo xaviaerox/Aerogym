@@ -10,7 +10,8 @@
     "clean": "node -e \"fs.rmSync('dist', {recursive:true, force:true})\"",
     "lint": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
-    "test": "vitest run",
+    "test": "vitest run && npm run version:check",
+    "version:check": "node scripts/verify-version-integrity.js",
     "test:e2e": "playwright test",
     "db:types": "supabase gen types typescript --project-id ualgaluxhznwavksguuu > src/infrastructure/supabase/types.ts",
     "deploy": "npm run build && node -e \"fs.rmSync('dist/.git', {recursive:true, force:true})\" && git --git-dir=dist/.git --work-tree=dist init && git --git-dir=dist/.git --work-tree=dist checkout -b gh-pages && git --git-dir=dist/.git --work-tree=dist add -A && git --git-dir=dist/.git --work-tree=dist commit -m \"Deploy AeroGym\" && git --git-dir=dist/.git --work-tree=dist push -f https://github.com/xaviaerox/Aerogym.git gh-pages"

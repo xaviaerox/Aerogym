@@ -25,7 +25,7 @@ All notable changes to this project will be documented in this file.
 - **Refactorización de Repositorio en Zustand**: Canalización estricta de escrituras de salud en `useHealthStore.ts` a través de `SupabaseHealthRepository.ts`.
 - **Escrituras Masivas en IndexedDB**: Añadida la función `bulkSetIndexedDB<T>()` en `storageIndexedDB.ts`.
 
-## [3.0.0 Ultimate Enterprise] - 2026-08-02
+## [2.1.5 Enterprise Hardening & Architecture] - 2026-08-02
 
 ### Added
 - **Inyección de Dependencias Pura (DDD)**: Creación de `RepositoryContext.tsx` para inyectar abstraídas las capas de datos en componentes y stores.

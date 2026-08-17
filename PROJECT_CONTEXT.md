@@ -524,8 +524,8 @@ Registro cronológico exhaustivo de todas las decisiones estructurales del proye
    - *Motivo*: Resolver riesgos de seguridad criptográfica y cuellos de botella de RAM en cliente identificados en la auditoría senior.
    - *Consecuencias*: Incremento de la puntuación global de 73.3 a 87.8/100.
 
-9. **2026-08-02 — AeroGym v3.0 Ultimate Enterprise (100/100 Max Score)**:
-   - *Descripción*: Inyección de Dependencias pura con `RepositoryContext.tsx`, almacenamiento persistente a nivel OS (`navigator.storage.persist()`), certificación WCAG 2.1 AA a11y, failover IA Groq $\rightarrow$ Gemini API, y motores de Visión por Computador (`computerVisionEngine.ts`) y Voz NL (`voiceParserEngine.ts`).
+9. **2026-08-02 — AeroGym v2.1.5 Enterprise Hardening & Architecture**:
+   - *Descripción*: Inyección de Dependencias pura con `RepositoryContext.tsx`, almacenamiento persistente a level OS (`navigator.storage.persist()`), certificación WCAG 2.1 AA a11y, failover IA Groq $\rightarrow$ Gemini API, y motores de Visión por Computador (`computerVisionEngine.ts`) y Voz NL (`voiceParserEngine.ts`).
    - *Motivo*: Alcanzar la máxima excelencia técnica y funcional (100/100).
    - *Consecuencias*: Cobertura del 100% en tests pasados (96/96) y máxima resiliencia enterprise.
 
@@ -592,7 +592,7 @@ Evolución cronológica completa desde el origen del proyecto:
   - Parche criptográfico de sal aleatoria CSPRNG por usuario en PBKDF2 y fix `SET search_path` en RPC SQL.
   - Paginación e ingesta incremental de historiales de entrenamiento y layout adaptativo desktop.
 
-- **Agosto 2026 (Fase 7 — AeroGym v3.0 Ultimate Enterprise & 100/100 Score)**:
+- **Agosto 2026 (Fase 7 — AeroGym v2.1.5 Enterprise Hardening & Architecture)**:
   - Alcanzada la Puntuación Máxima de 100/100.
   - Implementación de Inyección de Dependencias Pura con `RepositoryContext.tsx` y `RepositoryProvider`.
   - Garantía de persistencia Web Storage API (`persistentStorageService.ts`).
