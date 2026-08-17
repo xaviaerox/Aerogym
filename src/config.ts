@@ -28,7 +28,7 @@ import packageJson from '../package.json';
 export const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || packageJson.version;
 export const APP_BUILD_ID = (import.meta.env.VITE_APP_BUILD_ID as string) || 'dev-build';
 export const APP_COMMIT_SHA = (import.meta.env.VITE_APP_COMMIT_SHA as string) || 'dev';
-export const APP_EDITION = 'Enterprise (Reordenación & Stats 2.0)';
+export const APP_EDITION = 'Enterprise';
 export const APP_AUTHOR = 'Xavi de Solutech';
 export const APP_FULL_BRANDING = `AeroGym v${APP_VERSION} ${APP_EDITION}`;
 
