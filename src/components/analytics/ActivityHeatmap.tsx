@@ -332,46 +332,46 @@ export default function ActivityHeatmap({
         </div>
       </div>
 
-      {/* Summary KPI Bar - Clean Labels without Ellipsis */}
+      {/* Summary KPI Bar - Centered & Uniform Heights */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 flex flex-col justify-between">
+        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 flex flex-col items-center justify-center text-center h-16">
           <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider whitespace-nowrap">
             Días Activos
           </span>
-          <div className="flex items-baseline gap-1 mt-1">
+          <div className="flex items-baseline gap-1 mt-0.5">
             <span className="text-base sm:text-lg font-black text-slate-100">{stats.totalActiveDays}</span>
-            <span className="text-[10px] text-slate-400">días</span>
+            <span className="text-[10px] text-slate-400 font-bold">días</span>
           </div>
         </div>
 
-        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 flex flex-col justify-between">
+        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 flex flex-col items-center justify-center text-center h-16">
           <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider whitespace-nowrap">
             Racha Máxima
           </span>
-          <div className="flex items-baseline gap-1 mt-1">
+          <div className="flex items-baseline gap-1 mt-0.5">
             <span className="text-base sm:text-lg font-black text-emerald-400">{stats.maxStreak}</span>
-            <span className="text-[10px] text-slate-400">días</span>
+            <span className="text-[10px] text-slate-400 font-bold">días</span>
           </div>
         </div>
 
-        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 flex flex-col justify-between">
+        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 flex flex-col items-center justify-center text-center h-16">
           <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider whitespace-nowrap">
             Volumen Total
           </span>
-          <div className="flex items-baseline gap-1 mt-1">
+          <div className="flex items-baseline gap-1 mt-0.5">
             <span className="text-base sm:text-lg font-black text-slate-100">
               {(stats.periodTotalVolume / 1000).toFixed(1)}t
             </span>
           </div>
         </div>
 
-        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 flex flex-col justify-between">
+        <div className="bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/60 flex flex-col items-center justify-center text-center h-16">
           <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider whitespace-nowrap">
             Tiempo Total
           </span>
-          <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-base sm:text-lg font-black text-slate-100">
-              {Math.round(stats.periodTotalMinutes / 60)}h {stats.periodTotalMinutes % 60}m
+          <div className="flex items-baseline gap-1 mt-0.5">
+            <span className="text-sm sm:text-base font-black text-slate-100 whitespace-nowrap">
+              {Math.floor(stats.periodTotalMinutes / 60)}h {stats.periodTotalMinutes % 60}m
             </span>
           </div>
         </div>

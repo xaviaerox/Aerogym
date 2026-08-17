@@ -8,7 +8,10 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { Dumbbell, TrendingUp } from 'lucide-react';
+import { Dumbbell } from 'lucide-react';
+import { cn } from '../../lib/utils';
+
+export type TimeFilter = 'week' | 'month' | 'all';
 
 interface VolumeDataPoint {
   name: string;
@@ -17,18 +20,24 @@ interface VolumeDataPoint {
 
 interface VolumeChartCardProps {
   volumeData: VolumeDataPoint[];
+  filter?: TimeFilter;
+  setFilter?: (f: TimeFilter) => void;
 }
 
-export default function VolumeChartCard({ volumeData }: VolumeChartCardProps) {
+export default function VolumeChartCard({
+  volumeData,
+  filter,
+  setFilter,
+}: VolumeChartCardProps) {
   const maxVol = volumeData.length > 0 ? Math.max(...volumeData.map((d) => d.vol)) : 0;
   const avgVol = volumeData.length > 0 ? Math.round(volumeData.reduce((acc, d) => acc + d.vol, 0) / volumeData.length) : 0;
 
   return (
-    <div className="glass p-5 rounded-3xl space-y-4 border border-white/5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
-            <Dumbbell size={16} />
+    <div className="glass p-4 sm:p-5 rounded-3xl space-y-4 border border-white/5 shadow-xl">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-2xl bg-brand-blue/10 border border-brand-blue/20 flex items-center justify-center text-brand-blue shrink-0">
+            <Dumbbell size={18} />
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-100">Progreso de Volumen de Carga</h3>
@@ -36,19 +45,41 @@ export default function VolumeChartCard({ volumeData }: VolumeChartCardProps) {
           </div>
         </div>
 
-        <div className="flex gap-3 text-right">
-          <div>
-            <span className="text-[9px] text-slate-500 font-bold uppercase block">Pico Máx</span>
-            <span className="text-xs font-black text-slate-200">{(maxVol / 1000).toFixed(1)}t</span>
-          </div>
-          <div>
-            <span className="text-[9px] text-slate-500 font-bold uppercase block">Promedio</span>
-            <span className="text-xs font-black text-brand-blue">{(avgVol / 1000).toFixed(1)}t</span>
+        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+          {filter && setFilter && (
+            <div className="flex bg-slate-900/90 p-1 rounded-xl border border-white/5">
+              {(['week', 'month', 'all'] as TimeFilter[]).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFilter(f)}
+                  className={cn(
+                    'px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap',
+                    filter === f
+                      ? 'bg-brand-blue/20 text-brand-blue border border-brand-blue/30 font-black'
+                      : 'text-slate-400 hover:text-slate-200'
+                  )}
+                >
+                  {f === 'week' ? 'Semana' : f === 'month' ? 'Mes' : 'Todo'}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-3 text-right">
+            <div>
+              <span className="text-[9px] text-slate-500 font-bold uppercase block">Pico Máx</span>
+              <span className="text-xs font-black text-slate-200">{(maxVol / 1000).toFixed(1)}t</span>
+            </div>
+            <div>
+              <span className="text-[9px] text-slate-500 font-bold uppercase block">Promedio</span>
+              <span className="text-xs font-black text-brand-blue">{(avgVol / 1000).toFixed(1)}t</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="h-52 w-full pt-2">
+      <div className="h-48 sm:h-52 w-full pt-2">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={volumeData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>

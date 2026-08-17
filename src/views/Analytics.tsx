@@ -34,6 +34,7 @@ import {
   Layers,
   ArrowUpRight,
   ArrowDownRight,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useWorkoutStore } from '../application/stores/useWorkoutStore';
 import { useHealthStore } from '../application/stores/useHealthStore';
@@ -49,9 +50,19 @@ import VolumeChartCard from '../components/analytics/VolumeChartCard';
 import HealthTrendsCard from '../components/analytics/HealthTrendsCard';
 import AddBodyMeasurementModal from '../components/analytics/AddBodyMeasurementModal';
 import ActivityHeatmap from '../components/analytics/ActivityHeatmap';
+import StatsCustomizerModal, { BlockConfig } from '../components/analytics/StatsCustomizerModal';
 
 type TimeFilter = 'week' | 'month' | 'all';
 type ViewTab = 'performance' | 'health' | 'composition';
+
+const DEFAULT_PERFORMANCE_BLOCKS: BlockConfig[] = [
+  { id: 'hero', label: 'Métricas Principales', description: 'Volumen 7d, Series, PRs y Fuerza DOTS', visible: true },
+  { id: 'dots_detail', label: 'Fuerza Relativa (DOTS)', description: 'Puntuación y percentil atlético', visible: true },
+  { id: 'volume_chart', label: 'Progreso de Volumen', description: 'Gráfico de volumen de carga por sesión', visible: true },
+  { id: 'heatmap', label: 'Matriz de Actividad', description: 'Mapa de calor y consistencia', visible: true },
+  { id: 'muscle_dist', label: 'Distribución Muscular', description: 'Desglose por grupo muscular (7d)', visible: true },
+  { id: 'insights', label: 'IA Insights', description: 'Análisis inteligente y recomendaciones', visible: true },
+];
 
 export default function Analytics() {
   const { sessions, workoutSetsHistory } = useWorkoutStore();
@@ -62,6 +73,52 @@ export default function Analytics() {
   const [filter, setFilter] = useState<TimeFilter>('month');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
+
+  // Stats block customization state with LocalStorage persistence
+  const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
+  const [blocks, setBlocks] = useState<BlockConfig[]>(() => {
+    try {
+      const saved = localStorage.getItem('aerogym_stats_blocks');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return DEFAULT_PERFORMANCE_BLOCKS.map(b => ({
+          ...b,
+          visible: parsed[b.id] !== undefined ? parsed[b.id] : b.visible
+        }));
+      }
+    } catch (e) {
+      console.warn('Error reading stats block preferences:', e);
+    }
+    return DEFAULT_PERFORMANCE_BLOCKS;
+  });
+
+  const toggleBlock = (id: string) => {
+    setBlocks(prev => {
+      const next = prev.map(b => b.id === id ? { ...b, visible: !b.visible } : b);
+      try {
+        const map: Record<string, boolean> = {};
+        next.forEach(b => { map[b.id] = b.visible; });
+        localStorage.setItem('aerogym_stats_blocks', JSON.stringify(map));
+      } catch (e) {
+        console.warn('Error saving stats block preferences:', e);
+      }
+      return next;
+    });
+  };
+
+  const resetBlocks = () => {
+    setBlocks(DEFAULT_PERFORMANCE_BLOCKS);
+    try {
+      localStorage.removeItem('aerogym_stats_blocks');
+    } catch (e) {
+      console.warn('Error resetting stats block preferences:', e);
+    }
+  };
+
+  const isBlockVisible = (id: string) => {
+    const b = blocks.find(x => x.id === id);
+    return b ? b.visible : true;
+  };
 
   // Calcular informe de fatiga muscular
   const fatigueReport = useMemo(() => {
@@ -288,7 +345,7 @@ export default function Analytics() {
   return (
     <div className="space-y-6 pb-32">
       {/* ── Integrated Sleek Top Header Bar ─────────────────────────────── */}
-      <div className="sticky top-0 bg-slate-950/95 backdrop-blur-xl pt-2 pb-3 z-30 border-b border-white/5 space-y-3">
+      <div className="sticky top-0 bg-slate-950/40 backdrop-blur-md pt-2 pb-3 z-30 border-b border-white/5 space-y-3">
         {/* Header Row */}
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
@@ -298,30 +355,30 @@ export default function Analytics() {
             <h1 className="text-lg font-black text-slate-100 tracking-tight">Estadísticas & Progreso</h1>
           </div>
 
-          {activeTab === 'performance' ? (
-            <div className="flex bg-slate-900/90 p-1 rounded-xl border border-white/5">
-              {(['week', 'month', 'all'] as TimeFilter[]).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={cn(
-                    'px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap',
-                    filter === f ? 'bg-brand-blue/20 text-brand-blue border border-brand-blue/30 font-black' : 'text-slate-400 hover:text-slate-200'
-                  )}
-                >
-                  {f === 'week' ? 'Semana' : f === 'month' ? 'Mes' : 'Todo'}
-                </button>
-              ))}
-            </div>
-          ) : activeTab === 'composition' ? (
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-1 px-3 py-1.5 bg-brand-blue text-slate-950 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-brand-blue/90 cursor-pointer shadow-md"
-            >
-              <Plus size={14} />
-              Métricas
-            </button>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {activeTab === 'performance' && (
+              <button
+                type="button"
+                onClick={() => setIsCustomizerOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 glass text-slate-300 hover:text-slate-100 rounded-xl text-xs font-bold transition-all cursor-pointer border border-white/5 hover:border-white/20 shadow-xs"
+                title="Personalizar bloques de estadísticas"
+              >
+                <SlidersHorizontal size={14} className="text-brand-blue" />
+                <span className="hidden sm:inline">Personalizar</span>
+              </button>
+            )}
+
+            {activeTab === 'composition' && (
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-brand-blue text-slate-950 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-brand-blue/90 cursor-pointer shadow-md"
+              >
+                <Plus size={14} />
+                Métricas
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Sleek Segmented Tab Switcher */}
@@ -368,93 +425,119 @@ export default function Analytics() {
       {/* ── RENDIMIENTO TAB ────────────────────────────────────────── */}
       {activeTab === 'performance' && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          {/* Top Hero Cards Grid - Clean Labels without Ellipsis */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            {/* Volumen 7d */}
-            <div className="glass p-3.5 rounded-3xl border border-white/5 space-y-1 flex flex-col justify-between">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider whitespace-nowrap">Volumen 7d</span>
-                {volDeltaPct !== 0 && (
-                  <span className={cn(
-                    'text-[9px] font-extrabold px-1.5 py-0.5 rounded-full flex items-center gap-0.5',
-                    volDeltaPct > 0 ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/15 text-rose-400 border border-rose-500/20'
-                  )}>
-                    {volDeltaPct > 0 ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
-                    {volDeltaPct > 0 ? `+${volDeltaPct}%` : `${volDeltaPct}%`}
-                  </span>
-                )}
+          {/* Top Hero Cards Grid - Centered & Clean Contained Overflow */}
+          {isBlockVisible('hero') && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {/* Volumen 7d */}
+              <div className="glass p-3.5 rounded-3xl border border-white/5 flex flex-col items-center justify-between text-center min-h-[105px]">
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Volumen 7d</span>
+                  {volDeltaPct !== 0 && (
+                    <span className={cn(
+                      'text-[9px] font-extrabold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0',
+                      volDeltaPct > 0 ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/15 text-rose-400 border border-rose-500/20'
+                    )}>
+                      {volDeltaPct > 0 ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                      {volDeltaPct > 0 ? `+${volDeltaPct}%` : `${volDeltaPct}%`}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xl sm:text-2xl font-black text-slate-50 tracking-tight my-1">
+                  {(thisWeekVol / 1000).toFixed(1)}<span className="text-xs font-bold text-brand-blue">t</span>
+                </p>
+                <p className="text-[10px] text-slate-400 font-medium">vs 7 días anteriores</p>
               </div>
-              <p className="text-xl sm:text-2xl font-black text-slate-50 tracking-tight">
-                {(thisWeekVol / 1000).toFixed(1)}<span className="text-xs font-bold text-brand-blue">t</span>
-              </p>
-              <p className="text-[10px] text-slate-400 font-medium whitespace-nowrap">vs 7 días anteriores</p>
-            </div>
 
-            {/* Series Efectivas */}
-            <div className="glass p-3.5 rounded-3xl border border-white/5 space-y-1 flex flex-col justify-between">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider whitespace-nowrap">Series (7d)</span>
-                <Zap size={13} className="text-emerald-400" />
+              {/* Series Efectivas */}
+              <div className="glass p-3.5 rounded-3xl border border-white/5 flex flex-col items-center justify-between text-center min-h-[105px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Series (7d)</span>
+                  <Zap size={13} className="text-emerald-400 shrink-0" />
+                </div>
+                <p className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight my-1">{totalEffectiveSets7d}</p>
+                <p className="text-[10px] text-slate-400 font-medium">series efectivas</p>
               </div>
-              <p className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight">{totalEffectiveSets7d}</p>
-              <p className="text-[10px] text-slate-400 font-medium whitespace-nowrap">series efectivas</p>
-            </div>
 
-            {/* Nuevos PRs */}
-            <div className="glass p-3.5 rounded-3xl border border-white/5 space-y-1 flex flex-col justify-between">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider whitespace-nowrap">Nuevos PRs</span>
-                <Trophy size={13} className="text-amber-400" />
+              {/* Nuevos PRs */}
+              <div className="glass p-3.5 rounded-3xl border border-white/5 flex flex-col items-center justify-between text-center min-h-[105px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Nuevos PRs</span>
+                  <Trophy size={13} className="text-amber-400 shrink-0" />
+                </div>
+                <p className="text-xl sm:text-2xl font-black text-amber-400 tracking-tight my-1">{recentPRs30d}</p>
+                <p className="text-[10px] text-slate-400 font-medium">últimos 30 días</p>
               </div>
-              <p className="text-xl sm:text-2xl font-black text-amber-400 tracking-tight">{recentPRs30d}</p>
-              <p className="text-[10px] text-slate-400 font-medium whitespace-nowrap">últimos 30 días</p>
-            </div>
 
-            {/* DOTS Score Quick */}
-            <div className="glass p-3.5 rounded-3xl border border-brand-blue/20 bg-brand-blue/5 space-y-1 flex flex-col justify-between">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-brand-blue uppercase font-bold tracking-wider whitespace-nowrap">Fuerza DOTS</span>
-                <Award size={13} className="text-brand-blue" />
+              {/* Fuerza DOTS */}
+              <div className="glass p-3.5 rounded-3xl border border-brand-blue/20 bg-brand-blue/5 flex flex-col items-center justify-between text-center min-h-[105px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-brand-blue uppercase font-bold tracking-wider">Fuerza DOTS</span>
+                  <Award size={13} className="text-brand-blue shrink-0" />
+                </div>
+                <p className="text-xl sm:text-2xl font-black text-slate-50 tracking-tight my-1">{dotsScore.dotsPoints}</p>
+                <p className="text-[10px] text-brand-green font-bold">{dotsScore.strengthCategory}</p>
               </div>
-              <p className="text-xl sm:text-2xl font-black text-slate-50 tracking-tight">{dotsScore.dotsPoints}</p>
-              <p className="text-[10px] text-brand-green font-bold whitespace-nowrap">{dotsScore.strengthCategory}</p>
             </div>
-          </div>
+          )}
 
           {/* DOTS Relative Strength Card Detailed */}
-          <div className="glass border border-brand-blue/20 bg-gradient-to-r from-brand-blue/10 via-slate-900/60 to-slate-900/80 p-5 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-brand-blue/20 flex items-center justify-center text-brand-blue border border-brand-blue/30 shrink-0 shadow-inner">
-                <Trophy size={24} />
-              </div>
-              <div>
-                <span className="text-[10px] uppercase tracking-widest font-black text-brand-blue block">Coeficiente de Fuerza Relativa (DOTS)</span>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-black text-slate-50">{dotsScore.dotsPoints} pts</span>
-                  <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                    {dotsScore.strengthCategory}
-                  </span>
+          {isBlockVisible('dots_detail') && (
+            <div className="glass border border-brand-blue/20 bg-gradient-to-r from-brand-blue/10 via-slate-900/60 to-slate-900/80 p-4 sm:p-5 rounded-3xl space-y-3.5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-brand-blue/20 flex items-center justify-center text-brand-blue border border-brand-blue/30 shrink-0 shadow-inner">
+                    <Trophy size={22} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider font-black text-brand-blue block">
+                      Coeficiente de Fuerza Relativa (DOTS)
+                    </span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-2xl font-black text-slate-50">{dotsScore.dotsPoints} pts</span>
+                      <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                        {dotsScore.strengthCategory}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="sm:text-right space-y-1.5 min-w-[180px]">
+                  <div className="flex sm:justify-end items-center gap-2">
+                    <span className="text-[11px] font-bold text-slate-300">
+                      {dotsScore.percentileText}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden border border-white/5">
+                    <div
+                      className="h-full bg-gradient-to-r from-brand-blue to-emerald-400 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, (dotsScore.dotsPoints / 500) * 100)}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="text-left sm:text-right space-y-1">
-              <span className="text-[11px] font-bold text-slate-300 block">
-                {dotsScore.percentileText}
-              </span>
-              <div className="w-full sm:w-48 h-2 bg-slate-800 rounded-full overflow-hidden border border-white/5">
-                <div
-                  className="h-full bg-gradient-to-r from-brand-blue to-emerald-400 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, (dotsScore.dotsPoints / 500) * 100)}%` }}
-                />
+          )}
+
+          {/* Volumen Chart - Moved up right after DOTS */}
+          {isBlockVisible('volume_chart') && (
+            volumeData.length > 0 ? (
+              <VolumeChartCard volumeData={volumeData} filter={filter} setFilter={setFilter} />
+            ) : (
+              <div className="glass p-8 rounded-3xl text-center text-slate-500 italic text-sm border border-white/5 space-y-2">
+                <Dumbbell size={32} className="mx-auto text-slate-600" />
+                <p className="font-bold text-slate-400">Sin historial suficiente</p>
+                <p className="text-xs text-slate-600">Registra entrenamientos para ver tu gráfico de sobrecarga progresiva</p>
               </div>
-            </div>
-          </div>
+            )
+          )}
 
           {/* Matriz de Calor de Actividad */}
-          <ActivityHeatmap sessions={sessions} dailyHealth={dailyHealth} />
+          {isBlockVisible('heatmap') && (
+            <ActivityHeatmap sessions={sessions} dailyHealth={dailyHealth} />
+          )}
 
           {/* Distribución por Grupo Muscular */}
-          {muscleDistribution.length > 0 && (
+          {isBlockVisible('muscle_dist') && muscleDistribution.length > 0 && (
             <div className="glass p-5 rounded-3xl space-y-4 border border-white/5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -488,53 +571,44 @@ export default function Analytics() {
           )}
 
           {/* IA Insights Widget */}
-          <section className="space-y-3">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2 px-1">
-              <Sparkles size={16} className="text-brand-blue" /> IA Insights & Correlaciones
-            </h2>
-            <div className="space-y-2.5">
-              {localInsights.map((insight, idx) => (
-                <div
-                  key={idx}
-                  className={cn(
-                    "glass p-4 sm:p-5 rounded-3xl border flex gap-3.5 items-start",
-                    insight.impactLevel === 'positive'
-                      ? "border-emerald-500/15 bg-emerald-500/[0.02]"
-                      : insight.impactLevel === 'negative'
-                      ? "border-rose-500/15 bg-rose-500/[0.02]"
-                      : "border-white/5"
-                  )}
-                >
+          {isBlockVisible('insights') && (
+            <section className="space-y-3">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2 px-1">
+                <Sparkles size={16} className="text-brand-blue" /> IA Insights & Correlaciones
+              </h2>
+              <div className="space-y-2.5">
+                {localInsights.map((insight, idx) => (
                   <div
+                    key={idx}
                     className={cn(
-                      "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0",
+                      "glass p-4 sm:p-5 rounded-3xl border flex gap-3.5 items-start",
                       insight.impactLevel === 'positive'
-                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        ? "border-emerald-500/15 bg-emerald-500/[0.02]"
                         : insight.impactLevel === 'negative'
-                        ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                        : "bg-white/5 text-slate-400 border border-white/5"
+                        ? "border-rose-500/15 bg-rose-500/[0.02]"
+                        : "border-white/5"
                     )}
                   >
-                    <Activity size={18} />
+                    <div
+                      className={cn(
+                        "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0",
+                        insight.impactLevel === 'positive'
+                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          : insight.impactLevel === 'negative'
+                          ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                          : "bg-white/5 text-slate-400 border border-white/5"
+                      )}
+                    >
+                      <Activity size={18} />
+                    </div>
+                    <div className="space-y-1 min-w-0">
+                      <h4 className="font-bold text-slate-100 text-sm">{insight.title}</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed font-medium">{insight.description}</p>
+                    </div>
                   </div>
-                  <div className="space-y-1 min-w-0">
-                    <h4 className="font-bold text-slate-100 text-sm">{insight.title}</h4>
-                    <p className="text-xs text-slate-400 leading-relaxed font-medium">{insight.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Volumen Chart */}
-          {volumeData.length > 0 ? (
-            <VolumeChartCard volumeData={volumeData} />
-          ) : (
-            <div className="glass p-12 rounded-3xl text-center text-slate-500 italic text-sm border border-white/5 space-y-2">
-              <Dumbbell size={32} className="mx-auto text-slate-600" />
-              <p className="font-bold text-slate-400">Sin historial suficiente</p>
-              <p className="text-xs text-slate-600">Registra entrenamientos para ver tu gráfico de sobrecarga progresiva</p>
-            </div>
+                ))}
+              </div>
+            </section>
           )}
         </div>
       )}
@@ -830,6 +904,15 @@ export default function Analytics() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveMeasurement}
+      />
+
+      {/* MODAL DE PERSONALIZACIÓN DE BLOQUES */}
+      <StatsCustomizerModal
+        isOpen={isCustomizerOpen}
+        onClose={() => setIsCustomizerOpen(false)}
+        blocks={blocks}
+        onToggleBlock={toggleBlock}
+        onReset={resetBlocks}
       />
     </div>
   );
