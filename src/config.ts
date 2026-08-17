@@ -23,7 +23,11 @@ if (!parsed.success) {
   console.error('Configuración inválida de Supabase:', parsed.error.format());
 }
 
-export const APP_VERSION = '2.2.0';
+import packageJson from '../package.json';
+
+export const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || packageJson.version;
+export const APP_BUILD_ID = (import.meta.env.VITE_APP_BUILD_ID as string) || 'dev-build';
+export const APP_COMMIT_SHA = (import.meta.env.VITE_APP_COMMIT_SHA as string) || 'dev';
 export const APP_EDITION = 'Enterprise (Reordenación & Stats 2.0)';
 export const APP_AUTHOR = 'Xavi de Solutech';
 export const APP_FULL_BRANDING = `AeroGym v${APP_VERSION} ${APP_EDITION}`;
@@ -32,6 +36,8 @@ export const config = {
   supabaseUrl: rawConfig.supabaseUrl,
   supabaseAnonKey: rawConfig.supabaseAnonKey,
   appVersion: APP_VERSION,
+  buildId: APP_BUILD_ID,
+  commitSha: APP_COMMIT_SHA,
   appEdition: APP_EDITION,
   appAuthor: APP_AUTHOR,
   appBranding: APP_FULL_BRANDING,
