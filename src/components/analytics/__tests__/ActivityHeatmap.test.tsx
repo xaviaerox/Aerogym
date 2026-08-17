@@ -24,7 +24,7 @@ describe('ActivityHeatmap component', () => {
   it('renders title and KPI metrics correctly', () => {
     render(<ActivityHeatmap sessions={mockSessions} />);
 
-    expect(screen.getAllByText('Matriz de Actividad y Esfuerzo Físico')[0]).toBeDefined();
+    expect(screen.getAllByText('Matriz de Actividad y Esfuerzo')[0]).toBeDefined();
     expect(screen.getAllByText('Días Activos')[0]).toBeDefined();
     expect(screen.getAllByText('Racha Máxima')[0]).toBeDefined();
     expect(screen.getAllByText('Volumen Total')[0]).toBeDefined();
