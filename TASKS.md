@@ -5,7 +5,7 @@ Estado y seguimiento de tareas del proyecto AeroGym (Versión actual: **v2.2.0 E
 ---
 
 ## 🛡️ Principios de Arquitectura & Calidad
-- **Cero Datos Falsos (No Mocks / No Placebos)**: Todas las funcionalidades deben utilizar datos 100% reales calculados a partir del historial del usuario, IndexedDB, Supabase Postgres o APIs nativas del navegador.
+- **Cero Datos Falsos / Módulos No Implementados (No Mocks)**: Todas las funcionalidades presentes en la interfaz deben ser 100% reales y funcionales. Los módulos no implementados (como el Widget de Nutrición) quedan descartados del UI por ahora.
 - **Versionado Dinámico y Lineal**: La versión de la aplicación se centraliza en `package.json` y `src/config.ts` (`APP_VERSION`, `APP_AUTHOR`) para actualizarse automáticamente en la interfaz.
 
 ---
@@ -27,11 +27,11 @@ Estado y seguimiento de tareas del proyecto AeroGym (Versión actual: **v2.2.0 E
 - [x] **Descomposición de Analíticas**: Creados `VolumeChart.tsx`, `MuscleDistributionChart.tsx` y `E1RMProgressChart.tsx` dentro de `src/views/Analytics.tsx`.
 - [x] **Streaming SSE en Groq Proxy & IA**: Habilitado `stream: true` en la Edge Function `groq-proxy` y `streamGroqProxy` en `aiService.ts`.
 
-### 🎯 Sprint 3: QA & Nuevas Funcionalidades Reales
+### 🎯 Sprint 3: QA & Limpieza de Interfaz
 - [x] **Generador de Tarjetas para Redes Sociales**: Creado `SocialShareModal.tsx` con Canvas 2D interactivo para imágenes PNG reales de PRs.
-- [x] **Widget de Control de Nutrición**: Creado `NutritionTrackerWidget.tsx` e integrado en `Dashboard.tsx` con cálculos reales de macronutrientes.
 - [x] **Notificaciones Push PWA Nativas**: Implementadas en `notificationService.ts` y modal de alarma `WorkoutReminderModal.tsx`.
-- [x] **Limpieza Estricta de Mocks**: Eliminado completamente el módulo de leaderboard con usuarios semilla falsos.
+- [x] **Descarte del Módulo de Nutrición**: Eliminado el widget de nutrición del Dashboard al no estar implementado.
+- [x] **Limpieza Estricta de Mocks**: Eliminados los componentes con usuarios/datos semilla inventados.
 
 ---
 
