@@ -14,7 +14,18 @@ export function useUserXP(
 ): UserXPResult {
   return useMemo(() => {
     const sessionsXP = sessions.length * 100;
-    const setsXP = (workoutSetsHistory || []).length * 10;
+
+    // Series efectivas: series de fuerza valen 10 XP c/u; en cardio, cada bloque de 150s (~2.5 min)
+    // equivale a 1 serie efectiva (ej. 30 min cardio = 12 series = 120 XP)
+    const effectiveSetsCount = (workoutSetsHistory || []).reduce((acc, s) => {
+      if (!s.is_completed) return acc;
+      if (s.duration_seconds && s.duration_seconds > 0) {
+        return acc + Math.max(1, Math.round(s.duration_seconds / 150));
+      }
+      return acc + 1;
+    }, 0);
+    const setsXP = effectiveSetsCount * 10;
+
     const healthXP = dailyHealth.length * 20;
     const prsCount = (workoutSetsHistory || []).filter((s) => s.is_pr).length;
     const prsXP = prsCount * 50;

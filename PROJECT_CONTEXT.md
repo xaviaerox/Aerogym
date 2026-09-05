@@ -95,10 +95,11 @@ El sistema ha evolucionado desde un prototipo cliente de una sola capa hasta una
 |  | - FatigueEngine         |  +----------------------------+  +---------------+----+  |
 |  | - GamificationEngine    |                                                  |       |
 |  | - StrengthScoreEngine   |                                                  v       |
-|  +----+--------------------+                                         +--------+----+  |
-|       |                                                              | IndexedDB   |  |
-|       +-------------------------------+                              | LocalStorage|  |
-|                                       |                              +-------------+  |
+|  | - CardioScoreEngine     |                                         +--------+----+  |
+|  +----+--------------------+                                         | IndexedDB   |  |
+|       |                                                              | LocalStorage|  |
+|       +-------------------------------+                              +-------------+  |
+|                                       |                                               |
 |                                       v                                               |
 |  +---------------------------------------------------------------------------------+  |
 |  |                     Capa de Infraestructura (Repositories)                       |  |
@@ -122,7 +123,7 @@ El sistema ha evolucionado desde un prototipo cliente de una sola capa hasta una
 ### Capas y Responsabilidades:
 1. **Presentación (`src/views`, `src/components`)**: Vistas React y componentes atómicos. Responsables exclusivamente de renderizar la UI y reaccionar a eventos del usuario.
 2. **Aplicación (`src/application/stores`)**: Stores de Zustand (`useWorkoutStore`, `useAuthStore`, `useHealthStore`, `useToastStore`, `useUIStore`). Manejan el estado global y coordinan los casos de uso.
-3. **Dominio / Motores (`src/lib`)**: Motores puros sin dependencias de React (`ReadinessEngine`, `progressiveOverloadEngine`, `fatigueEngine`, `vectorMemoryEngine`, `gamificationEngine`, `strengthScoreEngine`, `nutritionEngine`). Calculan algoritmos matemáticos y científicos.
+3. **Dominio / Motores (`src/lib`)**: Motores puros sin dependencias de React (`ReadinessEngine`, `progressiveOverloadEngine`, `fatigueEngine`, `vectorMemoryEngine`, `gamificationEngine`, `strengthScoreEngine`, `cardioScoreEngine`, `nutritionEngine`). Calculan algoritmos matemáticos y científicos.
 4. **Infraestructura (`src/infrastructure`)**:
    - `repositories/`: Implementaciones de `IWorkoutRepository` y `IHealthRepository` mediante `SupabaseWorkoutRepository` y `SupabaseHealthRepository`.
    - `sync/`: `SyncEngine` escucha cambios de estado de red (`online`) y sincroniza colas guardadas en IndexedDB.
@@ -395,9 +396,22 @@ La comunicación con el backend se realiza principalmente a través de **Supabas
 
 ### Variables de Entorno Requeridas (`.env.local`):
 ```env
+# Backend & Base de Datos
 VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
 VITE_SUPABASE_ANON_KEY=tu-anon-key-de-supabase
+
+# Observabilidad Técnica (Sentry)
+VITE_SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
+
+# Product Analytics (PostHog)
+VITE_POSTHOG_KEY=phc_exampleKeyHere
+VITE_POSTHOG_HOST=https://eu.i.posthog.com
+
+# Interruptor de Telemetría (true/false)
+VITE_TELEMETRY_ENABLED=true
+VITE_ANALYTICS_DEBUG=false
 ```
+
 
 ### Configuración en Supabase Cloud:
 - **Secret Vault**: Secret `GROQ_API_KEY` configurado mediante `supabase secrets set GROQ_API_KEY=tu_clave`.
@@ -440,6 +454,44 @@ VITE_SUPABASE_ANON_KEY=tu-anon-key-de-supabase
 
 ---
 
+# Analytics & Observabilidad
+
+AeroGym cuenta con una infraestructura desacoplada, tipada, fail-safe y respetuosa con la privacidad, ubicada en `src/infrastructure/analytics/`.
+
+### 1. Principios de Arquitectura
+- **Observabilidad Técnica (Sentry)**: Monitorea crashes de render (`GlobalErrorBoundary`), errores globales (`window.onerror`, `unhandledrejection`), rendimiento y Web Vitals. Etiqueta automáticamente releases (`aerogym@APP_VERSION`) y entorno.
+- **Product Analytics (PostHog)**: Rastrea activación, adopción de funcionalidades y finalización de entrenamientos sin depender de capturas invasivas de DOM.
+- **Fail-Safe & Non-Blocking**: Los métodos de la fachada (`analytics.track`, `analytics.identify`, `analytics.page`, `analytics.error`) están envueltos en bloques no bloqueantes; un fallo de red, bloqueo de adblocker o caída del proveedor NUNCA detiene la experiencia del atleta.
+- **Modo Offline & Simulación**: Si las variables de entorno no están presentes (entornos locales o CI), los proveedores operan en modo simulación/debug silencioso sin lanzar errores.
+
+### 2. Privacidad y Minimización de Datos (Zero PII)
+- **Identidad**: Se utiliza únicamente el identificador anónimo `user.id` (UUID interno). Nunca emails, nombres o teléfonos.
+- **Cortafuegos de Salud**: Se registran exclusivamente eventos técnicos (ej. `health_imported` con número de registros y proveedor). NUNCA métricas clínicas, peso, glucosa o patologías.
+- **Cortafuegos de IA**: Se registra el evento de uso (`coach_message_sent` con longitud aproximada y presencia de contexto). NUNCA transcripciones, contenido de prompts ni respuestas de Aero AI Coach.
+- **Autocaptura y Grabación Deshabilitadas**: PostHog tiene `autocapture: false` y `disable_session_recording: true` para prevenir la recolección indiscriminada de datos de la interfaz.
+
+### 3. Registro Canónico de Eventos
+
+| Evento | Propiedades Tipadas | Propósito | Sensibilidad |
+| :--- | :--- | :--- | :--- |
+| `app_opened` | `is_pwa`, `platform`, `app_version` | Registro de apertura de la PWA | Baja |
+| `view_changed` | `view_name` | Navegación entre vistas principales | Baja |
+| `signup_completed` | `auth_method` | Conversión de nuevos registros | Baja |
+| `login_completed` | `auth_method` | Inicio de sesión / Modo invitado | Baja |
+| `logout_completed` | — | Cierre de sesión voluntario | Baja |
+| `workout_started` | `routine_id`, `is_custom` | Inicio de entrenamiento | Baja |
+| `workout_completed` | `duration_seconds`, `exercise_count`, `set_count`, `total_volume_kg`, `has_cardio`, `is_pr` | Métricas agregadas de sesión | Baja |
+| `workout_cancelled` | `duration_seconds`, `sets_completed` | Abandono o descarte de sesión | Baja |
+| `routine_created` | `split_type`, `exercise_count` | Creación de rutinas de entrenamiento | Baja |
+| `routine_deleted` | `split_type` | Eliminación de rutinas | Baja |
+| `health_imported` | `source`, `records_count` | Ingesta de salud (Zepp / Google Fit) | Baja |
+| `coach_message_sent` | `has_context`, `length_bucket` | Interacción con Aero AI Coach | Baja |
+| `achievement_unlocked` | `achievement_id`, `xp_awarded` | Gamificación y logros | Baja |
+| `pwa_update_available`| `current_version`, `new_version` | Gestión de ciclo de vida PWA | Baja |
+| `sync_completed` | `actions_count`, `duration_ms`, `status` | Rendimiento de sincronización offline | Baja |
+
+---
+
 # Estado Actual
 
 ### Qué funciona y está 100% terminado:
@@ -452,7 +504,9 @@ VITE_SUPABASE_ANON_KEY=tu-anon-key-de-supabase
 - ✅ Resiliencia offline mediante IndexedDB y cola de reintentos automatizada (`SyncEngine`).
 - ✅ Explorador anatómico con MuscleWiki e instrucciones animadas.
 - ✅ Visualizador SVG anatómico interactivo de fatiga muscular (`BodyFatigueVisualizer.tsx`).
+- ✅ Infraestructura desacoplada de Analytics y Observabilidad (Sentry + PostHog, tipado estricto, fail-safe, sanitización de PII).
 - ✅ Suite de pruebas unitarias ejecutables mediante Vitest (`npm test`).
+
 
 ### Qué está parcialmente implementado / Deuda Técnica:
 - ⏳ Extracción del dataset estático de ejercicios en `muscleWikiService.ts` a `public/data/exercises-musclewiki.json` para reducir tamaño del bundle principal.

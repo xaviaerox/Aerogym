@@ -3,8 +3,15 @@ import { supabaseWorkoutRepository } from '../../infrastructure/repositories/Sup
 import type { WorkoutSession, WorkoutSet, Routine, RoutineExercise } from '../../infrastructure/supabase/types';
 import { BASE_EXERCISES } from '../../constants/exercises';
 import { useAuthStore } from './useAuthStore';
+import { analytics } from '../../infrastructure/analytics';
 
-import { calculateE1RM, calculateSetVolume, isPersonalRecord } from '../../lib/math/formulas';
+import {
+  calculateE1RM,
+  calculateSetVolume,
+  isPersonalRecord,
+  calculateCardioEquivalentVolume,
+  isCardioPersonalRecord,
+} from '../../lib/math/formulas';
 
 // Tipos internos del store (enriquecidos para la UI)
 export interface ActiveSet extends WorkoutSet {
@@ -88,6 +95,11 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   startSession: (routine) => {
+    analytics.track('workout_started', {
+      routine_id: routine?.id || 'custom',
+      is_custom: !routine?.id,
+    });
+
     const { workoutSetsHistory } = get();
     const exercises: ActiveExercise[] = (routine?.exercises || []).map((re) => {
       const isCardio = BASE_EXERCISES.find((e) => e.id === re.exercise_id)?.muscleGroup === 'Cardio';
@@ -145,11 +157,21 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     const finishedAt = new Date();
     const durationMinutes = Math.round((finishedAt.getTime() - startedAt.getTime()) / 60000);
 
-    // Calcular volumen total
+    // Calcular volumen total (fuerza + cardio equivalente)
+    const userWeight = Number(useAuthStore.getState().profile?.weight_kg) || 70;
     let totalVolume = 0;
     activeSession.exercises.forEach((ex) => {
+      const isCardio = BASE_EXERCISES.find((e) => e.id === ex.exercise_id)?.muscleGroup === 'Cardio';
       ex.sets.forEach((set) => {
-        if (set.is_completed && set.reps && set.weight_kg) {
+        if (!set.is_completed) return;
+        if (isCardio || (set.duration_seconds && set.duration_seconds > 0)) {
+          totalVolume += calculateCardioEquivalentVolume(
+            set.duration_seconds || 0,
+            userWeight,
+            set.rpe,
+            set.distance_meters
+          );
+        } else if (set.reps && set.weight_kg) {
           totalVolume += calculateSetVolume(set.weight_kg, set.reps);
         }
       });
@@ -169,11 +191,51 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
     // Calcular PRs y preparar sets para insertar
     const setsToInsert = activeSession.exercises.flatMap((ex) => {
+      const isCardio = BASE_EXERCISES.find((e) => e.id === ex.exercise_id)?.muscleGroup === 'Cardio';
+      const completedSets = ex.sets.filter((s) => s.is_completed);
+
+      if (isCardio) {
+        const cardioHistory = workoutSetsHistory.filter(
+          (s) => s.exercise_id === ex.exercise_id && s.is_completed && s.duration_seconds && s.duration_seconds > 0
+        );
+        const historicBestDuration = cardioHistory.reduce(
+          (max, s) => Math.max(max, s.duration_seconds || 0),
+          0
+        );
+        const historicBestDistance = cardioHistory.reduce(
+          (max, s) => Math.max(max, s.distance_meters || 0),
+          0
+        );
+
+        return completedSets.map((set, idx) => {
+          const isPR = isCardioPersonalRecord(
+            set.duration_seconds || 0,
+            set.distance_meters || null,
+            historicBestDuration,
+            historicBestDistance > 0 ? historicBestDistance : null
+          );
+
+          return {
+            session_id: '',
+            exercise_id: ex.exercise_id,
+            set_number: idx + 1,
+            reps: null,
+            weight_kg: 0,
+            rpe: set.rpe || null,
+            rir: null,
+            is_completed: true,
+            is_warmup: set.is_warmup || false,
+            is_pr: isPR,
+            e1rm_kg: null,
+            duration_seconds: set.duration_seconds || null,
+            distance_meters: set.distance_meters || null,
+          };
+        });
+      }
+
       const historicBest = workoutSetsHistory
         .filter((s) => s.exercise_id === ex.exercise_id && s.is_completed)
         .reduce((max, s) => Math.max(max, Number(s.e1rm_kg) || 0), 0);
-
-      const completedSets = ex.sets.filter((s) => s.is_completed);
 
       let bestSetIdx = -1;
       let bestSessionE1RM = 0;
@@ -205,13 +267,31 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
           is_warmup: set.is_warmup,
           is_pr: isPR,
           e1rm_kg: e1rm,
-          duration_seconds: set.duration_seconds || null,
-          distance_meters: set.distance_meters || null,
+          duration_seconds: null,
+          distance_meters: null,
         };
       });
     });
 
     const session = await supabaseWorkoutRepository.saveSession(sessionPayload, setsToInsert);
+
+    const hasAnyPR = setsToInsert.some((s) => s.is_pr);
+    const completedSetsCount = setsToInsert.length;
+    const completedExercisesCount = activeSession.exercises.filter((ex) =>
+      ex.sets.some((s) => s.is_completed)
+    ).length;
+    const hasCardio = activeSession.exercises.some((ex) =>
+      BASE_EXERCISES.find((e) => e.id === ex.exercise_id)?.muscleGroup === 'Cardio'
+    );
+
+    analytics.track('workout_completed', {
+      duration_seconds: durationMinutes * 60,
+      exercise_count: completedExercisesCount,
+      set_count: completedSetsCount,
+      total_volume_kg: Math.round(totalVolume),
+      has_cardio: hasCardio,
+      is_pr: hasAnyPR,
+    });
 
     set((state) => ({
       sessions: [session, ...state.sessions],
@@ -221,7 +301,24 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     return session;
   },
 
-  cancelSession: () => set({ activeSession: null }),
+  cancelSession: () => {
+    const { activeSession } = get();
+    if (activeSession) {
+      const duration = Math.round(
+        (Date.now() - new Date(activeSession.started_at).getTime()) / 1000
+      );
+      const setsCount = activeSession.exercises.reduce(
+        (acc, ex) => acc + ex.sets.filter((s) => s.is_completed).length,
+        0
+      );
+      analytics.track('workout_cancelled', {
+        duration_seconds: Math.max(0, duration),
+        sets_completed: setsCount,
+      });
+    }
+    set({ activeSession: null });
+  },
+
 
   updateActiveExercise: (exerciseId, setIndex, field, value) => {
     set((state) => {

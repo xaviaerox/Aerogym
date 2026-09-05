@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { supabase } from '../../infrastructure/supabase/client';
 import type { Profile } from '../../infrastructure/supabase/types';
 import type { User, Session } from '@supabase/supabase-js';
+import { analytics } from '../../infrastructure/analytics';
 
 interface AuthState {
   user: User | null;
@@ -37,6 +38,7 @@ export const useAuthStore = create<AuthState>()(
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user) {
             const profile = await fetchProfile(session.user.id, session.user.email);
+            analytics.identify(session.user.id);
             set({
               user: session.user,
               session,
@@ -49,6 +51,7 @@ export const useAuthStore = create<AuthState>()(
           supabase.auth.onAuthStateChange(async (_event, session) => {
             if (session?.user) {
               const profile = await fetchProfile(session.user.id, session.user.email);
+              analytics.identify(session.user.id);
               set({
                 user: session.user,
                 session,
@@ -56,6 +59,7 @@ export const useAuthStore = create<AuthState>()(
                 isAuthenticated: true,
               });
             } else if (!get().user || get().user?.id !== 'guest-local-user') {
+              analytics.reset();
               set({ user: null, session: null, profile: null, isAuthenticated: false });
             }
           });
@@ -66,6 +70,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+
       signInWithEmail: async (email, password) => {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
@@ -74,6 +79,8 @@ export const useAuthStore = create<AuthState>()(
         }
         if (data?.user) {
           const profile = await fetchProfile(data.user.id, data.user.email);
+          analytics.identify(data.user.id);
+          analytics.track('login_completed', { auth_method: 'email' });
           set({
             user: data.user,
             session: data.session,
@@ -93,6 +100,7 @@ export const useAuthStore = create<AuthState>()(
           console.error("Supabase signUp error:", error);
           throw new Error(extractErrorMessage(error));
         }
+        analytics.track('signup_completed', { auth_method: 'email' });
       },
 
       signInWithGoogle: async () => {
@@ -110,6 +118,9 @@ export const useAuthStore = create<AuthState>()(
 
       signInAsGuest: () => {
         const guestId = 'guest-local-user';
+        analytics.identify(guestId);
+        analytics.track('login_completed', { auth_method: 'guest' });
+
         const guestUser: any = {
           id: guestId,
           email: 'invitado@aerogym.local',
@@ -142,10 +153,13 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         try {
+          analytics.track('logout_completed', {} as Record<string, never>);
+          analytics.reset();
           await supabase.auth.signOut();
         } catch {}
         set({ user: null, session: null, profile: null, isAuthenticated: false });
       },
+
 
       updateProfile: async (updates) => {
         const { user, profile } = get();

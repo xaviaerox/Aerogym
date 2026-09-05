@@ -9,6 +9,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { RotateCcw, AlertTriangle } from 'lucide-react';
+import { analytics } from '../infrastructure/analytics';
 
 type State = { hasError: boolean; error: Error | null };
 type Props = { children: any; fallback?: (error: Error, reset: () => void) => any };
@@ -26,7 +27,13 @@ class ErrorBoundaryImpl extends (React.Component as any) {
 
   componentDidCatch(error: Error, info: any) {
     console.error('[GlobalErrorBoundary] Unhandled render error:', error, info?.componentStack);
+    analytics.error(error, {
+      fatal: true,
+      source: 'GlobalErrorBoundary',
+      componentStack: info?.componentStack,
+    });
   }
+
 
   handleReset() {
     (this as any).setState({ hasError: false, error: null });

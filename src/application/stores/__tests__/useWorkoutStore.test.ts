@@ -64,4 +64,24 @@ describe('useWorkoutStore', () => {
     useWorkoutStore.getState().cancelSession();
     expect(useWorkoutStore.getState().activeSession).toBeNull();
   });
+
+  it('finishes a session with cardio and calculates equivalent volume and cardio PR', async () => {
+    const store = useWorkoutStore.getState();
+    store.startSession();
+    store.addExerciseToActive('treadmill');
+
+    // Configure 30 minutes of running (1800s), RPE 8, 5000m
+    store.updateActiveExercise('treadmill', 0, 'duration_seconds', 1800);
+    store.updateActiveExercise('treadmill', 0, 'distance_meters', 5000);
+    store.updateActiveExercise('treadmill', 0, 'rpe', 8);
+    // Mark completed
+    store.toggleSetComplete('treadmill', 0);
+
+    const session = await store.finishSession('00000000-0000-0000-0000-000000000001');
+
+    expect(session).toBeDefined();
+    // Equivalent volume: 30 min * (70 * 2.5) * 1.24 = 6510 kg > 0
+    expect(session.total_volume_kg).toBeGreaterThan(5000);
+    expect(useWorkoutStore.getState().sessions.length).toBe(1);
+  });
 });

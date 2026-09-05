@@ -41,7 +41,10 @@ import WorkoutReminderModal from '../components/health/WorkoutReminderModal';
 import { Bell } from 'lucide-react';
 import { getDailyStoicQuote, getRandomStoicQuote, type StoicQuote } from '../constants/stoicQuotes';
 import { strengthScoreEngine } from '../lib/strengthScoreEngine';
+import { cardioScoreEngine } from '../lib/cardioScoreEngine';
 import { calculateE1RM } from '../lib/math/formulas';
+import { BASE_EXERCISES } from '../constants/exercises';
+
 
 interface DashboardProps {
   nextRoutine?: Routine & { exercises: RoutineExercise[] };
@@ -226,6 +229,26 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
 
     return strengthScoreEngine.calculateDots(totalLiftedKg, bw, gender);
   }, [workoutSetsHistory, profile]);
+
+  // Coeficiente de Resistencia Cardio (Escala 0-500)
+  const cardioScore = useMemo(() => {
+    const cardioSets = workoutSetsHistory.filter((s) => {
+      const isCardio = BASE_EXERCISES.find((e) => e.id === s.exercise_id)?.muscleGroup === 'Cardio';
+      return (isCardio || (s.duration_seconds && s.duration_seconds > 0)) && s.is_completed;
+    });
+    const bw = Number(profile?.weight_kg) || 70;
+    const gender = (profile?.gender as 'male' | 'female') || 'male';
+    return cardioScoreEngine.calculateCardioScore(cardioSets, bw, gender);
+  }, [workoutSetsHistory, profile]);
+
+  // Score Atlético Integral (Ponderación Inteligente Fuerza + Cardio)
+  const athleticScore = useMemo(() => {
+    return cardioScoreEngine.calculateAthleticScore(
+      dotsScore.dotsPoints,
+      cardioScore.cardioPoints,
+      profile?.goal || 'Hipertrofia'
+    );
+  }, [dotsScore.dotsPoints, cardioScore.cardioPoints, profile?.goal]);
 
   // Nombres descriptivos de los widgets para el panel de ajustes
   const widgetLabels: Record<keyof DashboardWidgets, string> = {

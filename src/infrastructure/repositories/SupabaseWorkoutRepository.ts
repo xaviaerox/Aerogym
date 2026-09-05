@@ -4,7 +4,7 @@ import type { IWorkoutRepository } from './IWorkoutRepository';
 import { syncEngine } from '../sync/SyncEngine';
 import { enqueueSyncAction, getItemIndexedDB, setItemIndexedDB, STORE_SESSIONS } from '../../lib/storageIndexedDB';
 import { BASE_EXERCISES } from '../../constants/exercises';
-import { calculateE1RM, calculateSetVolume } from '../../lib/math/formulas';
+import { calculateE1RM, calculateSetVolume, calculateCardioEquivalentVolume } from '../../lib/math/formulas';
 
 export class SupabaseWorkoutRepository implements IWorkoutRepository {
   async fetchSessions(userId: string, limit = 100): Promise<WorkoutSession[]> {
@@ -286,7 +286,14 @@ export class SupabaseWorkoutRepository implements IWorkoutRepository {
         const weight = isCardio ? 0 : (Number(set.weight_kg) || 0);
         const e1rm = reps && weight ? calculateE1RM(weight, reps) : null;
 
-        if (!isCardio && set.is_completed && reps && weight) {
+        if (isCardio && set.is_completed && set.duration_seconds) {
+          totalVolume += calculateCardioEquivalentVolume(
+            set.duration_seconds,
+            70,
+            set.rpe,
+            set.distance_meters
+          );
+        } else if (!isCardio && set.is_completed && reps && weight) {
           totalVolume += calculateSetVolume(weight, reps);
         }
 

@@ -42,6 +42,7 @@ import { useAuthStore } from '../application/stores/useAuthStore';
 import { calculateLocalInsights } from '../lib/insightsEngine';
 import { cn } from '../lib/utils';
 import { strengthScoreEngine } from '../lib/strengthScoreEngine';
+import { cardioScoreEngine } from '../lib/cardioScoreEngine';
 import { calculateE1RM } from '../lib/math/formulas';
 import { BASE_EXERCISES } from '../constants/exercises';
 import { calculateMuscleFatigue } from '../lib/fatigueEngine';
@@ -59,8 +60,8 @@ type TimeFilter = 'week' | 'month' | 'all';
 type ViewTab = 'performance' | 'health' | 'composition';
 
 const DEFAULT_PERFORMANCE_BLOCKS: BlockConfig[] = [
-  { id: 'hero', label: 'Métricas Principales', description: 'Volumen 7d, Series, PRs y Fuerza DOTS', visible: true },
-  { id: 'dots_detail', label: 'Fuerza Relativa (DOTS)', description: 'Puntuación y percentil atlético', visible: true },
+  { id: 'hero', label: 'Métricas Principales', description: 'Volumen 7d, Series, PRs y Score Atlético', visible: true },
+  { id: 'dots_detail', label: 'Puntuación Atlética & DOTS', description: 'Score integral, Fuerza DOTS y Resistencia Cardio', visible: true },
   { id: 'volume_chart', label: 'Progreso de Volumen', description: 'Gráfico de volumen de carga por sesión', visible: true },
   { id: 'heatmap', label: 'Matriz de Actividad', description: 'Mapa de calor y consistencia', visible: true },
   { id: 'muscle_dist', label: 'Distribución Muscular', description: 'Desglose por grupo muscular (7d)', visible: true },
@@ -76,6 +77,7 @@ export default function Analytics() {
   const [filter, setFilter] = useState<TimeFilter>('month');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
+  const [scoreTab, setScoreTab] = useState<'athletic' | 'strength' | 'cardio'>('athletic');
 
   // Stats block customization state with LocalStorage persistence
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
@@ -228,6 +230,26 @@ export default function Analytics() {
 
     return strengthScoreEngine.calculateDots(totalLiftedKg, bw, gender);
   }, [workoutSetsHistory, profile]);
+
+  // Coeficiente de Resistencia Cardio (Escala 0-500 normalizada)
+  const cardioScore = useMemo(() => {
+    const cardioSets = workoutSetsHistory.filter((s) => {
+      const isCardio = BASE_EXERCISES.find((e) => e.id === s.exercise_id)?.muscleGroup === 'Cardio';
+      return (isCardio || (s.duration_seconds && s.duration_seconds > 0)) && s.is_completed;
+    });
+    const bw = Number(profile?.weight_kg) || 70;
+    const gender = (profile?.gender as 'male' | 'female') || 'male';
+    return cardioScoreEngine.calculateCardioScore(cardioSets, bw, gender);
+  }, [workoutSetsHistory, profile]);
+
+  // Score Atlético Integral (Ponderación Inteligente Fuerza + Cardio)
+  const athleticScore = useMemo(() => {
+    return cardioScoreEngine.calculateAthleticScore(
+      dotsScore.dotsPoints,
+      cardioScore.cardioPoints,
+      profile?.goal || 'Hipertrofia'
+    );
+  }, [dotsScore.dotsPoints, cardioScore.cardioPoints, profile?.goal]);
 
   // 5. Readiness Engine (Score & factores)
   const readiness = useMemo(() => {
@@ -471,53 +493,192 @@ export default function Analytics() {
                 <p className="text-[10px] text-slate-400 font-medium">últimos 30 días</p>
               </div>
 
-              {/* Fuerza DOTS */}
+              {/* Score Atlético / Fuerza DOTS / Cardio */}
               <div className="glass p-3.5 rounded-3xl border border-brand-blue/20 bg-brand-blue/5 flex flex-col items-center justify-between text-center min-h-[105px]">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-brand-blue uppercase font-bold tracking-wider">Fuerza DOTS</span>
+                  <span className="text-[10px] text-brand-blue uppercase font-bold tracking-wider">
+                    {athleticScore.dominance === 'cardio'
+                      ? 'Score Cardio'
+                      : athleticScore.dominance === 'fuerza'
+                      ? 'Fuerza DOTS'
+                      : 'Score Atlético'}
+                  </span>
                   <Award size={13} className="text-brand-blue shrink-0" />
                 </div>
-                <p className="text-xl sm:text-2xl font-black text-slate-50 tracking-tight my-1">{dotsScore.dotsPoints}</p>
-                <p className="text-[10px] text-brand-green font-bold">{dotsScore.strengthCategory}</p>
+                <p className="text-xl sm:text-2xl font-black text-slate-50 tracking-tight my-1">
+                  {athleticScore.athleticPoints}
+                </p>
+                <p className="text-[10px] text-brand-green font-bold truncate max-w-[120px]">
+                  {athleticScore.category}
+                </p>
               </div>
             </div>
           )}
 
-          {/* DOTS Relative Strength Card Detailed */}
+          {/* Puntuación Atlética & DOTS Card Detailed */}
           {isBlockVisible('dots_detail') && (
-            <div className="glass border border-brand-blue/20 bg-gradient-to-r from-brand-blue/10 via-slate-900/60 to-slate-900/80 p-4 sm:p-5 rounded-3xl space-y-3.5 shadow-xl">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-brand-blue/20 flex items-center justify-center text-brand-blue border border-brand-blue/30 shrink-0 shadow-inner">
-                    <Trophy size={22} />
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider font-black text-brand-blue block">
-                      Coeficiente de Fuerza Relativa (DOTS)
-                    </span>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-2xl font-black text-slate-50">{dotsScore.dotsPoints} pts</span>
-                      <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                        {dotsScore.strengthCategory}
+            <div className="glass border border-brand-blue/20 bg-gradient-to-r from-brand-blue/10 via-slate-900/60 to-slate-900/80 p-4 sm:p-5 rounded-3xl space-y-4 shadow-xl">
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div className="flex items-center gap-2">
+                  <Trophy size={18} className="text-brand-blue" />
+                  <span className="text-xs font-black text-slate-100 uppercase tracking-wider">
+                    Puntuación Atlética & Rendimiento
+                  </span>
+                </div>
+                {/* Selector de Disciplina */}
+                <div className="flex items-center bg-slate-950/60 rounded-xl p-1 border border-white/5 text-[10px] font-bold">
+                  <button
+                    onClick={() => setScoreTab('athletic')}
+                    className={cn(
+                      'px-2.5 py-1 rounded-lg transition-all',
+                      scoreTab === 'athletic'
+                        ? 'bg-brand-blue text-slate-950 shadow'
+                        : 'text-slate-400 hover:text-slate-200'
+                    )}
+                  >
+                    Global
+                  </button>
+                  <button
+                    onClick={() => setScoreTab('strength')}
+                    className={cn(
+                      'px-2.5 py-1 rounded-lg transition-all',
+                      scoreTab === 'strength'
+                        ? 'bg-brand-blue text-slate-950 shadow'
+                        : 'text-slate-400 hover:text-slate-200'
+                    )}
+                  >
+                    Fuerza DOTS
+                  </button>
+                  <button
+                    onClick={() => setScoreTab('cardio')}
+                    className={cn(
+                      'px-2.5 py-1 rounded-lg transition-all',
+                      scoreTab === 'cardio'
+                        ? 'bg-brand-blue text-slate-950 shadow'
+                        : 'text-slate-400 hover:text-slate-200'
+                    )}
+                  >
+                    Cardio
+                  </button>
+                </div>
+              </div>
+
+              {scoreTab === 'athletic' && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-brand-blue/20 flex items-center justify-center text-brand-blue border border-brand-blue/30 shrink-0 shadow-inner">
+                      <Award size={22} />
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider font-black text-brand-blue block">
+                        Score Atlético Integral
                       </span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-2xl font-black text-slate-50">{athleticScore.athleticPoints} pts</span>
+                        <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                          {athleticScore.category}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
+                        <span>Fuerza: <strong className="text-slate-200">{dotsScore.dotsPoints} pts</strong></span>
+                        <span>·</span>
+                        <span>Cardio: <strong className="text-slate-200">{cardioScore.cardioPoints} pts</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="sm:text-right space-y-1.5 min-w-[180px]">
+                    <div className="flex sm:justify-end items-center gap-2">
+                      <span className="text-[11px] font-bold text-slate-300">
+                        {athleticScore.percentileText}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden border border-white/5">
+                      <div
+                        className="h-full bg-gradient-to-r from-brand-blue via-teal-400 to-emerald-400 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, (athleticScore.athleticPoints / 500) * 100)}%` }}
+                      />
                     </div>
                   </div>
                 </div>
+              )}
 
-                <div className="sm:text-right space-y-1.5 min-w-[180px]">
-                  <div className="flex sm:justify-end items-center gap-2">
-                    <span className="text-[11px] font-bold text-slate-300">
-                      {dotsScore.percentileText}
-                    </span>
+              {scoreTab === 'strength' && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-brand-blue/20 flex items-center justify-center text-brand-blue border border-brand-blue/30 shrink-0 shadow-inner">
+                      <Dumbbell size={22} />
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider font-black text-brand-blue block">
+                        Coeficiente de Fuerza Relativa (DOTS)
+                      </span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-2xl font-black text-slate-50">{dotsScore.dotsPoints} pts</span>
+                        <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                          {dotsScore.strengthCategory}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Normalizado para {Number(profile?.weight_kg) || 70} kg de peso corporal
+                      </p>
+                    </div>
                   </div>
-                  <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden border border-white/5">
-                    <div
-                      className="h-full bg-gradient-to-r from-brand-blue to-emerald-400 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, (dotsScore.dotsPoints / 500) * 100)}%` }}
-                    />
+
+                  <div className="sm:text-right space-y-1.5 min-w-[180px]">
+                    <div className="flex sm:justify-end items-center gap-2">
+                      <span className="text-[11px] font-bold text-slate-300">
+                        {dotsScore.percentileText}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden border border-white/5">
+                      <div
+                        className="h-full bg-gradient-to-r from-brand-blue to-emerald-400 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, (dotsScore.dotsPoints / 500) * 100)}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {scoreTab === 'cardio' && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-brand-blue/20 flex items-center justify-center text-brand-blue border border-brand-blue/30 shrink-0 shadow-inner">
+                      <HeartPulse size={22} />
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider font-black text-brand-blue block">
+                        Coeficiente de Resistencia Cardio
+                      </span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-2xl font-black text-slate-50">{cardioScore.cardioPoints} pts</span>
+                        <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                          {cardioScore.cardioCategory}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        {cardioScore.weeklyMinutesAvg} min/sem promedio · Mejor sesión: {cardioScore.bestDurationMinutes} min
+                        {cardioScore.bestSpeedKmH ? ` · Ritmo pico: ${cardioScore.bestSpeedKmH} km/h` : ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="sm:text-right space-y-1.5 min-w-[180px]">
+                    <div className="flex sm:justify-end items-center gap-2">
+                      <span className="text-[11px] font-bold text-slate-300">
+                        {cardioScore.percentileText}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden border border-white/5">
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-400 to-teal-300 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, (cardioScore.cardioPoints / 500) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

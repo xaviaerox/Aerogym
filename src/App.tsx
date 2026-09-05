@@ -28,6 +28,7 @@ import NetworkStatusIndicator from './components/NetworkStatusIndicator';
 import ToastContainer from './components/ui/ToastContainer';
 import Sidebar from './components/Sidebar';
 import { useGamificationStore } from './application/stores/useGamificationStore';
+import { analytics } from './infrastructure/analytics';
 
 function ViewLoader() {
   return (
@@ -46,10 +47,24 @@ export default function App() {
   const { activeSession, fetchSessions, fetchRoutines, fetchWorkoutHistory, routines, sessions } = useWorkoutStore();
   const { fetchHealth, fetchMeasurements } = useHealthStore();
 
+  // Telemetría: Registro de apertura de la app
+  useEffect(() => {
+    analytics.track('app_opened', {
+      is_pwa: typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches,
+      platform: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',
+    });
+  }, []);
+
+  // Telemetría: Registro de navegación de vistas
+  useEffect(() => {
+    analytics.page(activeTab);
+  }, [activeTab]);
+
   // Inicializar Supabase Auth
   useEffect(() => {
     initialize();
   }, [initialize]);
+
 
   // Cargar datos del usuario cuando se autentica
   useEffect(() => {

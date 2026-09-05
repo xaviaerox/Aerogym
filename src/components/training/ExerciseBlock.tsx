@@ -3,9 +3,11 @@ import { Check, Trophy, BookOpen, Sparkles, Plus, TrendingUp } from 'lucide-reac
 
 import { cn } from '../../lib/utils';
 import { calculateE1RM } from '../../lib/engine';
+import { calculateCardioEquivalentVolume, isCardioPersonalRecord } from '../../lib/math/formulas';
 import { MuscleWikiService } from '../../lib/muscleWikiService';
 import { BASE_EXERCISES } from '../../constants/exercises';
 import { useWorkoutStore, type ActiveSet, type ActiveExercise } from '../../application/stores/useWorkoutStore';
+import { useAuthStore } from '../../application/stores/useAuthStore';
 import type { WorkoutSet } from '../../infrastructure/supabase/types';
 import { progressiveOverloadEngine } from '../../lib/progressiveOverloadEngine';
 import VoiceInputBtn from './VoiceInputBtn';
@@ -33,12 +35,24 @@ export default function ExerciseBlock({
       : undefined);
 
   const isCardio = exerciseInfo?.muscleGroup === 'Cardio';
+  const userWeight = Number(useAuthStore.getState().profile?.weight_kg) || 70;
 
   const bestE1RM = isCardio
     ? 0
     : workoutSetsHistory
         .filter((s) => s.exercise_id === ex.exercise_id && s.is_completed)
         .reduce((max, s) => Math.max(max, Number(s.e1rm_kg) || 0), 0);
+
+  const cardioHistory = React.useMemo(() => {
+    if (!isCardio) return { bestDuration: 0, bestDistance: 0 };
+    const sets = workoutSetsHistory.filter(
+      (s) => s.exercise_id === ex.exercise_id && s.is_completed && s.duration_seconds && s.duration_seconds > 0
+    );
+    return {
+      bestDuration: sets.reduce((max, s) => Math.max(max, s.duration_seconds || 0), 0),
+      bestDistance: sets.reduce((max, s) => Math.max(max, s.distance_meters || 0), 0),
+    };
+  }, [isCardio, workoutSetsHistory, ex.exercise_id]);
 
   const recommendation = !isCardio
     ? progressiveOverloadEngine.getRecommendation(ex.exercise_id, workoutSetsHistory)
@@ -47,6 +61,15 @@ export default function ExerciseBlock({
   const isPR = (weight: number, reps: number) => {
     const currentE1RM = calculateE1RM(weight, reps);
     return currentE1RM > bestE1RM && weight > 0 && reps > 0;
+  };
+
+  const isCardioPR = (durationSec: number, distanceM: number | null) => {
+    return isCardioPersonalRecord(
+      durationSec,
+      distanceM,
+      cardioHistory.bestDuration,
+      cardioHistory.bestDistance > 0 ? cardioHistory.bestDistance : null
+    );
   };
 
   const handleVoiceInput = (result: { weightKg?: number; reps?: number; action?: 'complete' | 'add_set' }) => {
@@ -143,12 +166,15 @@ export default function ExerciseBlock({
           !isCardio && set.weight_kg && set.reps
             ? calculateE1RM(set.weight_kg, set.reps)
             : 0;
-        const isSetPR =
-          !isCardio && set.weight_kg && set.reps
-            ? isPR(set.weight_kg, set.reps)
-            : false;
+        const isSetPR = isCardio
+          ? (set.duration_seconds && set.duration_seconds > 0 ? isCardioPR(set.duration_seconds, set.distance_meters || null) : false)
+          : (!isCardio && set.weight_kg && set.reps ? isPR(set.weight_kg, set.reps) : false);
 
         if (isCardio) {
+          const equivVol = set.duration_seconds && set.duration_seconds > 0
+            ? calculateCardioEquivalentVolume(set.duration_seconds, userWeight, set.rpe, set.distance_meters)
+            : 0;
+
           return (
             <div
               key={set.id}
@@ -161,21 +187,29 @@ export default function ExerciseBlock({
             >
               <div className="flex flex-col items-center">
                 <span className="text-sm font-bold text-slate-500">{sIdx + 1}</span>
+                {isSetPR && set.is_completed && <Trophy size={10} className="text-yellow-400" />}
               </div>
-              <input
-                type="number"
-                value={set.duration_seconds ? Math.round(set.duration_seconds / 60) : ''}
-                placeholder="0 min"
-                onChange={(e) =>
-                  updateActiveExercise(
-                    ex.exercise_id,
-                    sIdx,
-                    'duration_seconds',
-                    (parseInt(e.target.value) || 0) * 60
-                  )
-                }
-                className="w-full bg-slate-800 text-center rounded-lg py-2 outline-none font-bold text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
-              />
+              <div className="flex flex-col">
+                <input
+                  type="number"
+                  value={set.duration_seconds ? Math.round(set.duration_seconds / 60) : ''}
+                  placeholder="0 min"
+                  onChange={(e) =>
+                    updateActiveExercise(
+                      ex.exercise_id,
+                      sIdx,
+                      'duration_seconds',
+                      (parseInt(e.target.value) || 0) * 60
+                    )
+                  }
+                  className="w-full bg-slate-800 text-center rounded-lg py-2 outline-none font-bold text-slate-100 placeholder:text-slate-600 focus:ring-1 ring-brand-blue/30"
+                />
+                {equivVol > 0 && (
+                  <p className="text-[8px] text-brand-green font-bold text-center mt-0.5">
+                    ≈{equivVol.toLocaleString()} kg
+                  </p>
+                )}
+              </div>
               <input
                 type="number"
                 value={
