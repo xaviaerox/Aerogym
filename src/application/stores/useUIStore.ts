@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export interface DashboardWidgets {
+  habits: boolean;
   sessionsCount: boolean;
   streak: boolean;
   readiness: boolean;
@@ -20,6 +21,7 @@ interface UIState {
 }
 
 const defaultWidgets: DashboardWidgets = {
+  habits: true,
   sessionsCount: true,
   streak: true,
   readiness: true,

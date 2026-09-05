@@ -7,16 +7,19 @@ import {
   User,
   Sparkles,
   Loader2,
+  CheckCircle2,
 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { useAuthStore } from './application/stores/useAuthStore';
 import { useWorkoutStore } from './application/stores/useWorkoutStore';
 import { useHealthStore } from './application/stores/useHealthStore';
+import { useHabitStore } from './application/stores/useHabitStore';
 
 // Views (Lazy Loaded for performance & code splitting)
 const AuthView = React.lazy(() => import('./views/AuthView'));
 const Dashboard = React.lazy(() => import('./views/Dashboard'));
 const RoutinesList = React.lazy(() => import('./views/RoutinesList'));
+const HabitsView = React.lazy(() => import('./views/HabitsView'));
 const TrainingSession = React.lazy(() => import('./views/TrainingSession'));
 const Analytics = React.lazy(() => import('./views/Analytics'));
 const ProfileSettings = React.lazy(() => import('./views/ProfileSettings'));
@@ -39,13 +42,14 @@ function ViewLoader() {
   );
 }
 
-type Tab = 'home' | 'workouts' | 'coach' | 'analytics' | 'profile';
+type Tab = 'home' | 'workouts' | 'habits' | 'coach' | 'analytics' | 'profile';
 
 export default function App() {
   const [activeTab, setActiveTab] = React.useState<Tab>('home');
   const { user, profile, isLoading, isAuthenticated, initialize } = useAuthStore();
   const { activeSession, fetchSessions, fetchRoutines, fetchWorkoutHistory, routines, sessions } = useWorkoutStore();
   const { fetchHealth, fetchMeasurements } = useHealthStore();
+  const { fetchHabits, fetchHabitLogs } = useHabitStore();
 
   // Telemetría: Registro de apertura de la app
   useEffect(() => {
@@ -74,8 +78,10 @@ export default function App() {
       fetchWorkoutHistory(user.id);
       fetchHealth(user.id);
       fetchMeasurements(user.id);
+      fetchHabits(user.id);
+      fetchHabitLogs(user.id);
     }
-  }, [user?.id, fetchSessions, fetchRoutines, fetchWorkoutHistory, fetchHealth, fetchMeasurements]);
+  }, [user?.id, fetchSessions, fetchRoutines, fetchWorkoutHistory, fetchHealth, fetchMeasurements, fetchHabits, fetchHabitLogs]);
 
   // Siguiente rutina sugerida (rotación automática)
   const nextSuggestedRoutine = useMemo(() => {
@@ -91,9 +97,11 @@ export default function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return <Dashboard nextRoutine={nextSuggestedRoutine} />;
+        return <Dashboard nextRoutine={nextSuggestedRoutine} onNavigateTab={setActiveTab} />;
       case 'workouts':
         return <RoutinesList />;
+      case 'habits':
+        return <HabitsView />;
       case 'coach':
         return <CoachView />;
       case 'analytics':
@@ -101,7 +109,7 @@ export default function App() {
       case 'profile':
         return <ProfileSettings />;
       default:
-        return <Dashboard nextRoutine={nextSuggestedRoutine} />;
+        return <Dashboard nextRoutine={nextSuggestedRoutine} onNavigateTab={setActiveTab} />;
     }
   };
 
@@ -172,33 +180,39 @@ export default function App() {
         </main>
 
         {/* Mobile Bottom Nav */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-dark h-20 pb-safe px-6 flex items-center justify-between z-50 rounded-t-3xl border-t border-white/5">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-dark h-20 pb-safe px-3 flex items-center justify-between z-50 rounded-t-3xl border-t border-white/5">
           <NavBtn
-            icon={<LayoutDashboard size={24} />}
+            icon={<LayoutDashboard size={22} />}
             active={activeTab === 'home'}
             onClick={() => setActiveTab('home')}
             label="Inicio"
           />
           <NavBtn
-            icon={<Dumbbell size={24} />}
+            icon={<Dumbbell size={22} />}
             active={activeTab === 'workouts'}
             onClick={() => setActiveTab('workouts')}
             label="Log"
           />
           <NavBtn
-            icon={<Sparkles size={24} />}
+            icon={<CheckCircle2 size={22} />}
+            active={activeTab === 'habits'}
+            onClick={() => setActiveTab('habits')}
+            label="Hábitos"
+          />
+          <NavBtn
+            icon={<Sparkles size={22} />}
             active={activeTab === 'coach'}
             onClick={() => setActiveTab('coach')}
             label="Coach"
           />
           <NavBtn
-            icon={<TrendingUp size={24} />}
+            icon={<TrendingUp size={22} />}
             active={activeTab === 'analytics'}
             onClick={() => setActiveTab('analytics')}
             label="Stats"
           />
           <NavBtn
-            icon={<User size={24} />}
+            icon={<User size={22} />}
             active={activeTab === 'profile'}
             onClick={() => setActiveTab('profile')}
             label="Perfil"

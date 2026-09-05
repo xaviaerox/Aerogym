@@ -54,6 +54,16 @@ export interface Database {
         Insert: Omit<Achievement, 'id' | 'earned_at'>;
         Update: Partial<Achievement>;
       };
+      habits: {
+        Row: Habit;
+        Insert: Omit<Habit, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<Habit, 'id' | 'user_id' | 'created_at'>>;
+      };
+      habit_logs: {
+        Row: HabitLog;
+        Insert: Omit<HabitLog, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<HabitLog, 'id' | 'habit_id' | 'user_id' | 'created_at'>>;
+      };
     };
   };
 }
@@ -204,4 +214,34 @@ export interface Achievement {
   icon: string | null;
   earned_at: string;
   metadata: Record<string, unknown>;
+}
+
+export type HabitFrequency = 'daily' | 'weekdays' | 'weekends' | 'custom_days';
+export type HabitCategory = 'discipline' | 'fitness' | 'productivity' | 'health' | 'learning' | 'custom';
+
+export interface Habit {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  category: HabitCategory;
+  icon: string;
+  color: string;
+  frequency: HabitFrequency;
+  target_days: number[]; // 0=Sunday, 1=Monday, ..., 6=Saturday
+  order_index: number;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface HabitLog {
+  id: string;
+  habit_id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD
+  completed: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }

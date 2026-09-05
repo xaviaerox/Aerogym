@@ -2,6 +2,7 @@ import React from 'react';
 import {
   LayoutDashboard,
   Dumbbell,
+  CheckCircle2,
   Sparkles,
   TrendingUp,
   User,
@@ -12,7 +13,7 @@ import { cn } from '../lib/utils';
 import { useAuthStore } from '../application/stores/useAuthStore';
 import { APP_VERSION, APP_EDITION, APP_AUTHOR } from '../config';
 
-type Tab = 'home' | 'workouts' | 'coach' | 'analytics' | 'profile';
+export type Tab = 'home' | 'workouts' | 'habits' | 'coach' | 'analytics' | 'profile';
 
 interface SidebarProps {
   activeTab: Tab;
@@ -26,6 +27,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const navItems: { id: Tab; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'home', label: 'Inicio', icon: <LayoutDashboard size={20} /> },
     { id: 'workouts', label: 'Entrenamientos', icon: <Dumbbell size={20} /> },
+    { id: 'habits', label: 'Hábitos', icon: <CheckCircle2 size={20} /> },
     { id: 'coach', label: 'Aero Coach AI', icon: <Sparkles size={20} />, badge: 'IA' },
     { id: 'analytics', label: 'Estadísticas', icon: <TrendingUp size={20} /> },
     { id: 'profile', label: 'Perfil', icon: <User size={20} /> },

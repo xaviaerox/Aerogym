@@ -44,13 +44,14 @@ import { strengthScoreEngine } from '../lib/strengthScoreEngine';
 import { cardioScoreEngine } from '../lib/cardioScoreEngine';
 import { calculateE1RM } from '../lib/math/formulas';
 import { BASE_EXERCISES } from '../constants/exercises';
-
+import DailyHabitsWidget from '../components/dashboard/DailyHabitsWidget';
 
 interface DashboardProps {
   nextRoutine?: Routine & { exercises: RoutineExercise[] };
+  onNavigateTab?: (tab: 'home' | 'workouts' | 'habits' | 'coach' | 'analytics' | 'profile') => void;
 }
 
-export default function Dashboard({ nextRoutine }: DashboardProps) {
+export default function Dashboard({ nextRoutine, onNavigateTab }: DashboardProps) {
   const profile = useAuthStore((s) => s.profile);
   const user = useAuthStore((s) => s.user);
   const sessions = useWorkoutStore((s) => s.sessions);
@@ -252,6 +253,7 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
 
   // Nombres descriptivos de los widgets para el panel de ajustes
   const widgetLabels: Record<keyof DashboardWidgets, string> = {
+    habits: 'Hábitos & Checklist Diario',
     sessionsCount: 'Contador de Sesiones',
     streak: 'Racha Activa',
     readiness: 'Readiness (Preparación)',
@@ -295,6 +297,11 @@ export default function Dashboard({ nextRoutine }: DashboardProps) {
             )}
           </div>
         </div>
+      )}
+
+      {/* Checklist Diario de Hábitos */}
+      {visibleWidgets.habits && (
+        <DailyHabitsWidget onOpenHabits={() => onNavigateTab?.('habits')} />
       )}
 
       {/* Siguiente Sesión */}

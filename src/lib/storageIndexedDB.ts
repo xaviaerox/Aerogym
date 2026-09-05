@@ -4,14 +4,23 @@
  */
 
 const DB_NAME = 'AeroGymOfflineDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 export const STORE_SESSIONS = 'sessions_cache';
 export const STORE_HEALTH = 'health_cache';
+export const STORE_HABITS = 'habits_cache';
+export const STORE_HABIT_LOGS = 'habit_logs_cache';
 export const STORE_SYNC_QUEUE = 'sync_queue';
 
 export interface SyncQueueAction {
   id: string;
-  type: 'SAVE_SESSION' | 'UPDATE_SESSION' | 'DELETE_SESSION';
+  type:
+    | 'SAVE_SESSION'
+    | 'UPDATE_SESSION'
+    | 'DELETE_SESSION'
+    | 'SAVE_HABIT'
+    | 'UPDATE_HABIT'
+    | 'DELETE_HABIT'
+    | 'TOGGLE_HABIT_LOG';
   payload: any;
   timestamp: string;
   retryCount: number;
@@ -33,6 +42,12 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_HEALTH)) {
         db.createObjectStore(STORE_HEALTH, { keyPath: 'date' });
+      }
+      if (!db.objectStoreNames.contains(STORE_HABITS)) {
+        db.createObjectStore(STORE_HABITS, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_HABIT_LOGS)) {
+        db.createObjectStore(STORE_HABIT_LOGS, { keyPath: 'id' });
       }
       if (!db.objectStoreNames.contains(STORE_SYNC_QUEUE)) {
         db.createObjectStore(STORE_SYNC_QUEUE, { keyPath: 'id' });

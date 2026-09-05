@@ -112,6 +112,42 @@ export class SyncEngine {
           return !error;
         }
 
+        case 'SAVE_HABIT': {
+          const { habit } = action.payload;
+          const { error } = await supabase.from('habits').insert(habit);
+          return !error;
+        }
+
+        case 'UPDATE_HABIT': {
+          const { habitId, updates } = action.payload;
+          const { error } = await supabase.from('habits').update(updates).eq('id', habitId);
+          return !error;
+        }
+
+        case 'DELETE_HABIT': {
+          const { habitId } = action.payload;
+          const { error } = await supabase.from('habits').update({ is_archived: true }).eq('id', habitId);
+          return !error;
+        }
+
+        case 'TOGGLE_HABIT_LOG': {
+          const { logItem } = action.payload;
+          const { error } = await supabase
+            .from('habit_logs')
+            .upsert(
+              {
+                habit_id: logItem.habit_id,
+                user_id: logItem.user_id,
+                date: logItem.date,
+                completed: logItem.completed,
+                notes: logItem.notes,
+                updated_at: logItem.updated_at,
+              },
+              { onConflict: 'habit_id,date' }
+            );
+          return !error;
+        }
+
         default:
           return true;
       }

@@ -27,6 +27,11 @@ export default defineConfig(({ mode }) => {
     define: {
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || ''),
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || ''),
+      'import.meta.env.VITE_SENTRY_DSN': JSON.stringify(env.VITE_SENTRY_DSN || ''),
+      'import.meta.env.VITE_POSTHOG_KEY': JSON.stringify(env.VITE_POSTHOG_KEY || ''),
+      'import.meta.env.VITE_POSTHOG_HOST': JSON.stringify(env.VITE_POSTHOG_HOST || 'https://eu.i.posthog.com'),
+      'import.meta.env.VITE_TELEMETRY_ENABLED': JSON.stringify(env.VITE_TELEMETRY_ENABLED || 'true'),
+      'import.meta.env.VITE_ANALYTICS_DEBUG': JSON.stringify(env.VITE_ANALYTICS_DEBUG || 'false'),
       'import.meta.env.VITE_APP_VERSION': JSON.stringify(packageJson.version),
       'import.meta.env.VITE_APP_BUILD_ID': JSON.stringify(getBuildId()),
       'import.meta.env.VITE_APP_COMMIT_SHA': JSON.stringify(getGitCommitHash()),
