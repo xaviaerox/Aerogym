@@ -91,14 +91,28 @@ export default function HabitsView() {
     }
   }, [user?.id, fetchHabits, fetchHabitLogs]);
 
+  // Hábitos seguros para prevenir crashes por IDs duplicados o datos corruptos
+  const safeHabits = useMemo<Habit[]>(() => {
+    if (!Array.isArray(habits)) return [];
+    const seen = new Set<string>();
+    return habits.filter((h): h is Habit => {
+      if (!h || !h.id) return false;
+      if (seen.has(h.id)) return false;
+      seen.add(h.id);
+      return true;
+    });
+  }, [habits]);
+
+  const safeLogs = useMemo<HabitLog[]>(() => (Array.isArray(habitLogs) ? habitLogs : []), [habitLogs]);
+
   // Manejador Drag & Drop
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      const oldIndex = habits.findIndex((h) => h.id === active.id);
-      const newIndex = habits.findIndex((h) => h.id === over.id);
+      const oldIndex = safeHabits.findIndex((h) => h.id === active.id);
+      const newIndex = safeHabits.findIndex((h) => h.id === over.id);
       if (oldIndex !== -1 && newIndex !== -1 && user?.id) {
-        const reordered = arrayMove(habits, oldIndex, newIndex);
+        const reordered = arrayMove<Habit>(safeHabits, oldIndex, newIndex);
         reorderHabits(user.id, reordered);
       }
     }
@@ -107,8 +121,8 @@ export default function HabitsView() {
   const moveHabit = (index: number, direction: 'up' | 'down') => {
     if (!user?.id) return;
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= habits.length) return;
-    const reordered = arrayMove(habits, index, targetIndex);
+    if (targetIndex < 0 || targetIndex >= safeHabits.length) return;
+    const reordered = arrayMove<Habit>(safeHabits, index, targetIndex);
     reorderHabits(user.id, reordered);
   };
 
@@ -146,8 +160,8 @@ export default function HabitsView() {
 
   // Estadísticas del día seleccionado
   const dailyStats = useMemo(() => {
-    return calculateDailyStats(habits, habitLogs, selectedDate);
-  }, [habits, habitLogs, selectedDate]);
+    return calculateDailyStats(safeHabits, safeLogs, selectedDate);
+  }, [safeHabits, safeLogs, selectedDate]);
 
   // Hábitos que corresponden al día seleccionado
   const dueHabitIds = useMemo(() => {
@@ -157,13 +171,13 @@ export default function HabitsView() {
   // Logs en mapa para acceso O(1)
   const logsMap = useMemo(() => {
     const map = new Map<string, HabitLog>();
-    habitLogs.forEach((l) => {
+    safeLogs.forEach((l) => {
       if (l.date === selectedDate) {
         map.set(l.habit_id, l);
       }
     });
     return map;
-  }, [habitLogs, selectedDate]);
+  }, [safeLogs, selectedDate]);
 
   const handleToggle = (habitId: string) => {
     if (!user?.id) return;
@@ -353,14 +367,14 @@ export default function HabitsView() {
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em]">
-            Checklist de Hábitos ({habits.length})
+            Checklist de Hábitos ({safeHabits.length})
           </h2>
           <span className="text-[11px] text-slate-500 font-medium">
             Arrastra para reordenar tu día
           </span>
         </div>
 
-        {habits.length === 0 ? (
+        {safeHabits.length === 0 ? (
           /* Empty State */
           <div className="glass p-8 rounded-3xl border border-white/5 text-center space-y-4">
             <div className="w-14 h-14 rounded-3xl bg-brand-blue/10 border border-brand-blue/20 flex items-center justify-center text-brand-blue mx-auto">
@@ -399,22 +413,22 @@ export default function HabitsView() {
             onDragEnd={handleDragEnd}
           >
             <SortableContext
-              items={habits.map((h) => h.id)}
+              items={safeHabits.map((h) => h.id)}
               strategy={verticalListSortingStrategy}
             >
               <div className="space-y-2.5">
-                {habits.map((habit, index) => {
+                {safeHabits.map((habit, index) => {
                   const isDue = dueHabitIds.has(habit.id);
                   const log = logsMap.get(habit.id);
                   const isCompleted = log?.completed ?? false;
-                  const streak = calculateHabitStreak(habit, habitLogs, selectedDate);
+                  const streak = calculateHabitStreak(habit, safeLogs, selectedDate);
 
                   return (
                     <SortableHabitItem
                       key={habit.id}
                       habit={habit}
                       index={index}
-                      total={habits.length}
+                      total={safeHabits.length}
                       isDue={isDue}
                       isCompleted={isCompleted}
                       streak={streak.currentStreak}
@@ -458,7 +472,7 @@ export default function HabitsView() {
       <HabitTemplatesModal
         isOpen={isTemplatesOpen}
         onClose={() => setIsTemplatesOpen(false)}
-        existingHabitNames={habits.map((h) => h.name)}
+        existingHabitNames={safeHabits.map((h) => h.name)}
         onAddPresets={async (presetIds) => {
           if (user?.id) {
             await createPresetHabits(user.id, presetIds);

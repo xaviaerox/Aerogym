@@ -42,10 +42,12 @@ export const useHabitStore = create<HabitState>((set, get) => ({
     set({ isLoading: true });
     try {
       const data = await supabaseHabitRepository.fetchHabits(userId);
-      const sorted = [...data].sort((a, b) => a.order_index - b.order_index);
+      const safeData = Array.isArray(data) ? data : [];
+      const sorted = [...safeData].sort((a, b) => a.order_index - b.order_index);
       set({ habits: sorted });
     } catch (e) {
       console.error('Error fetching habits:', e);
+      set({ habits: [] });
     } finally {
       set({ isLoading: false });
     }
@@ -54,16 +56,18 @@ export const useHabitStore = create<HabitState>((set, get) => ({
   fetchHabitLogs: async (userId: string, startDate?: string, endDate?: string) => {
     try {
       const data = await supabaseHabitRepository.fetchHabitLogs(userId, startDate, endDate);
-      set({ habitLogs: data });
+      const safeData = Array.isArray(data) ? data : [];
+      set({ habitLogs: safeData });
     } catch (e) {
       console.error('Error fetching habit logs:', e);
+      set({ habitLogs: [] });
     }
   },
 
   createHabit: async (userId, habitData) => {
     set({ isSaving: true });
     try {
-      const currentHabits = get().habits;
+      const currentHabits = Array.isArray(get().habits) ? get().habits : [];
       const nextOrder = currentHabits.length > 0 ? Math.max(...currentHabits.map((h) => h.order_index)) + 1 : 0;
 
       const payload = {
@@ -75,9 +79,12 @@ export const useHabitStore = create<HabitState>((set, get) => ({
 
       const created = await supabaseHabitRepository.saveHabit(payload);
       if (created) {
-        set((state) => ({
-          habits: [...state.habits, created].sort((a, b) => a.order_index - b.order_index),
-        }));
+        set((state) => {
+          const prev = Array.isArray(state.habits) ? state.habits : [];
+          return {
+            habits: [...prev, created].sort((a, b) => a.order_index - b.order_index),
+          };
+        });
         return created;
       }
       return null;
@@ -91,9 +98,12 @@ export const useHabitStore = create<HabitState>((set, get) => ({
 
   updateHabit: async (habitId, updates) => {
     // Actualización optimista
-    set((state) => ({
-      habits: state.habits.map((h) => (h.id === habitId ? { ...h, ...updates } : h)),
-    }));
+    set((state) => {
+      const prev = Array.isArray(state.habits) ? state.habits : [];
+      return {
+        habits: prev.map((h) => (h.id === habitId ? { ...h, ...updates } : h)),
+      };
+    });
 
     try {
       await supabaseHabitRepository.updateHabit(habitId, updates);
@@ -104,9 +114,12 @@ export const useHabitStore = create<HabitState>((set, get) => ({
 
   deleteHabit: async (habitId) => {
     // Actualización optimista
-    set((state) => ({
-      habits: state.habits.filter((h) => h.id !== habitId),
-    }));
+    set((state) => {
+      const prev = Array.isArray(state.habits) ? state.habits : [];
+      return {
+        habits: prev.filter((h) => h.id !== habitId),
+      };
+    });
 
     try {
       await supabaseHabitRepository.deleteHabit(habitId);
@@ -116,7 +129,8 @@ export const useHabitStore = create<HabitState>((set, get) => ({
   },
 
   reorderHabits: async (userId, reorderedHabits) => {
-    const updated = reorderedHabits.map((h, idx) => ({ ...h, order_index: idx }));
+    const safeList = Array.isArray(reorderedHabits) ? reorderedHabits : [];
+    const updated = safeList.map((h, idx) => ({ ...h, order_index: idx }));
     set({ habits: updated });
 
     try {
@@ -130,7 +144,7 @@ export const useHabitStore = create<HabitState>((set, get) => ({
   },
 
   toggleHabitLog: async (userId, habitId, date, notes) => {
-    const currentLogs = get().habitLogs;
+    const currentLogs = Array.isArray(get().habitLogs) ? get().habitLogs : [];
     const existingLog = currentLogs.find((l) => l.habit_id === habitId && l.date === date);
     const newCompleted = existingLog ? !existingLog.completed : true;
 
@@ -145,7 +159,7 @@ export const useHabitStore = create<HabitState>((set, get) => ({
       });
     } else {
       const tempLog: HabitLog = {
-        id: `log-${habitId}-${date}`,
+        id: `log-${habitId}-${date}-${Math.random().toString(36).substring(2, 7)}`,
         habit_id: habitId,
         user_id: userId,
         date,
@@ -168,11 +182,15 @@ export const useHabitStore = create<HabitState>((set, get) => ({
     set({ isSaving: true });
     try {
       const toCreate = PRESET_HABITS.filter((p) => presetIds.includes(p.id));
-      for (const preset of toCreate) {
-        const currentHabits = get().habits;
-        const exists = currentHabits.some((h) => h.name.toLowerCase() === preset.name.toLowerCase());
+      const addedHabits: Habit[] = [];
+      for (let i = 0; i < toCreate.length; i++) {
+        const preset = toCreate[i];
+        const currentHabits = Array.isArray(get().habits) ? get().habits : [];
+        const exists =
+          currentHabits.some((h) => h.name.toLowerCase() === preset.name.toLowerCase()) ||
+          addedHabits.some((h) => h.name.toLowerCase() === preset.name.toLowerCase());
         if (!exists) {
-          const nextOrder = currentHabits.length;
+          const nextOrder = currentHabits.length + addedHabits.length;
           const created = await supabaseHabitRepository.saveHabit({
             user_id: userId,
             name: preset.name,
@@ -186,7 +204,11 @@ export const useHabitStore = create<HabitState>((set, get) => ({
             is_archived: false,
           });
           if (created) {
-            set((state) => ({ habits: [...state.habits, created] }));
+            addedHabits.push(created);
+            set((state) => {
+              const prev = Array.isArray(state.habits) ? state.habits : [];
+              return { habits: [...prev, created] };
+            });
           }
         }
       }

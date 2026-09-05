@@ -64,7 +64,11 @@ export async function setItemIndexedDB<T>(storeName: string, key: string, value:
     const db = await openDB();
     const tx = db.transaction(storeName, 'readwrite');
     const store = tx.objectStore(storeName);
-    store.put(typeof value === 'object' && value !== null ? { ...value, id: key } : { id: key, data: value });
+    const toStore =
+      typeof value === 'object' && value !== null && !Array.isArray(value)
+        ? { ...value, id: key }
+        : { id: key, data: value };
+    store.put(toStore);
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
@@ -82,7 +86,11 @@ export async function bulkSetIndexedDB<T>(storeName: string, items: { key: strin
     const store = tx.objectStore(storeName);
     for (const item of items) {
       const val = item.value;
-      store.put(typeof val === 'object' && val !== null ? { ...val, id: item.key } : { id: item.key, data: val });
+      const toStore =
+        typeof val === 'object' && val !== null && !Array.isArray(val)
+          ? { ...val, id: item.key }
+          : { id: item.key, data: val };
+      store.put(toStore);
     }
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
@@ -105,14 +113,37 @@ export async function getItemIndexedDB<T>(storeName: string, key: string): Promi
     return new Promise((resolve, reject) => {
       request.onsuccess = () => {
         const res = request.result;
-        if (!res) resolve(null);
-        else resolve(res.data !== undefined ? res.data : res);
+        if (!res) {
+          resolve(null);
+          return;
+        }
+        if (res.data !== undefined) {
+          resolve(res.data);
+          return;
+        }
+        // Fallback recovery: if an array was saved as an object with numeric keys ('0', '1', ...)
+        if (typeof res === 'object' && '0' in res) {
+          const { id, ...items } = res;
+          resolve(Object.values(items) as unknown as T);
+          return;
+        }
+        resolve(res);
       };
       request.onerror = () => reject(request.error);
     });
   } catch (e) {
     const fallback = localStorage.getItem(`idb_fallback_${storeName}_${key}`);
-    return fallback ? JSON.parse(fallback) : null;
+    if (!fallback) return null;
+    try {
+      const parsed = JSON.parse(fallback);
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) && '0' in parsed) {
+        const { id, ...items } = parsed;
+        return Object.values(items) as unknown as T;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
   }
 }
 

@@ -8,6 +8,7 @@ import {
   calculateHabitStreak,
   formatDateString,
 } from '../../lib/habitsEngine';
+import type { Habit, HabitLog } from '../../infrastructure/supabase/types';
 import HabitIcon from '../habits/HabitIcon';
 import { cn } from '../../lib/utils';
 
@@ -19,30 +20,43 @@ export default function DailyHabitsWidget({ onOpenHabits }: DailyHabitsWidgetPro
   const { user } = useAuthStore();
   const { habits, habitLogs, toggleHabitLog } = useHabitStore();
 
+  const safeHabits = useMemo<Habit[]>(() => {
+    if (!Array.isArray(habits)) return [];
+    const seen = new Set<string>();
+    return habits.filter((h): h is Habit => {
+      if (!h || !h.id) return false;
+      if (seen.has(h.id)) return false;
+      seen.add(h.id);
+      return true;
+    });
+  }, [habits]);
+
+  const safeLogs = useMemo<HabitLog[]>(() => (Array.isArray(habitLogs) ? habitLogs : []), [habitLogs]);
+
   const todayStr = useMemo(() => formatDateString(new Date()), []);
 
   const stats = useMemo(() => {
-    return calculateDailyStats(habits, habitLogs, todayStr);
-  }, [habits, habitLogs, todayStr]);
+    return calculateDailyStats(safeHabits, safeLogs, todayStr);
+  }, [safeHabits, safeLogs, todayStr]);
 
   const completedMap = useMemo(() => {
     const set = new Set<string>();
-    habitLogs.forEach((l) => {
+    safeLogs.forEach((l) => {
       if (l.date === todayStr && l.completed) {
         set.add(l.habit_id);
       }
     });
     return set;
-  }, [habitLogs, todayStr]);
+  }, [safeLogs, todayStr]);
 
   const handleToggle = (e: React.MouseEvent, habitId: string) => {
     e.stopPropagation();
     if (!user?.id) return;
-    const currentLog = habitLogs.find((l) => l.habit_id === habitId && l.date === todayStr);
+    const currentLog = safeLogs.find((l) => l.habit_id === habitId && l.date === todayStr);
     toggleHabitLog(user.id, habitId, todayStr, currentLog?.notes);
   };
 
-  if (habits.length === 0) {
+  if (safeHabits.length === 0) {
     return (
       <section className="space-y-3">
         <div className="flex items-center justify-between px-1">
@@ -138,7 +152,7 @@ export default function DailyHabitsWidget({ onOpenHabits }: DailyHabitsWidgetPro
         <div className="space-y-2">
           {stats.dueHabits.slice(0, 5).map((habit) => {
             const isCompleted = completedMap.has(habit.id);
-            const streak = calculateHabitStreak(habit, habitLogs, todayStr);
+            const streak = calculateHabitStreak(habit, safeLogs, todayStr);
 
             return (
               <div

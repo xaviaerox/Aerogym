@@ -34,12 +34,15 @@ export class SupabaseHabitRepository implements IHabitRepository {
       }
     }
 
-    const cached = await getItemIndexedDB<Habit[]>(STORE_HABITS, `user_${userId}`);
-    return cached || [];
+    const rawCached = await getItemIndexedDB<Habit[]>(STORE_HABITS, `user_${userId}`);
+    return Array.isArray(rawCached) ? rawCached : [];
   }
 
   async saveHabit(habit: Omit<Habit, 'id' | 'created_at' | 'updated_at'>): Promise<Habit> {
-    const tempId = `habit-${Date.now()}`;
+    const tempId =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `habit-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const now = new Date().toISOString();
     const newHabit: Habit = {
       ...habit,
@@ -49,8 +52,11 @@ export class SupabaseHabitRepository implements IHabitRepository {
     };
 
     // Actualizar cache local
-    const cached = (await getItemIndexedDB<Habit[]>(STORE_HABITS, `user_${habit.user_id}`)) || [];
-    await setItemIndexedDB(STORE_HABITS, `user_${habit.user_id}`, [...cached, newHabit]);
+    const rawCached = await getItemIndexedDB<Habit[]>(STORE_HABITS, `user_${habit.user_id}`);
+    const cached = Array.isArray(rawCached) ? rawCached : [];
+    // Filtrar por si acaso ya existía con este id
+    const filteredCached = cached.filter((h) => h.id !== tempId);
+    await setItemIndexedDB(STORE_HABITS, `user_${habit.user_id}`, [...filteredCached, newHabit]);
 
     if (!syncEngine.isOnline() || this.isGuest(habit.user_id)) {
       if (!this.isGuest(habit.user_id)) {
@@ -65,7 +71,10 @@ export class SupabaseHabitRepository implements IHabitRepository {
     try {
       const { data, error } = await supabase
         .from('habits')
-        .insert(habit)
+        .insert({
+          id: tempId,
+          ...habit,
+        })
         .select()
         .single();
 
@@ -77,8 +86,8 @@ export class SupabaseHabitRepository implements IHabitRepository {
         return newHabit;
       }
 
-      // Reemplazar id temporal en cache local
-      const updatedCache = cached.map((h) => (h.id === tempId ? (data as Habit) : h));
+      // Reemplazar o actualizar en cache local con la respuesta de Supabase
+      const updatedCache = filteredCached.map((h) => (h.id === tempId ? (data as Habit) : h));
       if (!updatedCache.some((h) => h.id === data.id)) {
         updatedCache.push(data as Habit);
       }
@@ -94,10 +103,10 @@ export class SupabaseHabitRepository implements IHabitRepository {
   }
 
   async updateHabit(habitId: string, updates: Partial<Habit>): Promise<void> {
-    // Actualizar en cache local
     const userId = updates.user_id;
     if (userId) {
-      const cached = (await getItemIndexedDB<Habit[]>(STORE_HABITS, `user_${userId}`)) || [];
+      const rawCached = await getItemIndexedDB<Habit[]>(STORE_HABITS, `user_${userId}`);
+      const cached = Array.isArray(rawCached) ? rawCached : [];
       const updatedCache = cached.map((h) =>
         h.id === habitId ? { ...h, ...updates, updated_at: new Date().toISOString() } : h
       );
@@ -154,7 +163,8 @@ export class SupabaseHabitRepository implements IHabitRepository {
   }
 
   async reorderHabits(userId: string, habitIds: string[]): Promise<void> {
-    const cached = (await getItemIndexedDB<Habit[]>(STORE_HABITS, `user_${userId}`)) || [];
+    const rawCached = await getItemIndexedDB<Habit[]>(STORE_HABITS, `user_${userId}`);
+    const cached = Array.isArray(rawCached) ? rawCached : [];
     const reordered = habitIds
       .map((id, index) => {
         const found = cached.find((h) => h.id === id);
@@ -191,7 +201,7 @@ export class SupabaseHabitRepository implements IHabitRepository {
         if (endDate) query = query.lte('date', endDate);
 
         const { data, error } = await query;
-        if (!error && data) {
+        if (!error && Array.isArray(data)) {
           await setItemIndexedDB(STORE_HABIT_LOGS, `user_${userId}`, data);
           return data as HabitLog[];
         }
@@ -200,8 +210,8 @@ export class SupabaseHabitRepository implements IHabitRepository {
       }
     }
 
-    const cached = await getItemIndexedDB<HabitLog[]>(STORE_HABIT_LOGS, `user_${userId}`);
-    return cached || [];
+    const rawCached = await getItemIndexedDB<HabitLog[]>(STORE_HABIT_LOGS, `user_${userId}`);
+    return Array.isArray(rawCached) ? rawCached : [];
   }
 
   async toggleHabitLog(
@@ -211,7 +221,10 @@ export class SupabaseHabitRepository implements IHabitRepository {
     completed: boolean,
     notes?: string | null
   ): Promise<HabitLog> {
-    const tempId = `log-${habitId}-${date}`;
+    const tempId =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `log-${habitId}-${date}-${Math.random().toString(36).substring(2, 9)}`;
     const now = new Date().toISOString();
     const logItem: HabitLog = {
       id: tempId,
@@ -225,7 +238,8 @@ export class SupabaseHabitRepository implements IHabitRepository {
     };
 
     // Actualizar cache local
-    const cached = (await getItemIndexedDB<HabitLog[]>(STORE_HABIT_LOGS, `user_${userId}`)) || [];
+    const rawCached = await getItemIndexedDB<HabitLog[]>(STORE_HABIT_LOGS, `user_${userId}`);
+    const cached = Array.isArray(rawCached) ? rawCached : [];
     const filtered = cached.filter((l) => !(l.habit_id === habitId && l.date === date));
     const updatedCache = [logItem, ...filtered];
     await setItemIndexedDB(STORE_HABIT_LOGS, `user_${userId}`, updatedCache);
@@ -245,6 +259,7 @@ export class SupabaseHabitRepository implements IHabitRepository {
         .from('habit_logs')
         .upsert(
           {
+            id: tempId,
             habit_id: habitId,
             user_id: userId,
             date,
