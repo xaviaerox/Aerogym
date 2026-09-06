@@ -12,13 +12,15 @@
  *  - AddExerciseBtn (exercise picker modal)
  *  - ExerciseGuideModal (exercise step-by-step guide)
  */
-import { useState } from 'react';
-import { X, Timer } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Timer, Mic, MicOff } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { calculateE1RM } from '../lib/engine';
 import { useAuthStore } from '../application/stores/useAuthStore';
 import { useWorkoutStore, type ActiveSet } from '../application/stores/useWorkoutStore';
 import { useGamificationStore } from '../application/stores/useGamificationStore';
+import { useToastStore } from '../application/stores/useToastStore';
+import { parseVoiceInputToSet } from '../lib/voiceParserEngine';
 import { MuscleWikiService } from '../lib/muscleWikiService';
 import type { MuscleWikiExercise } from '../lib/muscleWikiService';
 import { vibrateSuccess, vibrateTimerAlert } from '../lib/haptics';
@@ -31,14 +33,14 @@ import ExerciseGuideModal from '../components/training/ExerciseGuideModal';
 function ActiveSessionTimer({ startedAt }: { startedAt: string }) {
   const [elapsed, setElapsed] = useState(0);
 
-  // Update every second
-  useState(() => {
+  // Update every second with proper useEffect cleanup
+  useEffect(() => {
     const startMs = new Date(startedAt).getTime();
     const update = () => setElapsed(Math.max(0, Math.floor((Date.now() - startMs) / 1000)));
     update();
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
-  });
+  }, [startedAt]);
 
   const hrs = Math.floor(elapsed / 3600);
   const mins = Math.floor((elapsed % 3600) / 60);
@@ -66,11 +68,93 @@ export default function TrainingSession() {
   const toggleSetComplete = useWorkoutStore((s) => s.toggleSetComplete);
   const addExerciseToActive = useWorkoutStore((s) => s.addExerciseToActive);
   const workoutSetsHistory = useWorkoutStore((s) => s.workoutSetsHistory);
+  const updateActiveExercise = useWorkoutStore((s) => s.updateActiveExercise);
+  const addToast = useToastStore((s) => s.addToast);
+  const showToast = (title: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    addToast({ title, type });
+  };
 
   const [timerStart, setTimerStart] = useState<number | null>(null);
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState('');
   const [difficulty, setDifficulty] = useState<number | undefined>();
+  const [isListening, setIsListening] = useState(false);
+
+  const handleVoiceInput = () => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      showToast('El dictado por voz no está soportado en este navegador', 'warning');
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'es-ES';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        showToast('🎙️ Escuchando... Di ej: "80 kilos 10 repeticiones"', 'info');
+      };
+
+      recognition.onresult = (event: any) => {
+        setIsListening(false);
+        const speechResult = event.results?.[0]?.[0]?.transcript || '';
+        const parsed = parseVoiceInputToSet(speechResult);
+
+        if (parsed.weightKg !== null || parsed.reps !== null) {
+          if (activeSession && activeSession.exercises.length > 0) {
+            let targetEx = activeSession.exercises[0];
+            let targetSetIdx = 0;
+
+            for (const ex of activeSession.exercises) {
+              const pendingIdx = ex.sets.findIndex((s) => !s.is_completed);
+              if (pendingIdx !== -1) {
+                targetEx = ex;
+                targetSetIdx = pendingIdx;
+                break;
+              }
+            }
+
+            if (parsed.weightKg !== null) {
+              updateActiveExercise(targetEx.exercise_id, targetSetIdx, 'weight_kg', parsed.weightKg);
+            }
+            if (parsed.reps !== null) {
+              updateActiveExercise(targetEx.exercise_id, targetSetIdx, 'reps', parsed.reps);
+            }
+            if (parsed.rpe !== null) {
+              updateActiveExercise(targetEx.exercise_id, targetSetIdx, 'rpe', parsed.rpe);
+            }
+
+            showToast(
+              `✓ Serie actualizada: ${parsed.weightKg ?? '-'} kg x ${parsed.reps ?? '-'} reps ${
+                parsed.rpe ? `(RPE ${parsed.rpe})` : ''
+              }`,
+              'success'
+            );
+          }
+        } else {
+          showToast(`No se detectó peso o reps en: "${speechResult}"`, 'warning');
+        }
+      };
+
+      recognition.onerror = () => {
+        setIsListening(false);
+        showToast('Error o permiso denegado en el micrófono', 'error');
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.start();
+    } catch {
+      setIsListening(false);
+      showToast('No se pudo inicializar el micrófono', 'error');
+    }
+  };
 
   // Exercise guide modal state
   const [guideOpen, setGuideOpen] = useState(false);
@@ -178,12 +262,26 @@ export default function TrainingSession() {
             <ActiveSessionTimer startedAt={activeSession.started_at} />
           </div>
         </div>
-        <button
-          onClick={cancelSession}
-          className="p-2 glass rounded-full text-slate-400 hover:text-slate-200 transition-colors"
-        >
-          <X size={20} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleVoiceInput}
+            title="Dictar serie por voz"
+            className={cn(
+              'p-2 glass rounded-full transition-all flex items-center justify-center',
+              isListening
+                ? 'bg-red-500/20 text-red-400 border border-red-500/50 animate-pulse'
+                : 'text-brand-blue hover:text-white border-brand-blue/30'
+            )}
+          >
+            {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+          </button>
+          <button
+            onClick={cancelSession}
+            className="p-2 glass rounded-full text-slate-400 hover:text-slate-200 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
       </div>
 
       {/* ── Rest Timer ─────────────────────────────────────────────────── */}

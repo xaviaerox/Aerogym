@@ -32,6 +32,7 @@ import ToastContainer from './components/ui/ToastContainer';
 import Sidebar from './components/Sidebar';
 import { useGamificationStore } from './application/stores/useGamificationStore';
 import { analytics } from './infrastructure/analytics';
+import { syncEngine } from './infrastructure/sync/SyncEngine';
 
 function ViewLoader() {
   return (
@@ -57,6 +58,9 @@ export default function App() {
       is_pwa: typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches,
       platform: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',
     });
+    if (syncEngine.isOnline()) {
+      syncEngine.triggerSync(1000);
+    }
   }, []);
 
   // Telemetría: Registro de navegación de vistas
@@ -80,6 +84,9 @@ export default function App() {
       fetchMeasurements(user.id);
       fetchHabits(user.id);
       fetchHabitLogs(user.id);
+      if (syncEngine.isOnline()) {
+        syncEngine.triggerSync(500);
+      }
     }
   }, [user?.id, fetchSessions, fetchRoutines, fetchWorkoutHistory, fetchHealth, fetchMeasurements, fetchHabits, fetchHabitLogs]);
 

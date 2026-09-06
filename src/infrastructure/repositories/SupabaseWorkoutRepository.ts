@@ -7,8 +7,12 @@ import { BASE_EXERCISES } from '../../constants/exercises';
 import { calculateE1RM, calculateSetVolume, calculateCardioEquivalentVolume } from '../../lib/math/formulas';
 
 export class SupabaseWorkoutRepository implements IWorkoutRepository {
+  private isGuest(userId: string): boolean {
+    return userId.startsWith('guest-');
+  }
+
   async fetchSessions(userId: string, limit = 100): Promise<WorkoutSession[]> {
-    if (syncEngine.isOnline()) {
+    if (syncEngine.isOnline() && !this.isGuest(userId)) {
       try {
         const { data, error } = await supabase
           .from('workout_sessions')
@@ -35,7 +39,7 @@ export class SupabaseWorkoutRepository implements IWorkoutRepository {
     cursor?: string,
     limit = 20
   ): Promise<{ data: WorkoutSession[]; nextCursor?: string }> {
-    if (syncEngine.isOnline()) {
+    if (syncEngine.isOnline() && !this.isGuest(userId)) {
       try {
         let query = supabase
           .from('workout_sessions')
@@ -66,7 +70,7 @@ export class SupabaseWorkoutRepository implements IWorkoutRepository {
   }
 
   async fetchWorkoutHistory(userId: string, limit = 250): Promise<WorkoutSet[]> {
-    if (syncEngine.isOnline()) {
+    if (syncEngine.isOnline() && !this.isGuest(userId)) {
       try {
         const { data, error } = await supabase
           .from('workout_sets')
@@ -100,6 +104,13 @@ export class SupabaseWorkoutRepository implements IWorkoutRepository {
       created_at: new Date().toISOString(),
     };
 
+    // Si es modo invitado, guardar exclusivamente en caché local sin encolar a Supabase
+    if (this.isGuest(session.user_id)) {
+      const cached = (await getItemIndexedDB<WorkoutSession[]>(STORE_SESSIONS, `user_${session.user_id}`)) || [];
+      await setItemIndexedDB(STORE_SESSIONS, `user_${session.user_id}`, [newSession, ...cached]);
+      return newSession;
+    }
+
     if (!syncEngine.isOnline()) {
       await enqueueSyncAction({
         type: 'SAVE_SESSION',
@@ -132,18 +143,31 @@ export class SupabaseWorkoutRepository implements IWorkoutRepository {
         if (setsError) console.warn('Error inserting sets online:', setsError);
       }
 
+      // Update local cache with real session from Supabase
+      const cached = (await getItemIndexedDB<WorkoutSession[]>(STORE_SESSIONS, `user_${session.user_id}`)) || [];
+      await setItemIndexedDB(STORE_SESSIONS, `user_${session.user_id}`, [sessionData, ...cached]);
+
       return sessionData;
     } catch (e) {
       console.warn('Online insert failed, enqueuing for offline sync:', e);
-      await enqueueSyncAction({
-        type: 'SAVE_SESSION',
-        payload: { session, sets },
-      });
+      if (!this.isGuest(session.user_id)) {
+        await enqueueSyncAction({
+          type: 'SAVE_SESSION',
+          payload: { session, sets },
+        });
+      }
+      const cached = (await getItemIndexedDB<WorkoutSession[]>(STORE_SESSIONS, `user_${session.user_id}`)) || [];
+      await setItemIndexedDB(STORE_SESSIONS, `user_${session.user_id}`, [newSession, ...cached]);
       return newSession;
     }
   }
 
   async updatePastSession(sessionId: string, updates: Partial<WorkoutSession>): Promise<void> {
+    const userId = updates.user_id;
+    if (userId && this.isGuest(userId)) {
+      return;
+    }
+
     if (!syncEngine.isOnline()) {
       await enqueueSyncAction({
         type: 'UPDATE_SESSION',
@@ -160,14 +184,21 @@ export class SupabaseWorkoutRepository implements IWorkoutRepository {
 
       if (error) throw error;
     } catch (e) {
-      await enqueueSyncAction({
-        type: 'UPDATE_SESSION',
-        payload: { sessionId, updates },
-      });
+      if (!userId || !this.isGuest(userId)) {
+        await enqueueSyncAction({
+          type: 'UPDATE_SESSION',
+          payload: { sessionId, updates },
+        });
+      }
     }
   }
 
   async deletePastSession(sessionId: string): Promise<void> {
+    if (sessionId.startsWith('session-')) {
+      // Offline o sesión de invitado, no sincronizar a Supabase
+      return;
+    }
+
     if (!syncEngine.isOnline()) {
       await enqueueSyncAction({
         type: 'DELETE_SESSION',
@@ -192,7 +223,7 @@ export class SupabaseWorkoutRepository implements IWorkoutRepository {
   }
 
   async fetchRoutines(userId: string): Promise<(Routine & { exercises: RoutineExercise[] })[]> {
-    if (syncEngine.isOnline()) {
+    if (syncEngine.isOnline() && !this.isGuest(userId)) {
       try {
         const { data: routinesData, error: routinesError } = await supabase
           .from('routines')

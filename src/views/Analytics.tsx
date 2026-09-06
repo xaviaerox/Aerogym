@@ -1,8 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -10,8 +8,6 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  AreaChart,
-  Area,
   ReferenceLine,
 } from 'recharts';
 import { format, subDays } from 'date-fns';
@@ -26,8 +22,6 @@ import {
   Sparkles,
   Trophy,
   Zap,
-  Check,
-  X,
   Footprints,
   HeartPulse,
   Award,
@@ -55,6 +49,8 @@ import StatsCustomizerModal, { BlockConfig } from '../components/analytics/Stats
 import VolumeChart from '../components/analytics/VolumeChart';
 import MuscleDistributionChart from '../components/analytics/MuscleDistributionChart';
 import E1RMProgressChart from '../components/analytics/E1RMProgressChart';
+import BodyCompositionTab from './analytics/BodyCompositionTab';
+import ReadinessDiagnosticModal from './analytics/ReadinessDiagnosticModal';
 
 type TimeFilter = 'week' | 'month' | 'all';
 type ViewTab = 'performance' | 'health' | 'composition';
@@ -149,22 +145,22 @@ export default function Analytics() {
     vol: s.total_volume_kg || 0,
   }));
 
-  // 1. Cálculo de Volumen de los últimos 7 días vs los 7 días anteriores
-  const now = new Date();
-  const weekAgo = subDays(now, 7);
-  const twoWeeksAgo = subDays(now, 14);
+  const now = useMemo(() => new Date(), []);
 
-  const thisWeekSessions = useMemo(
-    () => sessions.filter((s) => new Date(s.started_at) >= weekAgo),
-    [sessions, weekAgo]
-  );
-  const prevWeekSessions = useMemo(
-    () => sessions.filter((s) => {
+  // 1. Cálculo de Volumen de los últimos 7 días vs los 7 días anteriores
+  const thisWeekSessions = useMemo(() => {
+    const weekAgo = subDays(now, 7);
+    return sessions.filter((s) => new Date(s.started_at) >= weekAgo);
+  }, [sessions, now]);
+
+  const prevWeekSessions = useMemo(() => {
+    const weekAgo = subDays(now, 7);
+    const twoWeeksAgo = subDays(now, 14);
+    return sessions.filter((s) => {
       const d = new Date(s.started_at);
       return d >= twoWeeksAgo && d < weekAgo;
-    }),
-    [sessions, twoWeeksAgo, weekAgo]
-  );
+    });
+  }, [sessions, now]);
 
   const thisWeekVol = thisWeekSessions.reduce((acc, s) => acc + (s.total_volume_kg || 0), 0);
   const prevWeekVol = prevWeekSessions.reduce((acc, s) => acc + (s.total_volume_kg || 0), 0);
@@ -176,10 +172,10 @@ export default function Analytics() {
     : 0;
 
   // 2. Series Efectivas Totales (7 días)
-  const recentSets = useMemo(
-    () => workoutSetsHistory.filter((s) => s.is_completed && new Date(s.logged_at || Date.now()) >= weekAgo),
-    [workoutSetsHistory, weekAgo]
-  );
+  const recentSets = useMemo(() => {
+    const weekAgo = subDays(new Date(), 7);
+    return workoutSetsHistory.filter((s) => s.is_completed && new Date(s.logged_at || Date.now()) >= weekAgo);
+  }, [workoutSetsHistory]);
   const totalEffectiveSets7d = recentSets.length;
 
   // 3. Distribución por Grupo Muscular (7d)
@@ -201,11 +197,10 @@ export default function Analytics() {
   }, [recentSets]);
 
   // 4. Conteo de Récords Personales (30d)
-  const thirtyDaysAgo = subDays(now, 30);
-  const recentPRs30d = useMemo(
-    () => workoutSetsHistory.filter((s) => s.is_completed && s.is_pr && new Date(s.logged_at || Date.now()) >= thirtyDaysAgo).length,
-    [workoutSetsHistory, thirtyDaysAgo]
-  );
+  const recentPRs30d = useMemo(() => {
+    const thirtyDaysAgo = subDays(new Date(), 30);
+    return workoutSetsHistory.filter((s) => s.is_completed && s.is_pr && new Date(s.logged_at || Date.now()) >= thirtyDaysAgo).length;
+  }, [workoutSetsHistory]);
 
   // Coeficiente de Fuerza Relativa DOTS
   const dotsScore = useMemo(() => {
@@ -317,7 +312,7 @@ export default function Analytics() {
       colorClass,
       factors
     };
-  }, [todayHealth, dailyHealth, sessions]);
+  }, [todayHealth, dailyHealth, sessions, now]);
 
   // Consistencia de los últimos 7 días
   const last7Days = useMemo(() => {
@@ -334,7 +329,7 @@ export default function Analytics() {
         volKg,
       };
     });
-  }, [sessions]);
+  }, [sessions, now]);
 
   // Promedio de sueño (7d)
   const avgSleep7d = useMemo(() => {
@@ -906,162 +901,19 @@ export default function Analytics() {
 
       {/* ── COMPOSICIÓN TAB ────────────────────────────────────────── */}
       {activeTab === 'composition' && (
-        <div className="space-y-6 animate-in fade-in duration-300">
-          {compositionData.length > 0 ? (
-            <>
-              {/* Peso & Grasa Chart */}
-              <section className="space-y-4">
-                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2 px-1">
-                  <Scale size={16} className="text-rose-400" /> Peso Corporal e Índice de Grasa
-                </h2>
-                <div className="h-64 glass p-4 rounded-3xl border border-white/5">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={compositionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="weightGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2} />
-                          <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} />
-                      <YAxis stroke="#64748b" fontSize={10} tickLine={false} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '11px', color: '#f8fafc' }}
-                      />
-                      <Area type="monotone" dataKey="weight" name="Peso (kg)" stroke="#f43f5e" strokeWidth={3} fillOpacity={1} fill="url(#weightGrad)" dot={{ fill: '#f43f5e', r: 3 }} />
-                      <Line type="monotone" dataKey="fat" name="Grasa (%)" stroke="#38bdf8" strokeWidth={2} dot={{ fill: '#38bdf8', r: 3 }} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </section>
-
-              {/* Medidas de Contornos Chart */}
-              <section className="space-y-4">
-                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2 px-1">
-                  <Activity size={16} className="text-brand-blue" /> Contornos y Medidas (cm)
-                </h2>
-                <div className="h-56 glass p-4 rounded-3xl border border-white/5">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={compositionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} />
-                      <YAxis stroke="#64748b" fontSize={10} tickLine={false} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '11px', color: '#f8fafc' }}
-                      />
-                      <Line type="monotone" dataKey="waist" name="Cintura" stroke="#fbbf24" strokeWidth={2} dot={{ fill: '#fbbf24', r: 2 }} />
-                      <Line type="monotone" dataKey="arm" name="Brazo" stroke="#10b981" strokeWidth={2} dot={{ fill: '#10b981', r: 2 }} />
-                      <Line type="monotone" dataKey="leg" name="Muslo" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6', r: 2 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </section>
-
-              {/* Historial en formato lista */}
-              <section className="space-y-3">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] px-1">Historial de Medidas</h3>
-                <div className="space-y-2">
-                  {[...measurements].slice(0, 5).map((m) => (
-                    <div key={m.id} className="glass p-4 rounded-2xl border border-white/5 flex justify-between items-center">
-                      <div>
-                        <p className="font-bold text-slate-50">{m.weight_kg} kg</p>
-                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
-                          {format(new Date(m.measured_at), "d 'de' MMMM, yyyy", { locale: es })}
-                        </p>
-                      </div>
-                      <div className="flex gap-3 text-[10px] text-slate-400 font-bold">
-                        {m.body_fat_pct && <span>Grasa: {m.body_fat_pct}%</span>}
-                        {m.waist_cm && <span>Cintura: {m.waist_cm}cm</span>}
-                        {m.arm_cm && <span>Brazo: {m.arm_cm}cm</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </>
-          ) : (
-            <div className="glass p-12 rounded-3xl text-center space-y-4 border border-white/5">
-              <Scale size={40} className="text-slate-600 mx-auto" />
-              <div>
-                <p className="text-slate-400 font-bold">Sin medidas registradas</p>
-                <p className="text-slate-600 text-xs mt-1">Sigue la evolución de tu composición corporal registrando tu peso y contornos</p>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="py-3 px-6 bg-brand-blue text-slate-950 rounded-2xl font-black text-xs uppercase tracking-widest cursor-pointer shadow-md"
-              >
-                + Registrar Primera Medida
-              </button>
-            </div>
-          )}
-        </div>
+        <BodyCompositionTab
+          compositionData={compositionData}
+          measurements={measurements}
+          onOpenModal={() => setIsModalOpen(true)}
+        />
       )}
 
       {/* READINESS DIAGNOSTIC MODAL */}
-      <AnimatePresence>
-        {isDiagnosticOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/90 backdrop-blur-md z-[110] flex items-center justify-center p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="glass max-w-md w-full p-6 rounded-3xl border border-white/10 space-y-6"
-            >
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-xl font-bold flex items-center gap-2">
-                    <Activity size={20} className="text-brand-green" />
-                    Readiness Diagnóstico
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Factores de preparación de hoy</p>
-                </div>
-                <button
-                  onClick={() => setIsDiagnosticOpen(false)}
-                  className="p-2 glass rounded-full text-slate-400 hover:text-slate-100 cursor-pointer"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="flex flex-col items-center justify-center py-4 space-y-2">
-                <div className={cn("text-5xl font-black px-6 py-4 rounded-3xl border", readiness.colorClass)}>
-                  {readiness.score}%
-                </div>
-                <div className="text-sm font-bold uppercase tracking-widest text-slate-300 mt-2">{readiness.status}</div>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Factores Calculados</h4>
-                {readiness.factors.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic">No hay suficientes datos registrados hoy. Registra tus horas de sueño o peso corporal para un análisis preciso.</p>
-                ) : (
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {readiness.factors.map((f, i) => (
-                      <div key={i} className="flex gap-2.5 items-start text-xs p-3 bg-white/5 border border-white/5 rounded-2xl">
-                        <Check size={14} className="text-brand-blue mt-0.5 flex-shrink-0" />
-                        <span className="text-slate-300 leading-normal font-medium">{f}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <button
-                onClick={() => setIsDiagnosticOpen(false)}
-                className="btn-primary w-full py-3 text-slate-950 font-black text-xs uppercase tracking-widest cursor-pointer"
-              >
-                Cerrar diagnóstico
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ReadinessDiagnosticModal
+        isOpen={isDiagnosticOpen}
+        onClose={() => setIsDiagnosticOpen(false)}
+        readiness={readiness}
+      />
 
       {/* MODAL DE REGISTRO DE MEDIDAS */}
       <AddBodyMeasurementModal

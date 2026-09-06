@@ -15,6 +15,22 @@ All notable changes to this project will be documented in this file.
 ### Removed & Cleaned
 - **Política Cero Mocks / Cero Placebos**: Eliminación completa del motor `leaderboardEngine.ts` y del modal `LeaderboardModal.tsx` por utilizar datos semilla falsos ("Alex M.", "Elena V."). AeroGym opera exclusivamente con datos 100% reales del atleta.
 
+### Security & Hardening (Auditoría Integral 2026-09-06)
+- **Cifrado Real AES-256-GCM en IndexedDB**: Conexión activa de `cryptoStorage.ts` en `storageIndexedDB.ts` para tablas sensibles (`STORE_HEALTH`, `STORE_SESSIONS`, `STORE_HABITS`, `STORE_SYNC_QUEUE`) usando prefijo `enc:v1:` y deserialización transparente de datos legacy.
+- **Autenticación Criptográfica JWT en Groq Proxy**: Verificación de tokens de sesión con `createClient().auth.getUser(token)` en `supabase/functions/groq-proxy/index.ts` evitando accesos no autorizados.
+- **Auditoría WCAG & CSP**: Eliminado `user-scalable=no` y `maximum-scale=1.0` en `index.html` para cumplir con WCAG 2.1 (Reflow / Zoom 200%); eliminado `'unsafe-eval'` de la directiva CSP.
+- **Resiliencia de Perfil Offline**: Persistencia de sesión y perfil autenticado en `useAuthStore.ts` con fallback a caché local para evitar sobreescritura accidental con datos por defecto durante uso sin red.
+
+### Added & Activated Features
+- **Dictado por Voz en Sesión**: Conexión de `voiceParserEngine.ts` con Web Speech API en `TrainingSession.tsx` con activación mediante botón de micrófono en la cabecera, actualizando series (peso, reps, RPE) con feedback táctil/sonoro.
+- **Virtualización DOM con TanStack Virtual**: Implementado `useVirtualizer` de `@tanstack/react-virtual` en `MuscleWikiExplorer.tsx` garantizando scroll a 60fps constantes.
+- **Descomposición Modular de Analíticas**: Extracción de `BodyCompositionTab.tsx` y `ReadinessDiagnosticModal.tsx` desde `Analytics.tsx`.
+
+### Performance & Bundle Optimization
+- **Code Splitting Estratégico en Vite**: Reducción del bundle inicial de 971 kB a 326 kB (-66.4%) mediante `manualChunks` específicos para `supabase`, `charts`, `telemetry`, `motion`, `dnd` y `validation`.
+- **Eliminación de Memory Leaks**: Sustitución de render loops por `useEffect` con `clearInterval` en el temporizador activo `ActiveSessionTimer`.
+- **Hermeticidad y Suite de Pruebas**: Mocks limpios de repositorios para evitar peticiones vivas durante pruebas; 151 tests pasando limpios en 36 suites.
+
 ### Security & Hardening
 - **Unificación de Configuración Supabase**: Módulo `src/config.ts` validado con Zod schema. Eliminados todos los fallbacks de URL y Anon Key hardcodeados.
 - **Seguridad en CI/CD**: Adición del paso `npm audit --audit-level=high` en `.github/workflows/deploy.yml`.

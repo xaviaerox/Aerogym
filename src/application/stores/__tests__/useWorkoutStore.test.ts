@@ -1,8 +1,38 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useWorkoutStore } from '../useWorkoutStore';
+
+vi.mock('../../../infrastructure/repositories/SupabaseWorkoutRepository', () => ({
+  supabaseWorkoutRepository: {
+    fetchSessions: vi.fn().mockResolvedValue([]),
+    fetchWorkoutHistory: vi.fn().mockResolvedValue([]),
+    saveSession: vi.fn().mockImplementation((session) =>
+      Promise.resolve({
+        id: session.id || 'mock-session-1',
+        user_id: session.user_id,
+        routine_id: session.routine_id || null,
+        name: session.name,
+        started_at: session.started_at,
+        finished_at: session.finished_at || new Date().toISOString(),
+        duration_minutes: session.duration_minutes || 30,
+        total_volume_kg: session.total_volume_kg || 6510,
+        notes: session.notes || null,
+        perceived_difficulty: session.perceived_difficulty || null,
+        created_at: new Date().toISOString(),
+      })
+    ),
+    deleteSession: vi.fn().mockResolvedValue(undefined),
+    updateSession: vi.fn().mockResolvedValue(undefined),
+    fetchRoutines: vi.fn().mockResolvedValue([]),
+    createRoutine: vi.fn().mockResolvedValue({}),
+    deleteRoutine: vi.fn().mockResolvedValue(undefined),
+    updateRoutineExercises: vi.fn().mockResolvedValue(undefined),
+    saveSessionEdits: vi.fn().mockResolvedValue(undefined),
+  },
+}));
 
 describe('useWorkoutStore', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     useWorkoutStore.setState({
       sessions: [],
       routines: [],

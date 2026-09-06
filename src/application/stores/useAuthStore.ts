@@ -187,15 +187,17 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'aerogym-auth',
       partialize: (state) => ({
-        user: state.user?.id === 'guest-local-user' ? state.user : null,
+        user: state.user,
         profile: state.profile,
-        isAuthenticated: state.isAuthenticated && state.user?.id === 'guest-local-user',
+        isAuthenticated: state.isAuthenticated,
       }),
     }
   )
 );
 
 async function fetchProfile(userId: string, email?: string): Promise<Profile | null> {
+  const cacheKey = `aerogym_cached_profile_${userId}`;
+
   try {
     const { data, error } = await supabase
       .from('profiles')
@@ -204,6 +206,9 @@ async function fetchProfile(userId: string, email?: string): Promise<Profile | n
       .single();
 
     if (!error && data) {
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(data));
+      } catch (_) {}
       return data;
     }
 
@@ -216,13 +221,33 @@ async function fetchProfile(userId: string, email?: string): Promise<Profile | n
       .single();
 
     if (!createError && newProfile) {
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(newProfile));
+      } catch (_) {}
       return newProfile;
     }
   } catch (e) {
     console.warn('Network error or exception fetching profile:', e);
   }
 
-  // Fallback local garantizado para que el perfil nunca sea nulo
+  // 1. Intentar recuperar perfil real previamente guardado en caché local
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed && parsed.id === userId) {
+        return parsed;
+      }
+    }
+  } catch (_) {}
+
+  // 2. Si el store ya tiene un perfil válido para este usuario, conservarlo
+  const currentProfile = useAuthStore.getState().profile;
+  if (currentProfile && currentProfile.id === userId) {
+    return currentProfile;
+  }
+
+  // 3. Fallback inicial únicamente para nuevos usuarios sin histórico previo
   return {
     id: userId,
     name: email ? email.split('@')[0] : 'Usuario',

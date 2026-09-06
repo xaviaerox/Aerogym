@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Filter, ArrowLeft, BookOpen, X, Dumbbell, Sparkles, Play } from 'lucide-react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   MuscleWikiService,
   MuscleWikiExercise,
@@ -83,6 +84,14 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
   const [showFilters, setShowFilters] = useState(false);
   const [displayLimit, setDisplayLimit] = useState(40);
   const [isDemoActive, setIsDemoActive] = useState(() => MuscleWikiService.isMockModeActive());
+
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: exercises.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 104,
+    overscan: 6,
+  });
 
   // Prewarm GIF cache and local dataset on mount so they are ready
   useEffect(() => {
@@ -278,72 +287,84 @@ export default function MuscleWikiExplorer({ onBack, onSelectExercise }: MuscleW
           <p className="text-xs text-slate-500">Prueba ajustando los filtros o buscando otro término.</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-3">
-            {exercises.slice(0, displayLimit).map((ex) => {
+        <div
+          ref={parentRef}
+          className="h-[68vh] overflow-y-auto pr-1 rounded-2xl scrollbar-thin scrollbar-thumb-slate-800"
+        >
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const ex = exercises[virtualRow.index];
               const muscleText = TRANSLATE_MUSCLE[ex.primary_muscles[0]] || ex.primary_muscles[0];
               const catText = TRANSLATE_CATEGORY[ex.category] || ex.category;
-              
+
               // Get thumbnail
-              const videoObj = ex.videos.find(v => v.og_image);
+              const videoObj = ex.videos.find((v) => v.og_image);
               const thumbUrl = videoObj ? videoObj.og_image : null;
 
               return (
                 <div
                   key={ex.id}
-                  onClick={() => setSelectedExercise(ex)}
-                  className="glass p-4 rounded-3xl border border-white/5 hover:border-brand-blue/30 transition-all flex gap-4 cursor-pointer align-center active:scale-[0.99] relative overflow-hidden"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                  className="pb-3"
                 >
-                  {/* Image / Icon container */}
-                  <div className="w-16 h-16 bg-slate-800 rounded-2xl flex-shrink-0 flex items-center justify-center overflow-hidden border border-white/5 relative">
-                    {thumbUrl ? (
-                      <ExerciseImage src={thumbUrl} alt={ex.name} />
-                    ) : (
-                      <Dumbbell size={20} className="text-brand-blue" />
+                  <div
+                    onClick={() => setSelectedExercise(ex)}
+                    className="glass p-4 rounded-3xl border border-white/5 hover:border-brand-blue/30 transition-all flex gap-4 cursor-pointer align-center active:scale-[0.99] relative overflow-hidden h-[94px]"
+                  >
+                    {/* Image / Icon container */}
+                    <div className="w-16 h-16 bg-slate-800 rounded-2xl flex-shrink-0 flex items-center justify-center overflow-hidden border border-white/5 relative">
+                      {thumbUrl ? (
+                        <ExerciseImage src={thumbUrl} alt={ex.name} />
+                      ) : (
+                        <Dumbbell size={20} className="text-brand-blue" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      <h3 className="font-bold text-sm text-slate-200 line-clamp-2 leading-snug">
+                        {ex.name}
+                      </h3>
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        <span className="text-[8px] bg-brand-blue/10 text-brand-blue px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-brand-blue/15">
+                          {muscleText}
+                        </span>
+                        <span className="text-[8px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-white/5">
+                          {catText}
+                        </span>
+                        <span className="text-[8px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                          {getDifficultyLabel(ex.difficulty)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {onSelectExercise && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectExercise(ex);
+                        }}
+                        className="absolute right-3 bottom-3 bg-brand-blue text-slate-950 px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-lg hover:bg-brand-blue/95"
+                      >
+                        Elegir
+                      </button>
                     )}
                   </div>
-
-                  <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <h3 className="font-bold text-sm text-slate-200 line-clamp-2 leading-snug">
-                      {ex.name}
-                    </h3>
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      <span className="text-[8px] bg-brand-blue/10 text-brand-blue px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-brand-blue/15">
-                        {muscleText}
-                      </span>
-                      <span className="text-[8px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-white/5">
-                        {catText}
-                      </span>
-                      <span className="text-[8px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                        {getDifficultyLabel(ex.difficulty)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {onSelectExercise && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectExercise(ex);
-                      }}
-                      className="absolute right-3 bottom-3 bg-brand-blue text-slate-950 px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-lg hover:bg-brand-blue/95"
-                    >
-                      Elegir
-                    </button>
-                  )}
                 </div>
               );
             })}
           </div>
-
-          {exercises.length > displayLimit && (
-            <button
-              onClick={() => setDisplayLimit((prev) => prev + 40)}
-              className="w-full py-3.5 glass rounded-2xl border border-white/10 text-xs text-brand-blue font-bold tracking-wider hover:bg-brand-blue/10 transition-all flex items-center justify-center gap-2"
-            >
-              Cargar más ejercicios ({exercises.length - displayLimit} restantes)
-            </button>
-          )}
         </div>
       )}
 

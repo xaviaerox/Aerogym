@@ -3,6 +3,7 @@
 // Se configura con: supabase secrets set GROQ_API_KEY=tu_clave
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -38,13 +39,31 @@ serve(async (req) => {
   }
 
   try {
-    // Verificar que el request viene de un usuario autenticado
+    // 1. Verificar criptográficamente que el request proviene de un usuario autenticado
     const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized: missing authorization token' }), {
         status: 401,
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
       });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+    if (supabaseUrl && supabaseAnonKey) {
+      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: { persistSession: false },
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized: invalid or expired token' }), {
+          status: 401,
+          headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     const body = await req.json();

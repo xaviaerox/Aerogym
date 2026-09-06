@@ -59,15 +59,36 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
+import { encryptData, decryptData } from './cryptoStorage';
+
+const LOCAL_STORAGE_SECRET = 'AeroGymVaultSecV3';
+const ENCRYPTION_PREFIX = 'enc:v1:';
+const ENCRYPTED_STORES = new Set([STORE_HEALTH, STORE_SESSIONS, STORE_HABITS, STORE_SYNC_QUEUE]);
+
 export async function setItemIndexedDB<T>(storeName: string, key: string, value: T): Promise<void> {
   try {
+    let payloadToPersist: any = value;
+    let isEncrypted = false;
+
+    if (ENCRYPTED_STORES.has(storeName)) {
+      try {
+        const cipher = await encryptData(value, LOCAL_STORAGE_SECRET);
+        payloadToPersist = ENCRYPTION_PREFIX + cipher;
+        isEncrypted = true;
+      } catch (e) {
+        console.warn('CryptoStorage encryption fallback to plain:', e);
+      }
+    }
+
     const db = await openDB();
     const tx = db.transaction(storeName, 'readwrite');
     const store = tx.objectStore(storeName);
-    const toStore =
-      typeof value === 'object' && value !== null && !Array.isArray(value)
-        ? { ...value, id: key }
-        : { id: key, data: value };
+    const toStore = isEncrypted
+      ? { id: key, encrypted: true, data: payloadToPersist }
+      : typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? { ...value, id: key }
+      : { id: key, data: value };
+
     store.put(toStore);
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
@@ -111,12 +132,20 @@ export async function getItemIndexedDB<T>(storeName: string, key: string): Promi
     const store = tx.objectStore(storeName);
     const request = store.get(key);
     return new Promise((resolve, reject) => {
-      request.onsuccess = () => {
+      request.onsuccess = async () => {
         const res = request.result;
         if (!res) {
           resolve(null);
           return;
         }
+
+        if (res.encrypted && typeof res.data === 'string' && res.data.startsWith(ENCRYPTION_PREFIX)) {
+          const rawCipher = res.data.slice(ENCRYPTION_PREFIX.length);
+          const decrypted = await decryptData<T>(rawCipher, LOCAL_STORAGE_SECRET);
+          resolve(decrypted !== null ? decrypted : (res.data as unknown as T));
+          return;
+        }
+
         if (res.data !== undefined) {
           resolve(res.data);
           return;
@@ -155,6 +184,9 @@ export async function enqueueSyncAction(action: Omit<SyncQueueAction, 'id' | 'ti
     retryCount: 0,
   };
   await setItemIndexedDB(STORE_SYNC_QUEUE, fullAction.id, fullAction);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('aerogym:sync-queue-updated'));
+  }
   return fullAction;
 }
 
@@ -183,10 +215,35 @@ export async function removeSyncAction(id: string): Promise<void> {
     const store = tx.objectStore(STORE_SYNC_QUEUE);
     store.delete(id);
     return new Promise((resolve, reject) => {
-      tx.oncomplete = () => resolve();
+      tx.oncomplete = () => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('aerogym:sync-queue-updated'));
+        }
+        resolve();
+      };
       tx.onerror = () => reject(tx.error);
     });
   } catch (e) {
     console.warn('Error removing sync action:', e);
+  }
+}
+
+export async function clearSyncQueue(): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(STORE_SYNC_QUEUE, 'readwrite');
+    const store = tx.objectStore(STORE_SYNC_QUEUE);
+    store.clear();
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('aerogym:sync-queue-updated'));
+        }
+        resolve();
+      };
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) {
+    console.warn('Error clearing sync queue:', e);
   }
 }

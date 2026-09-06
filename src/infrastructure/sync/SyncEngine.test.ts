@@ -52,4 +52,59 @@ describe('SyncEngine', () => {
 
     unsubscribe();
   });
+
+  it('immediately purges guest actions without attempting Supabase sync', async () => {
+    const { getSyncQueue, removeSyncAction } = await import('../../lib/storageIndexedDB');
+    const { supabase } = await import('../supabase/client');
+
+    vi.mocked(getSyncQueue).mockResolvedValueOnce([
+      {
+        id: 'sync-guest-1',
+        type: 'SAVE_SESSION',
+        payload: { session: { user_id: 'guest-temp-123', name: 'Guest Workout' }, sets: [] },
+        timestamp: new Date().toISOString(),
+        retryCount: 0,
+      },
+    ]);
+
+    const result = await engine.processQueue();
+
+    expect(removeSyncAction).toHaveBeenCalledWith('sync-guest-1');
+    expect(result.processed).toBe(1);
+    expect(result.failed).toBe(0);
+    // Should NOT have called supabase insert for guest
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it('discards unrecoverable errors (e.g. 42501 RLS policy violation) immediately', async () => {
+    const { getSyncQueue, removeSyncAction } = await import('../../lib/storageIndexedDB');
+    const { supabase } = await import('../supabase/client');
+
+    vi.mocked(getSyncQueue).mockResolvedValueOnce([
+      {
+        id: 'sync-rls-fail',
+        type: 'SAVE_SESSION',
+        payload: { session: { user_id: 'user-expired', name: 'Workout' }, sets: [] },
+        timestamp: new Date().toISOString(),
+        retryCount: 0,
+      },
+    ]);
+
+    vi.mocked(supabase.from).mockReturnValueOnce({
+      insert: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: null,
+            error: { code: '42501', message: 'new row violates row-level security policy' },
+          }),
+        }),
+      }),
+    } as any);
+
+    const result = await engine.processQueue();
+
+    expect(removeSyncAction).toHaveBeenCalledWith('sync-rls-fail');
+    expect(result.processed).toBe(1);
+    expect(result.failed).toBe(0);
+  });
 });
