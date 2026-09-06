@@ -415,6 +415,7 @@ VITE_ANALYTICS_DEBUG=false
 
 ### Configuración en Supabase Cloud:
 - **Secret Vault**: Secret `GROQ_API_KEY` configurado mediante `supabase secrets set GROQ_API_KEY=tu_clave`.
+- **Google OAuth Provider**: Configurado con Client ID y Client Secret de Google Cloud Console. Callback URL: `https://ualgaluxhznwavksguuu.supabase.co/auth/v1/callback`. Redirect URLs autorizadas: `https://xaviaerox.github.io/Aerogym/**`, `http://localhost:5173/**`.
 
 ---
 
